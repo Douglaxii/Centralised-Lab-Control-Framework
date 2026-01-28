@@ -1,0 +1,173 @@
+# Parallel Execution Configuration
+# Optimized for Camera Server, Manager, and Flask running on same PC
+
+---
+# ============================================================================
+# SERVICE CONFIGURATION
+# ============================================================================
+
+services:
+  # Camera Server - Receives frames, processes images
+  camera:
+    enabled: true
+    tcp_port: 5558          # Frame data port
+    cmd_port: 5559          # Command port
+    
+    # Processing optimization
+    queue_size: 50          # Smaller queue for same-PC (was 100)
+    skip_frames: 0          # 0 = process all, N = process every Nth frame
+    jpeg_quality: 85        # Balance quality vs size
+    
+    # Paths
+    raw_frames: "Y:/Xi/Data/jpg_frames"
+    labelled_frames: "Y:/Xi/Data/jpg_frames_labelled"
+    
+    # Memory optimization
+    max_concurrent_processing: 2  # Limit concurrent image processing
+    use_shared_memory: true       # Use memory-mapped files where possible
+  
+  # Control Manager - Coordinates hardware and algorithms
+  manager:
+    enabled: true
+    
+    # ZMQ Ports (same PC, use localhost for security)
+    cmd_port: 5555          # Commands to ARTIQ (PUB)
+    data_port: 5556         # Data from ARTIQ (PULL)
+    client_port: 5557       # Flask requests (REP)
+    
+    # Use localhost for same-PC communication
+    bind_host: "127.0.0.1"
+    
+    # LabVIEW connection (may be on different PC)
+    labview_host: "192.168.1.100"
+    labview_port: 5559
+    
+    # File reading
+    telemetry_poll_interval: 1.0  # Seconds between file checks
+    
+    # Thread pool optimization
+    max_worker_threads: 4
+  
+  # Flask Web Server - Web UI
+  flask:
+    enabled: true
+    http_port: 5000
+    host: "0.0.0.0"        # Allow external connections for viewing
+    
+    # Production settings for same-PC
+    threaded: true
+    processes: 1            # Single process, use threads instead
+    
+    # Performance
+    max_camera_fps: 30
+    telemetry_update_hz: 2  # SSE update rate
+
+
+# ============================================================================
+# PERFORMANCE OPTIMIZATION
+# ============================================================================
+
+optimization:
+  # Same-PC IPC optimizations
+  ipc:
+    # Use in-memory queues where possible instead of files
+    use_zeromq_ipc: true    # Use ipc:// transport for same-machine ZMQ
+    
+    # File watching debounce (reduces duplicate reads)
+    file_debounce_ms: 100
+    
+    # Batch file reads
+    batch_file_reads: true
+    batch_interval_ms: 500
+  
+  # Memory management
+  memory:
+    # Shared telemetry buffer size
+    telemetry_buffer_size: 1000
+    telemetry_window_seconds: 300
+    
+    # Image caching
+    max_cached_frames: 10
+    cache_cleanup_interval: 30
+    
+    # Garbage collection
+    gc_interval_seconds: 60
+  
+  # CPU optimization
+  cpu:
+    # Thread priorities (Windows only)
+    camera_thread_priority: "normal"
+    manager_thread_priority: "above_normal"
+    flask_thread_priority: "normal"
+    
+    # Process affinity (pin to specific cores if needed)
+    # camera_affinity: [0, 1]
+    # manager_affinity: [2, 3]
+
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+
+logging:
+  # Centralized logging for all services
+  level: "INFO"
+  format: "%(asctime)s | %(levelname)-8s | %(name)-15s | %(message)s"
+  
+  # Separate log files per service
+  files:
+    camera: "logs/camera_server.log"
+    manager: "logs/manager.log"
+    flask: "logs/flask_server.log"
+    launcher: "logs/launcher.log"
+  
+  # Log rotation
+  rotation:
+    max_bytes: 10485760     # 10 MB
+    backup_count: 5
+  
+  # Console output
+  console:
+    enabled: true
+    level: "INFO"
+
+
+# ============================================================================
+# HEALTH MONITORING
+# ============================================================================
+
+health:
+  # Health check intervals
+  check_interval_seconds: 5
+  
+  # Auto-restart settings
+  auto_restart:
+    enabled: true
+    max_restarts: 3
+    restart_window_seconds: 60
+  
+  # Service dependencies (restart order)
+  dependencies:
+    camera: []              # No dependencies
+    manager: ["camera"]     # Manager needs camera
+    flask: ["manager"]      # Flask needs manager
+
+
+# ============================================================================
+# DEVELOPMENT vs PRODUCTION
+# ============================================================================
+
+environment:
+  # Set via ENV: export MLS_ENV=production
+  type: "${MLS_ENV|development}"
+  
+  development:
+    debug: true
+    reload: true
+    verbose_logging: true
+  
+  production:
+    debug: false
+    reload: false
+    verbose_logging: false
+    use_wsgi_server: true   # Use gunicorn/waitress instead of Flask dev server

@@ -128,7 +128,7 @@ comm.send_data({"counts": 100})
 
 **New:**
 ```python
-from lab_comms import LabComm
+from server.communications.lab_comms import LabComm
 
 with LabComm("ARTIQ", role="WORKER") as comm:
     comm.send_data({"counts": 100}, category="PMT")
@@ -153,7 +153,7 @@ settings_path = config.get_path('camera_settings')
 The `LabCommLegacy` class maintains the old interface:
 
 ```python
-from lab_comms import LabCommLegacy as LabComm
+from server.communications.lab_comms import LabCommLegacy as LabComm
 
 # Old code continues to work
 comm = LabComm("ARTIQ", role="WORKER")

@@ -247,6 +247,20 @@ Y:/Xi/Data/
 - Position tracking
 - Metadata extraction
 
+### LabVIEW Interface (server/communications/labview_interface.py)
+- TCP communication with LabVIEW SMILE program
+- RF voltage control (U_RF)
+- Piezo voltage control
+- Hardware toggles (oven, B-field, etc.)
+- DDS frequency setting
+- Emergency stop handling
+
+### Data Ingestion Server (server/communications/data_server.py)
+- Receives telemetry from LabVIEW instruments
+- Wavemeter frequency data
+- SMILE PMT counts and pressure readings
+- Rolling window data storage
+
 ### Analysis (artiq/analyze_sweep.py)
 - H5 file parsing
 - Lorentzian fitting
@@ -313,15 +327,17 @@ elif cmd_type == "MY_COMMAND":
 
 ## Migration from Legacy Code
 
-The `LabCommLegacy` class in `lab_comms.py` maintains backwards compatibility.
+The `LabCommLegacy` class in `server/communications/lab_comms.py` maintains backwards compatibility.
 New code should use the `LabComm` class with context managers:
 
 ```python
 # Old
+from server.communications.lab_comms import LabComm
 comm = LabComm("ARTIQ", role="WORKER")
 comm.send_data({...})
 
 # New
+from server.communications.lab_comms import LabComm
 with LabComm("ARTIQ", role="WORKER", exp_id=exp_id) as comm:
     comm.send_data({...})
 ```

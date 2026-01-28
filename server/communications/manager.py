@@ -6,13 +6,18 @@ Manages communication between:
 - ARTIQ Worker via PUB/SUB on port 5555 (commands)
 - Data collection via PULL on port 5556 (worker feedback)
 - Turbo Algorithm optimization process
+- LabVIEW hardware interface
 
 Features:
 - Mode management (MANUAL / AUTO / SAFE)
 - Experiment tracking
-- Safety interlocks
+- Safety interlocks with KILL SWITCHES
 - Structured logging
 - Turbo algorithm coordination
+
+SAFETY CRITICAL:
+- Piezo Output: Max 10 seconds ON time (manager-level kill switch)
+- E-Gun Output: Max 30 seconds ON time (manager-level kill switch)
 """
 
 import zmq
@@ -20,7 +25,7 @@ import time
 import json
 import threading
 import logging
-from typing import Optional, Dict, Any, Set
+from typing import Optional, Dict, Any, Set, Callable
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -40,12 +45,398 @@ from core.enums import (
     smile_mv_to_real_volts
 )
 
+
+# =============================================================================
+# KILL SWITCH MANAGER - MANAGER LEVEL SAFETY
+# =============================================================================
+
+class ManagerKillSwitch:
+    """
+    Manager-level kill switch for time-limited hardware outputs.
+    
+    This provides an additional layer of safety beyond Flask-level kill switches.
+    Time limits:
+    - piezo: 10 seconds max
+    - e_gun: 30 seconds max
+    
+    On timeout: Automatically commands LabVIEW to set voltage to 0V.
+    """
+    
+    TIME_LIMITS = {
+        "piezo": 10.0,   # 10 seconds
+        "e_gun": 10.0,   # 10 seconds (testing mode)
+    }
+    
+    def __init__(self):
+        self._active: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.RLock()
+        self._running = True
+        self._callbacks: Dict[str, Callable] = {}
+        self.logger = logging.getLogger("manager_kill_switch")
+        
+        # Start watchdog
+        self._watchdog = threading.Thread(
+            target=self._watchdog_loop,
+            daemon=True,
+            name="ManagerKillSwitch"
+        )
+        self._watchdog.start()
+        self.logger.info("Manager Kill Switch initialized")
+    
+    def register_callback(self, device: str, kill_callback: Callable):
+        """Register a callback to be called when kill switch triggers."""
+        self._callbacks[device] = kill_callback
+    
+    def arm(self, device: str, metadata: Dict[str, Any] = None):
+        """Arm the kill switch for a device."""
+        with self._lock:
+            if device not in self.TIME_LIMITS:
+                self.logger.warning(f"Unknown device: {device}")
+                return False
+            
+            self._active[device] = {
+                "start_time": time.time(),
+                "metadata": metadata or {},
+                "killed": False,
+            }
+            self.logger.warning(
+                f"KILL SWITCH ARMED for {device} "
+                f"(limit: {self.TIME_LIMITS[device]}s)"
+            )
+            return True
+    
+    def disarm(self, device: str):
+        """Disarm the kill switch (safe turn-off by user)."""
+        with self._lock:
+            if device in self._active:
+                elapsed = time.time() - self._active[device]["start_time"]
+                self.logger.info(
+                    f"Kill switch disarmed for {device} "
+                    f"(was active for {elapsed:.1f}s)"
+                )
+                del self._active[device]
+                return True
+            return False
+    
+    def is_armed(self, device: str) -> bool:
+        """Check if kill switch is armed for a device."""
+        with self._lock:
+            return device in self._active and not self._active[device].get("killed", False)
+    
+    def trigger(self, device: str, reason: str = "manual") -> bool:
+        """
+        Manually trigger the kill switch.
+        
+        Returns True if device was killed, False if not armed.
+        """
+        with self._lock:
+            if device not in self._active:
+                return False
+            
+            info = self._active[device]
+            if info.get("killed"):
+                return False
+            
+            info["killed"] = True
+            elapsed = time.time() - info["start_time"]
+            
+            self.logger.error(
+                f"KILL SWITCH TRIGGERED for {device}: {reason} "
+                f"(was on for {elapsed:.1f}s)"
+            )
+            
+            # Execute callback if registered
+            if device in self._callbacks:
+                try:
+                    self._callbacks[device]()
+                except Exception as e:
+                    self.logger.error(f"Kill switch callback failed: {e}")
+            
+            del self._active[device]
+            return True
+    
+    def _watchdog_loop(self):
+        """Monitor active devices and enforce time limits."""
+        while self._running:
+            try:
+                with self._lock:
+                    now = time.time()
+                    to_kill = []
+                    
+                    for device, info in self._active.items():
+                        if info.get("killed"):
+                            continue
+                        elapsed = now - info["start_time"]
+                        limit = self.TIME_LIMITS[device]
+                        
+                        if elapsed > limit:
+                            to_kill.append(device)
+                
+                for device in to_kill:
+                    self.trigger(device, f"TIME LIMIT EXCEEDED ({self.TIME_LIMITS[device]}s)")
+                
+                time.sleep(0.1)  # 10 Hz check rate
+                
+            except Exception as e:
+                self.logger.error(f"Kill switch watchdog error: {e}")
+                time.sleep(1)
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current kill switch status."""
+        with self._lock:
+            status = {}
+            for device, limit in self.TIME_LIMITS.items():
+                if device in self._active:
+                    info = self._active[device]
+                    elapsed = time.time() - info["start_time"]
+                    status[device] = {
+                        "armed": True,
+                        "elapsed": elapsed,
+                        "remaining": max(0, limit - elapsed),
+                        "limit": limit,
+                        "killed": info.get("killed", False),
+                    }
+                else:
+                    status[device] = {
+                        "armed": False,
+                        "limit": limit,
+                    }
+            return status
+    
+    def shutdown(self):
+        """Shutdown kill switch and trigger all active devices."""
+        self._running = False
+        with self._lock:
+            for device in list(self._active.keys()):
+                self.trigger(device, "SHUTDOWN")
+
+
+# =============================================================================
+# LABVIEW FILE READER - Reads data files written by LabVIEW to Y:\Xi\Data\
+# =============================================================================
+
+class LabVIEWFileReader:
+    """
+    Reads data files written by LabVIEW to shared drive and stores in telemetry.
+    
+    Expected directory structure:
+        Y:/Xi/Data/telemetry/
+        ├── wavemeter/*.dat      - CSV: timestamp,frequency_mhz
+        ├── smile/pmt/*.dat      - CSV: timestamp,pmt_counts
+        ├── smile/pressure/*.dat - CSV: timestamp,pressure_mbar
+        └── camera/*.json        - JSON: pos_x, pos_y, sig_x, sig_y
+    
+    This runs in a background thread polling for new files.
+    """
+    
+    def __init__(self, base_path: str = "Y:/Xi/Data/telemetry", poll_interval: float = 1.0):
+        self.logger = logging.getLogger("labview_file_reader")
+        self.base_path = Path(base_path)
+        self.poll_interval = poll_interval
+        
+        self.running = False
+        self.thread: Optional[threading.Thread] = None
+        self.known_files: Dict[str, set] = {}  # subdir -> set of filenames
+        
+        # Track stats per source
+        self.stats = {
+            "wavemeter": {"count": 0, "last_value": None},
+            "smile_pmt": {"count": 0, "last_value": None},
+            "smile_pressure": {"count": 0, "last_value": None},
+            "camera": {"count": 0, "last_value": None},
+        }
+    
+    def start(self):
+        """Start the file reader thread."""
+        if self.running:
+            return
+        
+        self.running = True
+        self.thread = threading.Thread(
+            target=self._read_loop,
+            daemon=True,
+            name="LabVIEWFileReader"
+        )
+        self.thread.start()
+        self.logger.info(f"LabVIEWFileReader started - watching {self.base_path}")
+    
+    def stop(self):
+        """Stop the file reader."""
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=2.0)
+        self.logger.info("LabVIEWFileReader stopped")
+    
+    def _read_loop(self):
+        """Main loop - poll directories and read new files."""
+        # Initialize known files
+        for subdir in ["wavemeter", "smile/pmt", "smile/pressure", "camera"]:
+            path = self.base_path / subdir
+            if path.exists():
+                self.known_files[subdir] = set(p.name for p in path.glob("*"))
+            else:
+                self.known_files[subdir] = set()
+        
+        while self.running:
+            try:
+                self._check_wavemeter()
+                self._check_smile_pmt()
+                self._check_smile_pressure()
+                self._check_camera()
+                
+                time.sleep(self.poll_interval)
+            except Exception as e:
+                self.logger.error(f"File read error: {e}")
+                time.sleep(self.poll_interval)
+    
+    def _check_wavemeter(self):
+        """Check for new wavemeter files."""
+        watch_dir = self.base_path / "wavemeter"
+        if not watch_dir.exists():
+            return
+        
+        current_files = set(p.name for p in watch_dir.glob("*.dat"))
+        new_files = current_files - self.known_files.get("wavemeter", set())
+        
+        for fname in new_files:
+            try:
+                filepath = watch_dir / fname
+                timestamp, value = self._read_csv_file(filepath)
+                if timestamp and value is not None:
+                    store_data_point("laser_freq", value, timestamp)
+                    update_data_source("wavemeter", timestamp)
+                    self.stats["wavemeter"]["count"] += 1
+                    self.stats["wavemeter"]["last_value"] = value
+            except Exception as e:
+                self.logger.debug(f"Failed to read {fname}: {e}")
+        
+        self.known_files["wavemeter"] = current_files
+    
+    def _check_smile_pmt(self):
+        """Check for new SMILE PMT files."""
+        watch_dir = self.base_path / "smile" / "pmt"
+        if not watch_dir.exists():
+            return
+        
+        current_files = set(p.name for p in watch_dir.glob("*.dat"))
+        new_files = current_files - self.known_files.get("smile/pmt", set())
+        
+        for fname in new_files:
+            try:
+                filepath = watch_dir / fname
+                timestamp, value = self._read_csv_file(filepath)
+                if timestamp and value is not None:
+                    store_data_point("pmt", value, timestamp)
+                    update_data_source("smile", timestamp)
+                    self.stats["smile_pmt"]["count"] += 1
+                    self.stats["smile_pmt"]["last_value"] = value
+            except Exception as e:
+                self.logger.debug(f"Failed to read {fname}: {e}")
+        
+        self.known_files["smile/pmt"] = current_files
+    
+    def _check_smile_pressure(self):
+        """Check for new SMILE pressure files."""
+        watch_dir = self.base_path / "smile" / "pressure"
+        if not watch_dir.exists():
+            return
+        
+        current_files = set(p.name for p in watch_dir.glob("*.dat"))
+        new_files = current_files - self.known_files.get("smile/pressure", set())
+        
+        for fname in new_files:
+            try:
+                filepath = watch_dir / fname
+                timestamp, value = self._read_csv_file(filepath)
+                if timestamp and value is not None:
+                    store_data_point("pressure", value, timestamp)
+                    update_data_source("smile", timestamp)
+                    self.stats["smile_pressure"]["count"] += 1
+                    self.stats["smile_pressure"]["last_value"] = value
+            except Exception as e:
+                self.logger.debug(f"Failed to read {fname}: {e}")
+        
+        self.known_files["smile/pressure"] = current_files
+    
+    def _check_camera(self):
+        """Check for new camera JSON files."""
+        watch_dir = self.base_path / "camera"
+        if not watch_dir.exists():
+            return
+        
+        current_files = set(p.name for p in watch_dir.glob("*.json"))
+        new_files = current_files - self.known_files.get("camera", set())
+        
+        for fname in new_files:
+            try:
+                filepath = watch_dir / fname
+                data = self._read_json_file(filepath)
+                if data:
+                    timestamp = data.get("timestamp", time.time())
+                    
+                    # Store position data
+                    for key in ["pos_x", "pos_y", "sig_x", "sig_y"]:
+                        if key in data:
+                            store_data_point(key, data[key], timestamp)
+                    
+                    update_data_source("camera", timestamp)
+                    self.stats["camera"]["count"] += 1
+            except Exception as e:
+                self.logger.debug(f"Failed to read {fname}: {e}")
+        
+        self.known_files["camera"] = current_files
+    
+    def _read_csv_file(self, filepath: Path) -> tuple:
+        """Read CSV file: timestamp,value."""
+        try:
+            with open(filepath, 'r') as f:
+                line = f.readline().strip()
+                if ',' in line:
+                    parts = line.split(',')
+                    timestamp = float(parts[0])
+                    value = float(parts[1])
+                    return timestamp, value
+        except Exception:
+            pass
+        return None, None
+    
+    def _read_json_file(self, filepath: Path) -> dict:
+        """Read JSON file."""
+        try:
+            import json
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    
+    def get_stats(self) -> dict:
+        """Get reader statistics."""
+        return {
+            "running": self.running,
+            "base_path": str(self.base_path),
+            "stats": self.stats.copy(),
+            "known_files": {k: len(v) for k, v in self.known_files.items()}
+        }
+
+
 # Import LabVIEW interface
 try:
     from .labview_interface import LabVIEWInterface, LabVIEWCommandType
     LABVIEW_AVAILABLE = True
 except ImportError:
     LABVIEW_AVAILABLE = False
+
+# Import shared telemetry storage (LabVIEW writes files, Manager reads them)
+try:
+    from .data_server import (
+        store_data_point, 
+        update_data_source, 
+        get_data_sources,
+        get_statistics as get_telemetry_stats
+    )
+    TELEMETRY_STORAGE_AVAILABLE = True
+except ImportError:
+    TELEMETRY_STORAGE_AVAILABLE = False
 
 
 @dataclass
@@ -184,9 +575,19 @@ class ControlManager:
         # Safety tracking
         self.safety_triggered = False
         
+        # Kill Switch Manager
+        self.kill_switch = ManagerKillSwitch()
+        
         # LabVIEW Interface
         self.labview: Optional[LabVIEWInterface] = None
         self._init_labview()
+        
+        # Register kill switch callbacks after LabVIEW is initialized
+        self._setup_kill_switch_callbacks()
+        
+        # LabVIEW file reader (reads data files from Y:\Xi\Data\)
+        self.labview_data_reader = LabVIEWFileReader()
+        self.labview_data_reader.start()
         
         # Start background threads
         self._start_background_threads()
@@ -224,6 +625,52 @@ class ControlManager:
         except Exception as e:
             self.logger.error(f"Failed to initialize LabVIEW interface: {e}")
             self.labview = None
+    
+    def _setup_kill_switch_callbacks(self):
+        """
+        Setup kill switch callbacks that command LabVIEW to zero outputs on timeout.
+        
+        This provides manager-level protection independent of Flask-level kill switches.
+        """
+        def kill_piezo():
+            """Kill piezo output - set to 0V via LabVIEW."""
+            self.logger.error("MANAGER KILL SWITCH: Zeroing piezo voltage")
+            if self.labview:
+                try:
+                    self.labview.set_piezo_voltage(0.0)
+                except Exception as e:
+                    self.logger.error(f"Failed to kill piezo via LabVIEW: {e}")
+            # Also publish to ARTIQ workers
+            self._publish_emergency_zero("piezo")
+        
+        def kill_e_gun():
+            """Kill e-gun - turn off via LabVIEW."""
+            self.logger.error("MANAGER KILL SWITCH: Turning off e-gun")
+            if self.labview:
+                try:
+                    self.labview.set_e_gun(False)
+                except Exception as e:
+                    self.logger.error(f"Failed to kill e-gun via LabVIEW: {e}")
+            # Update internal state
+            self.params["e_gun"] = False
+            # Also publish to ARTIQ workers
+            self._publish_emergency_zero("e_gun")
+        
+        self.kill_switch.register_callback("piezo", kill_piezo)
+        self.kill_switch.register_callback("e_gun", kill_e_gun)
+        self.logger.info("Kill switch callbacks registered")
+    
+    def _publish_emergency_zero(self, device: str):
+        """Publish emergency zero command to all workers."""
+        msg = {
+            "type": "EMERGENCY_ZERO",
+            "device": device,
+            "reason": "kill_switch_triggered",
+            "timestamp": time.time(),
+        }
+        self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
+        self.pub_socket.send_json(msg)
+        self.logger.warning(f"Published emergency zero for {device}")
     
     def _setup_sockets(self):
         """Setup ZMQ sockets."""
@@ -378,7 +825,13 @@ class ControlManager:
         return None
     
     def _handle_set(self, req: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle SET command."""
+        """
+        Handle SET command.
+        
+        Kill switch handling:
+        - e_gun=True: Arms kill switch (30s max)
+        - e_gun=False: Disarms kill switch
+        """
         new_params = req.get("params", {})
         source = req.get("source", "UNKNOWN")
         reason = req.get("reason", "")
@@ -387,6 +840,15 @@ class ControlManager:
         error = self._validate_params(new_params)
         if error:
             return {"status": "error", "message": error, "code": "VALIDATION_ERROR"}
+        
+        # Handle kill switch arming for e_gun
+        if "e_gun" in new_params:
+            if new_params["e_gun"]:
+                # Arming e-gun - start kill switch
+                self.kill_switch.arm("e_gun", {"source": source, "voltage": self.params.get("e_gun_voltage", 0)})
+            else:
+                # Disarming e-gun
+                self.kill_switch.disarm("e_gun")
         
         # Update internal state
         self.params.update(new_params)
@@ -448,6 +910,7 @@ class ControlManager:
         Immediately:
         - Stop Turbo algorithm
         - Reset hardware to safe defaults
+        - Trigger all kill switches
         - Enter SAFE mode
         """
         source = req.get("source", "UNKNOWN")
@@ -463,13 +926,19 @@ class ControlManager:
         self.mode = SystemMode.SAFE
         self.safety_triggered = True
         
+        # Trigger all kill switches
+        ks_triggered = {}
+        for device in self.kill_switch.TIME_LIMITS.keys():
+            ks_triggered[device] = self.kill_switch.trigger(device, f"STOP from {source}")
+        
         # Apply safety defaults
         self._apply_safety_defaults(notify=False)  # Don't publish, just log
         
         return {
             "status": "success",
-            "message": "STOP executed. Algorithm halted, safe defaults applied.",
-            "mode": self.mode.value
+            "message": "STOP executed. Algorithm halted, safe defaults applied, kill switches triggered.",
+            "mode": self.mode.value,
+            "kill_switches_triggered": ks_triggered
         }
     
     def _handle_sweep(self, req: Dict[str, Any]) -> Dict[str, Any]:
@@ -687,7 +1156,7 @@ class ControlManager:
         }
     
     def _handle_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle general STATUS query."""
+        """Handle general STATUS query including kill switch status."""
         with self.worker_lock:
             worker_alive = self.worker_alive
         
@@ -701,7 +1170,8 @@ class ControlManager:
             "current_exp": self.current_exp.exp_id if self.current_exp else None,
             "params": self.params,
             "turbo": turbo_dict,
-            "safety_triggered": self.safety_triggered
+            "safety_triggered": self.safety_triggered,
+            "kill_switch": self.kill_switch.get_status()
         }
     
     def _handle_turbo_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
@@ -1078,6 +1548,11 @@ class ControlManager:
         """Graceful shutdown."""
         self.logger.info("Shutting down Control Manager...")
         self.running = False
+        
+        # Stop LabVIEW file reader
+        if hasattr(self, 'labview_data_reader') and self.labview_data_reader:
+            self.logger.info("Stopping LabVIEW file reader...")
+            self.labview_data_reader.stop()
         
         # Stop LabVIEW interface
         if self.labview:

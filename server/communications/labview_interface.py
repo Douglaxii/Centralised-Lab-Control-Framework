@@ -6,16 +6,21 @@ the SMILE LabVIEW program for hardware control.
 
 Supported Controls:
 - U_RF (RF voltage)
-- Piezo voltage
+- Piezo voltage (kill switch protected: 10s max)
 - Be+ Oven (on/off)
 - B-field (on/off)
 - Bephi (on/off)
 - UV3 (on/off)
-- E-gun (on/off)
+- E-gun (on/off) (kill switch protected: 30s max)
 - HD Valve Shutters (on/off)
 - DDS Frequency
 
 Protocol: JSON over TCP
+
+SAFETY CRITICAL:
+- Piezo output is limited to 10 seconds maximum by worker-level kill switch
+- E-gun output is limited to 30 seconds maximum by worker-level kill switch
+- These are the FINAL safety layer before hardware
 """
 
 import socket
@@ -33,6 +38,168 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core import get_config
+
+
+# =============================================================================
+# LABVIEW WORKER KILL SWITCH - FINAL SAFETY LAYER
+# =============================================================================
+
+class LabVIEWKillSwitch:
+    """
+    Worker-level kill switch for LabVIEW hardware outputs.
+    
+    This is the FINAL safety layer before hardware. Time limits:
+    - piezo: 10 seconds max
+    - e_gun: 30 seconds max
+    
+    On timeout: Immediately commands LabVIEW to set voltage to 0V.
+    """
+    
+    TIME_LIMITS = {
+        "piezo": 10.0,   # 10 seconds
+        "e_gun": 10.0,   # 10 seconds (testing mode)
+    }
+    
+    def __init__(self, labview_interface: 'LabVIEWInterface'):
+        self._labview = labview_interface
+        self._active: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.RLock()
+        self._running = True
+        self.logger = logging.getLogger("labview_kill_switch")
+        
+        # Start watchdog
+        self._watchdog = threading.Thread(
+            target=self._watchdog_loop,
+            daemon=True,
+            name="LabVIEWKillSwitch"
+        )
+        self._watchdog.start()
+        self.logger.info("LabVIEW Kill Switch initialized")
+    
+    def arm(self, device: str, metadata: Dict[str, Any] = None) -> bool:
+        """Arm the kill switch for a device."""
+        with self._lock:
+            if device not in self.TIME_LIMITS:
+                return False
+            
+            self._active[device] = {
+                "start_time": time.time(),
+                "metadata": metadata or {},
+                "killed": False,
+            }
+            self.logger.warning(
+                f"LABVIEW KILL SWITCH ARMED for {device} "
+                f"(limit: {self.TIME_LIMITS[device]}s)"
+            )
+            return True
+    
+    def disarm(self, device: str) -> bool:
+        """Disarm the kill switch (safe turn-off)."""
+        with self._lock:
+            if device in self._active:
+                elapsed = time.time() - self._active[device]["start_time"]
+                self.logger.info(
+                    f"LabVIEW kill switch disarmed for {device} "
+                    f"(was active for {elapsed:.1f}s)"
+                )
+                del self._active[device]
+                return True
+            return False
+    
+    def is_armed(self, device: str) -> bool:
+        """Check if kill switch is armed."""
+        with self._lock:
+            return device in self._active and not self._active[device].get("killed", False)
+    
+    def _kill_device(self, device: str, reason: str):
+        """Execute kill - set device to safe state (0V/off)."""
+        self.logger.error(
+            f"LABVIEW KILL SWITCH EXECUTING for {device}: {reason}"
+        )
+        
+        try:
+            if device == "piezo":
+                self._labview.set_piezo_voltage(0.0, bypass_kill_switch=True)
+            elif device == "e_gun":
+                self._labview.set_e_gun(False, bypass_kill_switch=True)
+            self.logger.info(f"LabVIEW kill switch executed for {device}")
+        except Exception as e:
+            self.logger.error(f"LabVIEW kill switch execution failed: {e}")
+    
+    def trigger(self, device: str, reason: str = "manual") -> bool:
+        """Manually trigger the kill switch."""
+        with self._lock:
+            if device not in self._active:
+                return False
+            
+            info = self._active[device]
+            if info.get("killed"):
+                return False
+            
+            info["killed"] = True
+            elapsed = time.time() - info["start_time"]
+            
+            self.logger.error(
+                f"LABVIEW KILL SWITCH TRIGGERED for {device}: {reason} "
+                f"(was on for {elapsed:.1f}s)"
+            )
+            
+            # Execute kill
+            self._kill_device(device, reason)
+            
+            del self._active[device]
+            return True
+    
+    def _watchdog_loop(self):
+        """Monitor active devices."""
+        while self._running:
+            try:
+                with self._lock:
+                    now = time.time()
+                    to_kill = []
+                    
+                    for device, info in self._active.items():
+                        if info.get("killed"):
+                            continue
+                        elapsed = now - info["start_time"]
+                        limit = self.TIME_LIMITS[device]
+                        
+                        if elapsed > limit:
+                            to_kill.append(device)
+                
+                for device in to_kill:
+                    self.trigger(device, f"TIME LIMIT ({self.TIME_LIMITS[device]}s)")
+                
+                time.sleep(0.05)  # 20 Hz check rate (faster at hardware level)
+                
+            except Exception as e:
+                self.logger.error(f"LabVIEW kill switch watchdog error: {e}")
+                time.sleep(1)
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current status."""
+        with self._lock:
+            status = {}
+            for device, limit in self.TIME_LIMITS.items():
+                if device in self._active:
+                    info = self._active[device]
+                    elapsed = time.time() - info["start_time"]
+                    status[device] = {
+                        "armed": True,
+                        "elapsed": elapsed,
+                        "remaining": max(0, limit - elapsed),
+                        "limit": limit,
+                    }
+                else:
+                    status[device] = {"armed": False, "limit": limit}
+            return status
+    
+    def shutdown(self):
+        """Shutdown and kill all devices."""
+        self._running = False
+        with self._lock:
+            for device in list(self._active.keys()):
+                self.trigger(device, "SHUTDOWN")
 
 
 class LabVIEWCommandType(Enum):
@@ -92,10 +259,12 @@ class LabVIEWResponse:
 
 class LabVIEWInterface:
     """
-    TCP Interface to SMILE LabVIEW Program.
+    TCP Interface to SMILE LabVIEW Program with integrated kill switch protection.
     
     Handles connection management, command queuing, and response handling.
     Thread-safe for use with the Control Manager.
+    
+    SAFETY: Provides FINAL safety layer for time-limited outputs.
     """
     
     def __init__(self, host: Optional[str] = None, port: Optional[int] = None):
@@ -134,6 +303,9 @@ class LabVIEWInterface:
         self.request_counter = 0
         self.request_lock = threading.Lock()
         
+        # Kill switch - FINAL safety layer
+        self.kill_switch = LabVIEWKillSwitch(self)
+        
         self.logger.info(f"LabVIEW Interface initialized ({self.host}:{self.port})")
     
     def start(self):
@@ -150,6 +322,8 @@ class LabVIEWInterface:
     def stop(self):
         """Stop the interface and close connection."""
         self.running = False
+        # Shutdown kill switch (will zero all outputs)
+        self.kill_switch.shutdown()
         self.disconnect()
         self.logger.info("LabVIEW Interface stopped")
     
@@ -226,6 +400,10 @@ class LabVIEWInterface:
         """
         Send a command to LabVIEW and wait for response.
         
+        Note: This method assumes LabVIEW sends one response per command
+        and uses newline delimiter. LabVIEW must handle TCP fragmentation
+        by buffering data until newline is received.
+        
         Args:
             command: Command to send
             
@@ -239,10 +417,13 @@ class LabVIEWInterface:
             
             try:
                 # Send command with newline terminator
+                # IMPORTANT: LabVIEW must buffer TCP data and wait for \n
+                # to handle TCP fragmentation correctly
                 message = command.to_json() + "\n"
                 self.socket.sendall(message.encode('utf-8'))
                 
-                # Wait for response
+                # Wait for response (blocking read)
+                # LabVIEW should send response with \n terminator
                 response_data = self.socket.recv(4096).decode('utf-8').strip()
                 
                 if not response_data:
@@ -323,16 +504,27 @@ class LabVIEWInterface:
             round(voltage, 3)
         )
     
-    def set_piezo_voltage(self, voltage: float) -> bool:
+    def set_piezo_voltage(self, voltage: float, bypass_kill_switch: bool = False) -> bool:
         """
-        Set piezo voltage.
+        Set piezo voltage with kill switch protection.
+        
+        When voltage > 0: Arms kill switch (10s max)
+        When voltage = 0: Disarms kill switch
         
         Args:
             voltage: Voltage in volts (0 to 4)
+            bypass_kill_switch: If True, bypass kill switch arming (for kill switch callbacks)
             
         Returns:
             True if successful
         """
+        # Handle kill switch
+        if not bypass_kill_switch:
+            if voltage > 0:
+                self.kill_switch.arm("piezo", {"voltage": voltage})
+            else:
+                self.kill_switch.disarm("piezo")
+        
         return self.send_command(
             LabVIEWCommandType.SET_VOLTAGE,
             "piezo",
@@ -371,8 +563,24 @@ class LabVIEWInterface:
             bool(state)
         )
     
-    def set_e_gun(self, state: bool) -> bool:
-        """Control electron gun (True=on, False=off)."""
+    def set_e_gun(self, state: bool, bypass_kill_switch: bool = False) -> bool:
+        """
+        Control electron gun with kill switch protection (30s max).
+        
+        When state=True: Arms kill switch
+        When state=False: Disarms kill switch
+        
+        Args:
+            state: True to turn on, False to turn off
+            bypass_kill_switch: If True, bypass kill switch (for callbacks)
+        """
+        # Handle kill switch
+        if not bypass_kill_switch:
+            if state:
+                self.kill_switch.arm("e_gun", {})
+            else:
+                self.kill_switch.disarm("e_gun")
+        
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "e_gun",
@@ -416,9 +624,16 @@ class LabVIEWInterface:
         """
         Send emergency stop command.
         
+        Also triggers all kill switches at LabVIEW level.
+        
         Returns:
             True if successful
         """
+        # Trigger kill switches first
+        self.logger.error("Emergency stop: triggering kill switches")
+        self.kill_switch.trigger("piezo", "EMERGENCY_STOP")
+        self.kill_switch.trigger("e_gun", "EMERGENCY_STOP")
+        
         return self.send_command(
             LabVIEWCommandType.EMERGENCY_STOP,
             "all",

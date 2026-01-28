@@ -10,7 +10,9 @@ import shutil
 from image_handler import Image_Handler
 
 
-WATCH_DIR = "Y:/Stein/Server/Camera_Frames"   #directory to monitor for new images
+# New unified camera paths (matches camera_server.py)
+# For folder-watching mode (alternative to TCP mode)
+WATCH_DIR = "Y:/Xi/Data/jpg_frames"   # Monitor raw frames directory
 BASE_SERVER_PATH = "Y:/Xi/Data"
 
 POLL_INTERVAL = 0.2 # Check for new files every 20ms
@@ -52,9 +54,16 @@ def watcher_thread():
 
 def processor_thread():
     """
-    CONSUMER: Takes files from queue, runs analysis, saves output to Server.
+    CONSUMER: Takes files from queue, runs analysis, saves output.
+    
+    New structure:
+    - Raw frames: Y:/Xi/Data/jpg_frames/YYMMDD/
+    - Annotated frames: Y:/Xi/Data/jpg_frames_labelled/YYMMDD/
+    - JSON data: Y:/Xi/Data/YYMMDD/cam_json/
     """
     print("[Processor] Ready to analyze.")
+    print(f"[Processor] Watch dir: {WATCH_DIR}")
+    print(f"[Processor] Output base: {BASE_SERVER_PATH}")
     
     while not stop_event.is_set():
         try:
@@ -67,18 +76,21 @@ def processor_thread():
         
         # --- DYNAMIC PATH GENERATION ---
         current_date_str = datetime.now().strftime("%y%m%d")
-        target_folder = os.path.join(BASE_SERVER_PATH, current_date_str, "cam_json")
+        timestamp = datetime.now().strftime("%H-%M-%S_%f")[:-3]  # milliseconds
         
-        if not os.path.exists(target_folder):
-            try:
-                os.makedirs(target_folder, exist_ok=True)
-                print(f"[Processor] Created new daily folder: {target_folder}")
-            except OSError as e:
-                print(f"[Processor] Error creating folder {target_folder}: {e}")
-                job_queue.task_done()
-                continue
+        # Output directories
+        labelled_folder = os.path.join(BASE_SERVER_PATH, "jpg_frames_labelled", current_date_str)
+        json_folder = os.path.join(BASE_SERVER_PATH, current_date_str, "cam_json")
         
-        timestamp = datetime.now().strftime("%H-%M-%S_%f")
+        # Create directories
+        for folder in [labelled_folder, json_folder]:
+            if not os.path.exists(folder):
+                try:
+                    os.makedirs(folder, exist_ok=True)
+                except OSError as e:
+                    print(f"[Processor] Error creating folder {folder}: {e}")
+                    job_queue.task_done()
+                    continue
         
         try:
             # --- 1. RUN ANALYSIS ---
@@ -88,9 +100,9 @@ def processor_thread():
                                   analysis=2,
                                   radius=20)
             
-            # --- 2. SAVE JPG (Use annotated frame if ions detected, otherwise raw) ---
-            jpg_name = f"{timestamp}_proc.jpg"
-            jpg_path = os.path.join(target_folder, jpg_name)
+            # --- 2. SAVE ANNOTATED JPG ---
+            jpg_name = f"{timestamp}_labelled.jpg"
+            jpg_path = os.path.join(labelled_folder, jpg_name)
             
             if handler.operation_array is not None and handler.operation_array.size > 0:
                 if handler.annotated_frame is not None:
@@ -136,16 +148,17 @@ def processor_thread():
 
                 # Save the JSON file
                 json_name = f"{timestamp}_data.json"
-                json_path = os.path.join(target_folder, json_name)
+                json_path = os.path.join(json_folder, json_name)
                 
                 with open(json_path, 'w') as f:
                     json.dump(result_data, f, indent=4)
                     
-                print(f"[Processor] Saved {filename} -> {handler.atom_count} atoms")
+                print(f"[Processor] Saved {filename} -> {handler.atom_count} atoms, "
+                      f"labelled: {jpg_path}")
             
             else:
                 # Logic for 0 atoms
-                print(f"[Processor] {filename}: No ions detected. JSON save skipped.")
+                print(f"[Processor] {filename}: No ions detected. Saved: {jpg_path}")
 
         except Exception as e:
             print(f"[Processor] Error processing {filename}: {e}")
@@ -173,7 +186,13 @@ if __name__ == "__main__":
     t_watcher.start()
     t_processor.start()
     
-    print("System Running. Saving to: Y:/Xi/Data/[YYMMDD]/cam_json")
+    print("=" * 60)
+    print("Image Handler Server (Folder Watcher Mode)")
+    print("=" * 60)
+    print(f"Watching: {WATCH_DIR}")
+    print(f"Annotated frames: {BASE_SERVER_PATH}/jpg_frames_labelled/[YYMMDD]/")
+    print(f"JSON data: {BASE_SERVER_PATH}/[YYMMDD]/cam_json/")
+    print("=" * 60)
     print("Press Ctrl+C to stop.")
     
     try:

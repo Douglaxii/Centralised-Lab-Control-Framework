@@ -193,10 +193,16 @@ Response:
    - Listen for incoming connections
    - Handle multiple commands per connection
 
-2. **Command Parser VI**
-   - Input: JSON string
-   - Parse `command`, `device`, `value` fields
+2. **Command Parser VI (IMPORTANT: TCP Buffer Handling)**
+   - **Input:** Raw TCP data stream
+   - **CRITICAL:** Must buffer data until newline (`\n`) is received
+   - Parse complete JSON strings only after receiving `\n`
    - Route to appropriate handler
+
+   ⚠️ **TCP Fragmentation Warning:** TCP is a stream protocol. A single `TCP Read` may return:
+   - A partial JSON message (e.g., `{"command": "set_`)
+   - A complete message (e.g., `{"command": "set_voltage", ...}\n`)
+   - Multiple messages (e.g., `{"command":...}\n{"command":...}\n`)
 
 3. **Device Handlers**
    - `Set U_RF.vi`: Controls RF voltage via DAC
@@ -212,24 +218,76 @@ Response:
 
 ### Example LabVIEW Code Snippets
 
-#### TCP Listener (Pseudocode)
+#### TCP Listener with Buffer Handling (CORRECT WAY)
 ```
 port = 5559
 listener = TCP Create Listener(port)
+data_buffer = ""
 
 WHILE (running)
     connection = TCP Wait On Listener(listener, timeout=-1)
+    data_buffer = ""  // Clear buffer on new connection
     
     WHILE (connected)
-        data = TCP Read (delim=\n)
-        IF (data available)
-            command = JSON Parse(data)
-            result = Execute Command(command)
-            response = JSON Build(result)
-            TCP Write (response + \n)
+        // Read raw bytes (do NOT use delim mode here)
+        raw_data = TCP Read (mode=raw, max_bytes=4096, timeout=100ms)
+        
+        IF (raw_data received)
+            // Append to buffer
+            data_buffer = data_buffer + raw_data
+            
+            // Process all complete messages in buffer
+            WHILE (data_buffer contains '\n')
+                // Extract one line from buffer
+                line, data_buffer = Split At First '\n'(data_buffer)
+                line = Trim(line)
+                
+                IF (line not empty)
+                    command = JSON Unflatten(line)
+                    result = Execute Command(command)
+                    response = JSON Flatten(result)
+                    TCP Write (response + '\n')
+                END IF
+            END WHILE
+        END IF
+        
+        // Check for disconnect or timeout
+        IF (connection lost)
+            BREAK
         END IF
     END WHILE
 END WHILE
+```
+
+#### INCORRECT - Direct JSON Parse (Do NOT Use)
+```
+// WARNING: This will FAIL with TCP fragmentation!
+WHILE (connected)
+    data = TCP Read (delim=\n)           // May not work as expected
+    command = JSON Unflatten(data)      // Will fail on partial data
+    ...
+END WHILE
+```
+
+#### Buffer Processing VI (Recommended Implementation)
+```
+VI: Process_TCP_Buffer.vi
+
+Inputs:
+    - buffer (string, shift register)
+    - new_data (string from TCP Read)
+    
+Outputs:
+    - buffer (updated)
+    - complete_messages (array of strings)
+    
+Logic:
+    1. Append new_data to buffer
+    2. Initialize empty messages array
+    3. WHILE buffer contains '\n':
+           Split buffer at first '\n' -> message, buffer
+           Add message to messages array
+    4. Return updated buffer and messages array
 ```
 
 #### Command Executor (Case Structure)
@@ -333,6 +391,23 @@ Commands:
 | "Invalid JSON response" | Missing newline terminator | Ensure `\n` after each JSON |
 | | Malformed JSON | Validate JSON syntax |
 | | Wrong encoding | Use UTF-8 encoding |
+| "Unflatten JSON error" at random times | TCP fragmentation - partial message received | Implement buffer handling (see TCP Buffer section above) |
+| Missing commands | Multiple messages in one TCP read | Process all lines in buffer, not just first |
+
+### TCP Fragmentation Issues
+
+**Problem:** LabVIEW occasionally shows "JSON parse error" or receives incomplete data
+
+**Root Cause:** TCP is a stream protocol, not a packet protocol. Messages may be split across multiple `TCP Read` calls, or multiple messages may arrive in a single call.
+
+**Solution:** Always use buffer-based reading:
+1. Maintain a string buffer (shift register in loop)
+2. Append each `TCP Read` result to the buffer
+3. Split buffer at newline characters
+4. Only process complete lines
+5. Keep remainder in buffer for next iteration
+
+See "TCP Listener with Buffer Handling" example above for correct implementation.
 
 ## Security Considerations
 
@@ -343,10 +418,29 @@ Commands:
 
 ## Safety Integration
 
+### Kill Switch System
+
+The control system implements a **triple-layer kill switch** for time-limited outputs:
+
+| Device | Time Limit | Purpose |
+|--------|------------|---------|
+| Piezo Output | 10 seconds max | Prevent piezo damage from sustained voltage |
+| E-Gun | 30 seconds max | Prevent e-gun overheating |
+
+**Layers:**
+1. **Flask UI**: Visual countdown, manual stop button
+2. **Control Manager**: Publishes emergency zero commands
+3. **LabVIEW Worker**: Direct hardware commands (final layer)
+
+See [SAFETY_KILL_SWITCH.md](SAFETY_KILL_SWITCH.md) for complete documentation.
+
+### Emergency Stop
+
 When Safety Mode is engaged from the web dashboard:
 
 1. Python sends `emergency_stop` command
-2. LabVIEW should:
+2. All kill switches are triggered immediately
+3. LabVIEW should:
    - Immediately set U_RF to 0V
    - Turn off Be+ oven
    - Turn off B-field
@@ -354,6 +448,29 @@ When Safety Mode is engaged from the web dashboard:
    - Turn off E-gun
    - Close all HD shutters
    - Set piezo to 0V
+
+### Hardware Safety Requirements
+
+**CRITICAL:** LabVIEW must ALSO implement independent hardware limits:
+
+```
+Recommended Hardware Protections:
+├── Piezo Output
+│   ├── Hardware timer: 10s max ON time
+│   ├── Overcurrent protection: <100mA
+│   └── Thermal shutdown: >50°C
+│
+├── E-Gun
+│   ├── Hardware timer: 30s max ON time
+│   ├── Thermal protection: >80°C
+│   └── Current limiting: <500mA
+│
+└── All Outputs
+    ├── Independent watchdog timer
+    └── Emergency cutoff relay
+```
+
+The Python kill switch is a **software safety layer**, not a replacement for hardware protection.
 
 ## Advanced Features
 
@@ -389,6 +506,55 @@ For atomic operations, LabVIEW can accept a batch:
 ```
 
 All operations in the batch should be applied simultaneously.
+
+## Sending Data to Python (File-Based)
+
+In addition to receiving commands, LabVIEW programs can **send telemetry data** to the Python dashboard by writing files to the shared network drive.
+
+### Supported Data Types
+
+| Source | Directory | Format | Content |
+|--------|-----------|--------|---------|
+| Wavemeter | `Y:\Xi\Data\telemetry\wavemeter\` | CSV | `timestamp,frequency_mhz` |
+| SMILE PMT | `Y:\Xi\Data\telemetry\smile\pmt\` | CSV | `timestamp,pmt_counts` |
+| SMILE Pressure | `Y:\Xi\Data\telemetry\smile\pressure\` | CSV | `timestamp,pressure_mbar` |
+
+### File Format
+
+**CSV Format:**
+```
+1706380800.123,212.456789
+1706380800.623,212.456812
+```
+
+- One line per data point
+- Fields: `timestamp,value` (comma-separated)
+- Timestamp: Unix epoch in seconds (with decimals for ms)
+- File extension: `.dat`
+
+### LabVIEW Implementation Example
+
+```
+[While Loop]
+    │
+    ├─> [Read Wavemeter] ──> Frequency
+    │
+    ├─> [Get Date/Time In Seconds] ──> Timestamp
+    │
+    ├─> [Format Into String] ──> "%.3f,%.6f\n"
+    │
+    ├─> [Build Path] ──> "Y:\Xi\Data\telemetry\wavemeter\freq_001.dat"
+    │
+    └─> [Write to Text File]
+```
+
+### Important Notes
+
+1. **Write atomically**: Write to `.tmp` file, then rename to `.dat`
+2. **Manage disk space**: Delete old files periodically (Python doesn't delete them)
+3. **Rate limit**: 1-10 Hz is sufficient for most telemetry
+
+See [DATA_INTEGRATION.md](DATA_INTEGRATION.md) for complete details.
 
 ## Integration Checklist
 

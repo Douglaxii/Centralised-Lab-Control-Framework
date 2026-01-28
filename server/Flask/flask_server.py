@@ -14,6 +14,11 @@ Layout (2 Columns):
 Theme: Flat, Lightweight, Scientific
 Palette: Off-white background (#F9FAFB), White cards (#FFFFFF), 1px borders (#E5E7EB)
 Typography: Inter/Roboto for UI, Fira Code for data/logs
+
+SAFETY CRITICAL:
+- Piezo Output: Max 10 seconds ON time (kill switch enforced)
+- E-Gun Output: Max 30 seconds ON time (kill switch enforced)
+- Kill switches are enforced at Flask, Manager, and LabVIEW levels
 """
 
 import sys
@@ -39,17 +44,200 @@ from enum import Enum
 from core import get_config, setup_logging, get_tracker
 from core.enums import SystemMode, AlgorithmState
 
-# Import data ingestion server (shared telemetry storage)
+
+# =============================================================================
+# KILL SWITCH MANAGER - SAFETY CRITICAL
+# =============================================================================
+
+class KillSwitchManager:
+    """
+    Manages safety kill switches for time-limited hardware outputs.
+    
+    Devices:
+    - piezo: Max 10 seconds ON time
+    - e_gun: Max 30 seconds ON time
+    
+    The kill switch monitors active outputs and automatically turns them off
+    when time limits are exceeded. This is enforced at Flask level as a
+    secondary protection (primary is in LabVIEW hardware).
+    """
+    
+    TIME_LIMITS = {
+        "piezo": 10.0,      # 10 seconds max for piezo output
+        "e_gun": 10.0,      # 10 seconds max for e-gun (testing mode)
+    }
+    
+    def __init__(self):
+        self._active: Dict[str, Dict[str, Any]] = {}
+        self._lock = threading.RLock()
+        self._running = True
+        self.logger = logging.getLogger("kill_switch")
+        
+        # Start watchdog thread
+        self._watchdog_thread = threading.Thread(
+            target=self._watchdog_loop,
+            daemon=True,
+            name="KillSwitchWatchdog"
+        )
+        self._watchdog_thread.start()
+        self.logger.info("Kill Switch Manager initialized")
+    
+    def register_on(self, device: str, set_voltage_callback: callable, zero_voltage_callback: callable):
+        """
+        Register a device as ON with kill switch protection.
+        
+        Args:
+            device: Device name ('piezo' or 'e_gun')
+            set_voltage_callback: Function to call with target voltage when ON
+            zero_voltage_callback: Function to call to set voltage to 0
+        """
+        with self._lock:
+            if device not in self.TIME_LIMITS:
+                self.logger.warning(f"Unknown device for kill switch: {device}")
+                return False
+            
+            self._active[device] = {
+                "start_time": time.time(),
+                "set_voltage_cb": set_voltage_callback,
+                "zero_voltage_cb": zero_voltage_callback,
+                "killed": False,
+            }
+            self.logger.info(f"Kill switch ARMED for {device} (max {self.TIME_LIMITS[device]}s)")
+            return True
+    
+    def register_off(self, device: str):
+        """Unregister a device (turned off safely by user)."""
+        with self._lock:
+            if device in self._active:
+                elapsed = time.time() - self._active[device]["start_time"]
+                self.logger.info(f"Kill switch DISARMED for {device} (was on for {elapsed:.1f}s)")
+                del self._active[device]
+                return True
+            return False
+    
+    def is_active(self, device: str) -> bool:
+        """Check if a device is currently active under kill switch monitoring."""
+        with self._lock:
+            return device in self._active
+    
+    def get_remaining_time(self, device: str) -> float:
+        """Get remaining allowed ON time for a device."""
+        with self._lock:
+            if device not in self._active:
+                return 0.0
+            elapsed = time.time() - self._active[device]["start_time"]
+            remaining = self.TIME_LIMITS[device] - elapsed
+            return max(0.0, remaining)
+    
+    def trigger_kill(self, device: str, reason: str = "manual"):
+        """
+        Manually trigger kill switch for a device.
+        
+        Args:
+            device: Device to kill
+            reason: Reason for kill (for logging)
+        """
+        with self._lock:
+            if device not in self._active:
+                return False
+            
+            info = self._active[device]
+            if info["killed"]:
+                return False
+            
+            info["killed"] = True
+            elapsed = time.time() - info["start_time"]
+            
+            self.logger.error(
+                f"KILL SWITCH TRIGGERED for {device}: {reason} "
+                f"(was on for {elapsed:.1f}s, limit was {self.TIME_LIMITS[device]}s)"
+            )
+            
+            # Execute zero voltage callback
+            try:
+                info["zero_voltage_cb"]()
+                self.logger.info(f"Kill switch executed for {device}")
+            except Exception as e:
+                self.logger.error(f"Kill switch callback failed for {device}: {e}")
+            
+            # Clean up
+            del self._active[device]
+            return True
+    
+    def _watchdog_loop(self):
+        """Background thread that monitors active devices and enforces time limits."""
+        while self._running:
+            try:
+                with self._lock:
+                    now = time.time()
+                    to_kill = []
+                    
+                    for device, info in self._active.items():
+                        elapsed = now - info["start_time"]
+                        limit = self.TIME_LIMITS[device]
+                        
+                        if elapsed > limit and not info["killed"]:
+                            to_kill.append(device)
+                    
+                    # Kill outside of lock to avoid deadlock
+                    devices_to_kill = to_kill.copy()
+                
+                for device in devices_to_kill:
+                    self.trigger_kill(device, f"TIME LIMIT EXCEEDED ({self.TIME_LIMITS[device]}s)")
+                
+                time.sleep(0.1)  # 10 Hz check rate
+                
+            except Exception as e:
+                self.logger.error(f"Kill switch watchdog error: {e}")
+                time.sleep(1)
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current kill switch status for all monitored devices."""
+        with self._lock:
+            status = {}
+            for device, limit in self.TIME_LIMITS.items():
+                if device in self._active:
+                    info = self._active[device]
+                    elapsed = time.time() - info["start_time"]
+                    status[device] = {
+                        "active": True,
+                        "elapsed_seconds": round(elapsed, 2),
+                        "remaining_seconds": round(limit - elapsed, 2),
+                        "time_limit": limit,
+                        "killed": info["killed"]
+                    }
+                else:
+                    status[device] = {
+                        "active": False,
+                        "time_limit": limit,
+                        "elapsed_seconds": 0,
+                        "remaining_seconds": 0,
+                        "killed": False
+                    }
+            return status
+    
+    def stop(self):
+        """Stop the kill switch manager and kill all active devices."""
+        self._running = False
+        with self._lock:
+            for device in list(self._active.keys()):
+                self.trigger_kill(device, "SHUTDOWN")
+
+
+# Global kill switch manager
+kill_switch = KillSwitchManager()
+
+# Import shared telemetry storage (Manager reads files, Flask displays)
+# LabVIEW writes data files to Y:/Xi/Data/, Manager reads them
 try:
     from server.communications.data_server import (
         get_telemetry_data, 
-        get_data_sources,
-        DataIngestionServer
+        get_data_sources
     )
-    DATA_SERVER_AVAILABLE = True
+    TELEMETRY_AVAILABLE = True
 except ImportError:
-    DATA_SERVER_AVAILABLE = False
-    logger.warning("DataIngestionServer not available - will use simulated data only")
+    TELEMETRY_AVAILABLE = False
+    logger.warning("Telemetry storage not available - will use simulated data only")
 
 # =============================================================================
 # SETUP & CONFIGURATION
@@ -65,7 +253,11 @@ MANAGER_PORT = config.client_port
 # Camera configuration
 CAMERA_HOST = config.get_camera_setting('host') or "127.0.0.1"
 CAMERA_PORT = config.get_camera_setting('port') or 5555
-LIVE_FRAMES_PATH = config.get_path('live_frames') if hasattr(config, 'get_path') else Path(__file__).parent / "live_frames"
+
+# Camera frame paths - new unified structure
+# Raw frames: Y:/Xi/Data/jpg_frames/YYMMDD/
+# Labelled frames: Y:/Xi/Data/jpg_frames_labelled/YYMMDD/
+LIVE_FRAMES_PATH = config.get_path('jpg_frames_labelled') if hasattr(config, 'get_path') else "Y:/Xi/Data/jpg_frames_labelled"
 
 app = Flask(__name__)
 
@@ -174,8 +366,12 @@ current_state = {
         # Toggles
         "bephi": False, "b_field": True, "be_oven": False,
         # Laser & Electron
-        "uv3": False, "e_gun": False,
-        "piezo": 0.0,
+        "uv3": False,
+        # Piezo: setpoint voltage and output state (kill switch protected)
+        "piezo": 0.0,           # Target voltage setpoint
+        "piezo_output": False,  # True = apply setpoint, False = 0V output
+        # E-gun: kill switch protected (max 30s)
+        "e_gun": False,
         # DDS
         "dds_profile": 0,
     },
@@ -183,6 +379,12 @@ current_state = {
     "camera_active": False,
 }
 state_lock = threading.RLock()
+
+# Kill switch configuration exposed to clients
+KILL_SWITCH_LIMITS = {
+    "piezo": 10.0,   # 10 seconds max ON time
+    "e_gun": 30.0,   # 10 seconds max ON time (testing mode)
+}
 
 # =============================================================================
 # ZMQ COMMUNICATION
@@ -250,8 +452,15 @@ def safe_shutdown() -> Dict[str, Any]:
     """
     Emergency shutdown: Stop Turbo algorithm and reset all hardware to safe defaults.
     This is called when the safety switch is engaged.
+    
+    Also triggers kill switches for time-limited devices.
     """
     logger.warning("SAFETY SHUTDOWN TRIGGERED - Stopping algorithm and resetting hardware")
+    
+    # Step 0: Trigger kill switches for all time-limited devices
+    ks_results = {}
+    for device in KILL_SWITCH_LIMITS.keys():
+        ks_results[device] = kill_switch.trigger_kill(device, "SAFETY SHUTDOWN")
     
     # Step 1: Send STOP signal to manager
     stop_response = send_to_manager({
@@ -275,13 +484,14 @@ def safe_shutdown() -> Dict[str, Any]:
         "reason": "Safety shutdown"
     }, timeout_ms=5000)
     
-    # Step 3: Turn off all toggles
+    # Step 3: Turn off all toggles and outputs
     toggle_params = {
         "bephi": False,
         "b_field": False, 
         "be_oven": False,
         "uv3": False,
         "e_gun": False,
+        "piezo_output": False,
     }
     
     toggle_response = send_to_manager({
@@ -304,7 +514,7 @@ def safe_shutdown() -> Dict[str, Any]:
     # Log the safety event
     add_turbo_log(
         level="ERROR",
-        message="SAFETY MODE ENGAGED: Algorithm stopped, hardware reset to defaults",
+        message="SAFETY MODE ENGAGED: Algorithm stopped, hardware reset to defaults, kill switches triggered",
         iteration=None,
         delta=None
     )
@@ -313,7 +523,8 @@ def safe_shutdown() -> Dict[str, Any]:
         "status": "success" if stop_response.get("status") == "success" else "partial",
         "stop_result": stop_response,
         "reset_result": reset_response,
-        "toggle_result": toggle_response
+        "toggle_result": toggle_response,
+        "kill_switch_triggered": ks_results
     }
 
 
@@ -365,18 +576,25 @@ def update_turbo_state(status: str, iteration: Optional[int] = None,
 
 def read_frame_from_disk() -> Optional[Tuple[np.ndarray, float, Dict[str, Any]]]:
     """
-    Read the latest frame from disk and associated fit parameters.
+    Read the latest annotated frame from jpg_frames_labelled directory.
+    
+    Directory structure: Y:/Xi/Data/jpg_frames_labelled/YYMMDD/*_labelled.jpg
     
     Returns:
         Tuple of (frame, timestamp, fit_params) or None if no frame available
     """
     try:
-        frame_path = Path(LIVE_FRAMES_PATH)
+        from datetime import datetime
+        
+        # Get today's subdirectory
+        current_date_str = datetime.now().strftime("%y%m%d")
+        frame_path = Path(LIVE_FRAMES_PATH) / current_date_str
+        
         if not frame_path.exists():
             return None
             
-        # Find latest frame file
-        frame_files = list(frame_path.glob("frame*.jpg"))
+        # Find latest annotated frame file (*_labelled.jpg)
+        frame_files = list(frame_path.glob("*_labelled.jpg"))
         if not frame_files:
             return None
             
@@ -391,35 +609,31 @@ def read_frame_from_disk() -> Optional[Tuple[np.ndarray, float, Dict[str, Any]]]
         if frame is None:
             return None
         
-        # Try to find matching JSON with fit parameters
+        # Try to extract fit parameters from filename or companion JSON
         fit_params = {}
         try:
-            # Look for JSON files in the cam_json folder
-            from datetime import datetime
-            current_date_str = datetime.now().strftime("%y%m%d")
-            json_folder = Path(f"Y:/Xi/Data/{current_date_str}/cam_json")
+            # Look for companion JSON in cam_json folder with matching timestamp
+            json_folder = Path(LIVE_FRAMES_PATH).parent / current_date_str / "cam_json"
             
             if json_folder.exists():
-                # Find JSON files close in time to the frame
-                json_files = list(json_folder.glob("*_data.json"))
-                if json_files:
-                    # Get the most recent JSON
-                    latest_json = max(json_files, key=lambda p: p.stat().st_mtime)
-                    json_mtime = latest_json.stat().st_mtime
-                    
-                    # Only use if recent (within 2 seconds of frame)
-                    if abs(json_mtime - mtime) < 2.0:
-                        with open(latest_json, 'r') as f:
+                # Extract timestamp from filename (e.g., "14-32-15_123_labelled.jpg")
+                filename = latest.stem  # "14-32-15_123_labelled"
+                time_prefix = filename.replace("_labelled", "")  # "14-32-15_123"
+                
+                # Find JSON with matching timestamp prefix
+                for json_file in json_folder.glob("*_data.json"):
+                    if time_prefix in json_file.stem:
+                        with open(json_file, 'r') as f:
                             data = json.load(f)
                             if data.get("atoms"):
                                 # Use first atom's fit parameters
                                 atom = data["atoms"][0]
                                 fit_params = {
-                                    "sig_x": atom.get("sig_x", 0),
-                                    "sig_y": atom.get("sig_y", 0),
-                                    "theta": atom.get("theta", 0),
-                                    "amp": atom.get("amp", 0)
+                                    "sig_x": atom.get("sigma_x", 0),
+                                    "sig_y": atom.get("R_y", 0),
+                                    "amp": atom.get("A_x", 0)
                                 }
+                        break
         except Exception:
             pass  # No fit params available
             
@@ -438,7 +652,13 @@ def update_ion_position_from_file():
     try:
         from datetime import datetime
         current_date_str = datetime.now().strftime("%y%m%d")
-        json_folder = Path(f"Y:/Xi/Data/{current_date_str}/cam_json")
+        
+        # Try new path first (jpg_frames_labelled structure)
+        json_folder = Path(LIVE_FRAMES_PATH).parent / current_date_str / "cam_json"
+        
+        # Fallback to legacy path
+        if not json_folder.exists():
+            json_folder = Path(f"Y:/Xi/Data/{current_date_str}/cam_json")
         
         if not json_folder.exists():
             return
@@ -468,10 +688,9 @@ def update_ion_position_from_file():
                 "x": atom.get("x0", 0),
                 "y": atom.get("y0", 0),
                 "found": True,
-                "sig_x": atom.get("sig_x", 0),
-                "sig_y": atom.get("sig_y", 0),
-                "theta": atom.get("theta", 0),
-                "amp": atom.get("amp", 0)
+                "sig_x": atom.get("sigma_x", 0),  # Gaussian width
+                "sig_y": atom.get("R_y", 0),       # SHM turning point
+                "amp": atom.get("A_x", 0)          # Amplitude
             }
             
     except Exception:
@@ -683,7 +902,7 @@ def get_telemetry_for_time_window(window_seconds: float = 300.0) -> Dict[str, Li
             result[key] = points
     
     # Get real data from DataIngestionServer (LabVIEW sources)
-    if DATA_SERVER_AVAILABLE:
+    if TELEMETRY_AVAILABLE:
         try:
             real_telemetry, real_lock = get_telemetry_data()
             with real_lock:
@@ -742,7 +961,7 @@ def telemetry_generator():
                 }
             
             # Add data source status (LabVIEW connections)
-            if DATA_SERVER_AVAILABLE:
+            if TELEMETRY_AVAILABLE:
                 try:
                     data["data_sources"] = get_data_sources()
                 except:
@@ -1012,7 +1231,7 @@ def turbo_logs_stream():
 
 @app.route('/api/status')
 def get_status():
-    """Get current system status including data sources."""
+    """Get current system status including data sources and kill switch status."""
     # Query manager for fresh state
     resp = send_to_manager({"action": "STATUS", "source": "FLASK"})
     
@@ -1042,11 +1261,14 @@ def get_status():
     
     # Get data source status (LabVIEW connections)
     data_sources = {}
-    if DATA_SERVER_AVAILABLE:
+    if TELEMETRY_AVAILABLE:
         try:
             data_sources = get_data_sources()
         except Exception as e:
             logger.debug(f"Could not get data sources: {e}")
+    
+    # Get kill switch status
+    ks_status = kill_switch.get_status()
     
     return jsonify({
         "mode": current_state["mode"],
@@ -1054,7 +1276,9 @@ def get_status():
         "worker_alive": current_state["worker_alive"],
         "camera": cam_info,
         "turbo": turbo_info,
-        "data_sources": data_sources
+        "data_sources": data_sources,
+        "kill_switch": ks_status,
+        "kill_switch_limits": KILL_SWITCH_LIMITS
     })
 
 
@@ -1150,49 +1374,165 @@ def set_rf_voltage():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@app.route('/api/control/piezo', methods=['POST'])
-def set_piezo():
-    """Set piezo voltage."""
+def _apply_piezo_voltage(voltage: float):
+    """Apply piezo voltage to hardware (internal helper)."""
+    resp = send_to_manager({
+        "action": "SET",
+        "source": "FLASK_PIEZO",
+        "params": {"piezo": voltage}
+    })
+    if resp.get("status") == "success":
+        with state_lock:
+            current_state["params"]["piezo_output_voltage"] = voltage
+        return True
+    else:
+        logger.error(f"Failed to apply piezo voltage: {resp.get('message')}")
+        return False
+
+
+@app.route('/api/control/piezo/setpoint', methods=['POST'])
+def set_piezo_setpoint():
+    """
+    Set piezo voltage setpoint (does NOT enable output).
+    
+    Request: {"voltage": 2.5}
+    Response: {"status": "success", "setpoint": 2.5}
+    """
     try:
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
             
-        piezo = float(data.get("piezo", 0))
+        voltage = float(data.get("voltage", 0))
         
-        # Validate range
-        if not -10 <= piezo <= 10:
+        # Validate range (0-4V as per original spec)
+        if not 0 <= voltage <= 4:
             return jsonify({
                 "status": "error",
-                "message": f"Piezo voltage {piezo} out of range [-10, 10]"
+                "message": f"Piezo setpoint {voltage}V out of range [0, 4]"
             }), 400
         
-        resp = send_to_manager({
-            "action": "SET",
-            "source": "USER",
-            "params": {"piezo": piezo}
+        with state_lock:
+            current_state["params"]["piezo"] = voltage
+        
+        # If output is currently on, update the voltage immediately
+        with state_lock:
+            output_on = current_state["params"].get("piezo_output", False)
+        
+        if output_on:
+            _apply_piezo_voltage(voltage)
+        
+        logger.info(f"Piezo setpoint updated to {voltage}V")
+        return jsonify({
+            "status": "success", 
+            "setpoint": voltage,
+            "output_active": output_on
         })
-        
-        if resp.get("status") == "success":
-            with state_lock:
-                current_state["params"]["piezo"] = piezo
-            return jsonify({"status": "success", "piezo": piezo})
-        else:
-            return jsonify({
-                "status": "error",
-                "message": resp.get("message", "Failed")
-            }), 400
             
     except ValueError as e:
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
-        logger.error(f"Piezo control error: {e}")
+        logger.error(f"Piezo setpoint error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/control/piezo/output', methods=['POST'])
+def set_piezo_output():
+    """
+    Enable/disable piezo output with kill switch protection.
+    
+    When enabled: Applies the setpoint voltage
+    When disabled: Sets voltage to 0V
+    
+    Kill switch: Auto-shutdown after 10 seconds
+    
+    Request: {"enable": true}
+    Response: {"status": "success", "output": true, "kill_switch": {...}}
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No JSON data provided"}), 400
+            
+        enable = bool(data.get("enable", False))
+        
+        with state_lock:
+            setpoint = current_state["params"].get("piezo", 0.0)
+        
+        if enable:
+            # Enable output - apply setpoint voltage
+            if _apply_piezo_voltage(setpoint):
+                # Register with kill switch
+                def set_voltage(v):
+                    _apply_piezo_voltage(v)
+                def zero_voltage():
+                    _apply_piezo_voltage(0.0)
+                    with state_lock:
+                        current_state["params"]["piezo_output"] = False
+                
+                kill_switch.register_on("piezo", set_voltage, zero_voltage)
+                
+                with state_lock:
+                    current_state["params"]["piezo_output"] = True
+                
+                logger.warning(f"PIEZO OUTPUT ENABLED: {setpoint}V (kill switch: 10s max)")
+                
+                return jsonify({
+                    "status": "success",
+                    "output": True,
+                    "voltage": setpoint,
+                    "kill_switch": {
+                        "armed": True,
+                        "time_limit_seconds": KILL_SWITCH_LIMITS["piezo"],
+                        "warning": "AUTO-SHUTOFF AFTER 10 SECONDS"
+                    }
+                })
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": "Failed to enable piezo output"
+                }), 500
+        else:
+            # Disable output - set to 0V
+            _apply_piezo_voltage(0.0)
+            kill_switch.register_off("piezo")
+            
+            with state_lock:
+                current_state["params"]["piezo_output"] = False
+            
+            logger.info("Piezo output disabled")
+            return jsonify({
+                "status": "success",
+                "output": False,
+                "voltage": 0.0
+            })
+            
+    except Exception as e:
+        logger.error(f"Piezo output control error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def _apply_e_gun_state(state: bool):
+    """Apply e-gun state to hardware (internal helper)."""
+    resp = send_to_manager({
+        "action": "SET",
+        "source": "FLASK_EGUN",
+        "params": {"e_gun": state}
+    })
+    if resp.get("status") == "success":
+        return True
+    else:
+        logger.error(f"Failed to apply e-gun state: {resp.get('message')}")
+        return False
 
 
 @app.route('/api/control/toggle/<toggle_name>', methods=['POST'])
 def set_toggle(toggle_name):
-    """Set a toggle state (bephi, b_field, be_oven, uv3, e_gun)."""
+    """
+    Set a toggle state (bephi, b_field, be_oven, uv3, e_gun).
+    
+    For e_gun: Kill switch protected (max 30 seconds ON time)
+    """
     try:
         data = request.get_json()
         state = bool(data.get("state", False))
@@ -1214,6 +1554,65 @@ def set_toggle(toggle_name):
                 "valid_toggles": list(param_map.keys())
             }), 400
         
+        # Special handling for e-gun (kill switch protected)
+        if toggle_name == "e_gun":
+            if state:
+                # Turn ON with kill switch
+                if _apply_e_gun_state(True):
+                    # Register with kill switch
+                    def set_state(s):
+                        send_to_manager({
+                            "action": "SET",
+                            "source": "FLASK_EGUN_KS",
+                            "params": {"e_gun": s}
+                        })
+                    def zero_state():
+                        send_to_manager({
+                            "action": "SET",
+                            "source": "FLASK_EGUN_KS",
+                            "params": {"e_gun": False}
+                        })
+                        with state_lock:
+                            current_state["params"]["e_gun"] = False
+                    
+                    kill_switch.register_on("e_gun", set_state, zero_state)
+                    
+                    with state_lock:
+                        current_state["params"]["e_gun"] = True
+                    
+                    logger.warning("E-GUN ENABLED (kill switch: 30s max)")
+                    
+                    return jsonify({
+                        "status": "success",
+                        "toggle": toggle_name,
+                        "state": True,
+                        "kill_switch": {
+                            "armed": True,
+                            "time_limit_seconds": KILL_SWITCH_LIMITS["e_gun"],
+                            "warning": "AUTO-SHUTOFF AFTER 30 SECONDS"
+                        }
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Failed to enable e-gun"
+                    }), 500
+            else:
+                # Turn OFF
+                _apply_e_gun_state(False)
+                kill_switch.register_off("e_gun")
+                
+                with state_lock:
+                    current_state["params"]["e_gun"] = False
+                
+                logger.info("E-gun disabled")
+                return jsonify({
+                    "status": "success",
+                    "toggle": toggle_name,
+                    "state": False
+                })
+        
+        # Standard toggles (no kill switch)
         resp = send_to_manager({
             "action": "SET",
             "source": "USER",
@@ -1236,6 +1635,54 @@ def set_toggle(toggle_name):
             
     except Exception as e:
         logger.error(f"Toggle control error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/killswitch/status', methods=['GET'])
+def get_killswitch_status():
+    """Get kill switch status for all protected devices."""
+    return jsonify({
+        "status": "success",
+        "devices": kill_switch.get_status(),
+        "limits": KILL_SWITCH_LIMITS
+    })
+
+
+@app.route('/api/killswitch/trigger', methods=['POST'])
+def trigger_killswitch():
+    """
+    Manually trigger kill switch for a device.
+    
+    Request: {"device": "piezo"} or {"device": "e_gun"}
+    """
+    try:
+        data = request.get_json()
+        device = data.get("device")
+        
+        if device not in KILL_SWITCH_LIMITS:
+            return jsonify({
+                "status": "error",
+                "message": f"Unknown device: {device}",
+                "valid_devices": list(KILL_SWITCH_LIMITS.keys())
+            }), 400
+        
+        killed = kill_switch.trigger_kill(device, "MANUAL TRIGGER")
+        
+        if killed:
+            return jsonify({
+                "status": "success",
+                "message": f"Kill switch triggered for {device}",
+                "device": device
+            })
+        else:
+            return jsonify({
+                "status": "warning",
+                "message": f"Device {device} was not active",
+                "device": device
+            })
+            
+    except Exception as e:
+        logger.error(f"Kill switch trigger error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -1581,7 +2028,7 @@ def list_experiments():
 @app.route('/api/data/sources', methods=['GET'])
 def get_data_sources_status():
     """Get data source status (LabVIEW connections)."""
-    if not DATA_SERVER_AVAILABLE:
+    if not TELEMETRY_AVAILABLE:
         return jsonify({
             "status": "unavailable",
             "message": "Data ingestion server not enabled"
@@ -1600,7 +2047,7 @@ def get_data_sources_status():
 @app.route('/api/data/recent/<channel>', methods=['GET'])
 def get_recent_channel_data(channel):
     """Get recent data for a specific telemetry channel."""
-    if not DATA_SERVER_AVAILABLE:
+    if not TELEMETRY_AVAILABLE:
         return jsonify({"status": "error", "message": "Data server unavailable"}), 503
     
     try:
@@ -1665,9 +2112,10 @@ if __name__ == '__main__':
         logger.info("=" * 60)
         logger.info("Flask Dashboard Server Starting...")
         logger.info(f"Manager: {MANAGER_IP}:{MANAGER_PORT}")
-        logger.info(f"Camera frames path: {LIVE_FRAMES_PATH}")
+        logger.info(f"Camera labelled frames path: {LIVE_FRAMES_PATH}")
         print(f"🌍 Dashboard running at http://0.0.0.0:5000")
         print(f"📊 Connected to manager at {MANAGER_IP}:{MANAGER_PORT}")
+        print(f"📷 Streaming annotated frames from: {LIVE_FRAMES_PATH}")
         print(f"🔬 Scientific Dashboard - Turbo Algorithm Control")
         
         app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

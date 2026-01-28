@@ -8,9 +8,12 @@ A distributed control system for ion trap experiments, coordinating ARTIQ hardwa
 - 📷 **Camera Control** - Automated image capture and analysis
 - 🌐 **Web Interface** - Flask-based monitoring and control
 - 🔒 **Safety Systems** - Watchdog timers and automatic safe states
+- ⚡ **Kill Switch Protection** - Triple-layer safety for Piezo (10s) and E-Gun (30s)
 - 📊 **Experiment Tracking** - Full audit trail with unique experiment IDs
 - 🔄 **ZMQ Communication** - Robust distributed messaging
 - ⚙️ **Centralized Config** - YAML-based configuration management
+- 🚀 **Parallel Execution** - Camera, Manager, Flask run efficiently on same PC
+- 📦 **Unified Launcher** - Single command to start/stop all services
 
 ## Quick Start
 
@@ -32,52 +35,111 @@ paths:
   output_base: "Y:/Xi/Data"    # Your network drive
 ```
 
-### 3. Start Components
+### 3. Start All Services (Parallel Execution)
 
-Terminal 1 - Manager:
+The easiest way - uses the unified launcher:
+
 ```bash
-cd server/communications
-python manager.py
+# Interactive mode (with command console)
+python launcher.py
+
+# Or using convenience script
+start.bat              # Windows
+./start.sh             # Linux/Mac
 ```
 
-Terminal 2 - ARTIQ Worker:
+Or start individually:
+
 ```bash
-# In ARTIQ environment
+# Terminal 1 - Manager (includes file reader for LabVIEW data)
+python server/communications/manager.py
+
+# Terminal 2 - Flask UI
+python server/Flask/flask_server.py
+
+# Terminal 3 - Camera Server
+python server/cam/camera_server.py
+
+# Terminal 4 - ARTIQ Worker (separate PC or same PC)
 artiq_run artiq/experiments/artiq_worker.py
-```
-
-Terminal 3 - Flask UI:
-```bash
-cd server/Flask
-python flask_server.py
-```
-
-Terminal 4 - Camera Server:
-```bash
-cd server/cam
-python camera_server.py
 ```
 
 ### 4. Access Web UI
 
 Open browser: http://localhost:5000
 
+### 5. Manage Services
+
+```bash
+# Check status
+python launcher.py --status
+
+# Restart all services
+python launcher.py --restart
+
+# Stop all services
+python launcher.py --stop
+
+# Interactive commands (when running interactively)
+launcher> status       # Show service status
+launcher> restart camera  # Restart specific service
+launcher> help         # Show all commands
+```
+
+See [docs/QUICK_START_PARALLEL.md](docs/QUICK_START_PARALLEL.md) for detailed instructions.
+
 ## Architecture
 
+### Parallel Execution (Same PC)
+
 ```
-┌─────────┐     ┌──────────┐     ┌─────────┐
-│  Flask  │────▶│ Manager  │────▶│  ARTIQ  │
-│   UI    │◄────│ (ZMQ)    │◄────│ Worker  │
-└─────────┘     └────┬─────┘     └─────────┘
-                     │
-                     ▼
-              ┌──────────┐
-              │  Camera  │
-              │  Server  │
-              └──────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Single PC                            │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐          │
+│  │  Camera  │    │  Manager │    │  Flask   │          │
+│  │  Server  │◄──►│ (ZMQ)    │◄──►│   UI     │          │
+│  │  :5558   │    │  :5557   │    │  :5000   │          │
+│  └────┬─────┘    └────┬─────┘    └────┬─────┘          │
+│       │               │               │                 │
+│       └───────────────┴───────────────┘                 │
+│                  Shared Memory                          │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  Y:/Xi/Data/  -  Images & LabVIEW Telemetry    │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │   ARTIQ Worker   │
+                    │ (Separate PC)    │
+                    └──────────────────┘
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed documentation.
+All three services (Camera, Manager, Flask) run efficiently in parallel on the same PC with:
+- **Shared memory** for telemetry data (zero-copy)
+- **Unified launcher** for process management
+- **Health monitoring** with automatic restart
+
+See [docs/PARALLEL_ARCHITECTURE.md](docs/PARALLEL_ARCHITECTURE.md) for detailed architecture documentation.
+
+## Safety Features
+
+### Kill Switch System
+
+The framework implements a **triple-layer kill switch** for critical hardware outputs:
+
+| Device | Time Limit | Protection Layers |
+|--------|------------|-------------------|
+| **Piezo Output** | 10 seconds max | Flask UI → Manager → LabVIEW |
+| **E-Gun** | 30 seconds max | Flask UI → Manager → LabVIEW |
+
+**Features:**
+- Visual countdown timers on web interface
+- Automatic shutdown when time limit exceeded
+- Manual emergency stop button
+- Independent hardware-level protection
+
+See [docs/SAFETY_KILL_SWITCH.md](docs/SAFETY_KILL_SWITCH.md) for complete documentation.
 
 ## Key Components
 
@@ -95,7 +157,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed documentation.
 ### Manual Control via Python
 
 ```python
-from lab_comms import LabComm
+from server.communications.lab_comms import LabComm
 
 # Connect as master
 with LabComm("MASTER", role="MASTER") as comm:
@@ -181,21 +243,56 @@ netstat -an | findstr 5555
 MLS/
 ├── config/              # Configuration files
 │   └── settings.yaml
-├── core/                # Shared utilities
-│   ├── config.py       # Config management
-│   ├── logger.py       # Logging setup
-│   ├── zmq_utils.py    # ZMQ helpers
-│   ├── experiment.py   # Experiment tracking
-│   └── exceptions.py   # Custom exceptions
-├── artiq/              # ARTIQ code
-│   ├── experiments/    # Main experiments
-│   └── fragments/      # Hardware fragments
-├── server/             # Server components
-│   ├── communications/ # Manager
-│   ├── cam/           # Camera control
-│   └── Flask/         # Web UI
-├── tests/             # Unit tests
-└── docs/              # Documentation
+├── core/                # Shared utilities (imported by all components)
+│   ├── __init__.py
+│   ├── config.py        # YAML configuration management
+│   ├── enums.py         # Enumeration types and constants
+│   ├── exceptions.py    # Custom exception classes
+│   ├── experiment.py    # Experiment tracking system
+│   ├── logger.py        # Structured logging setup
+│   └── zmq_utils.py     # ZMQ communication helpers
+├── artiq/               # ARTIQ hardware control code
+│   ├── experiments/
+│   │   ├── artiq_worker.py   # Main ARTIQ worker process
+│   │   └── trap_control.py   # Trap control experiments
+│   ├── fragments/
+│   │   ├── compensation.py   # Compensation electrode control
+│   │   ├── endcaps.py        # Endcap electrode control
+│   │   ├── Raman_board.py    # Raman laser control
+│   │   └── secularsweep.py   # Secular frequency sweep
+│   └── analyze_sweep.py      # H5 file analysis tool
+├── server/              # Server-side components
+│   ├── communications/  # Communication & coordination
+│   │   ├── manager.py           # Central control manager
+│   │   ├── labview_interface.py # LabVIEW SMILE TCP interface
+│   │   ├── data_server.py       # Data ingestion server (port 5560)
+│   │   └── lab_comms.py         # ZMQ communication library
+│   ├── cam/            # Camera acquisition & processing
+│   │   ├── camera_server.py     # Camera TCP server
+│   │   ├── camera_recording.py  # DCIMG recording logic
+│   │   └── image_handler.py     # Image analysis & ion detection
+│   ├── Flask/          # Web dashboard
+│   │   ├── flask_server.py      # Flask HTTP server
+│   │   └── templates/           # HTML templates
+│   └── analysis/       # Data analysis tools
+│       └── secular_comparison.py  # Secular frequency comparison
+├── labview/            # LabVIEW testing utilities
+│   ├── mock_labview_sender.py   # Mock data sender for testing
+│   ├── SMILE_Data_Sender.vi     # LabVIEW VI for SMILE
+│   └── Wavemeter_Data_Sender.vi # LabVIEW VI for Wavemeter
+├── tests/              # Unit and integration tests
+│   ├── test_core.py
+│   └── test_image_handler.py
+├── docs/               # Documentation
+│   ├── ARCHITECTURE.md
+│   ├── COMMUNICATION_PROTOCOL.md
+│   ├── DATA_INTEGRATION.md
+│   ├── LABVIEW_INTEGRATION.md
+│   ├── MIGRATION_GUIDE.md
+│   └── SECULAR_COMPARISON.md
+├── logs/               # Runtime logs (created automatically)
+├── README.md           # This file
+└── requirements.txt    # Python dependencies
 ```
 
 ## Development

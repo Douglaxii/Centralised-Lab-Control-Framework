@@ -30,10 +30,14 @@ paths:
   output_base: "Y:/Xi/Data"
   
   # Camera paths
-  camera_frames: "Y:/Stein/Server/Camera_Frames"
-  camera_settings: "Y:/Stein/Server/Camera_Settings"
-  camera_dcimg: "Y:/Stein/dcimg"
-  live_frames: "Y:/Stein/Server/Live_Frames"
+  camera_frames: "Y:/Stein/Server/Camera_Frames"      # Legacy: raw camera frames
+  camera_settings: "Y:/Stein/Server/Camera_Settings"  # Camera configuration files
+  camera_dcimg: "Y:/Stein/dcimg"                      # DCIMG recordings
+  live_frames: "Y:/Stein/Server/Live_Frames"          # Legacy: live preview frames
+  
+  # New unified camera paths (used by camera_server.py)
+  jpg_frames: "Y:/Xi/Data/jpg_frames"                 # Raw JPG frames from camera
+  jpg_frames_labelled: "Y:/Xi/Data/jpg_frames_labelled"  # Annotated/processed frames for Flask streaming
   
   # Settings paths
   dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
@@ -64,31 +68,29 @@ labview:
     - hd_shutter_2              # HD valve shutter 2
     - dds                       # DDS frequency control
 
-# Data Ingestion Server (receives telemetry from LabVIEW)
-data_ingestion:
-  enabled: true                 # Enable data ingestion server
-  host: "0.0.0.0"              # Listen on all interfaces
-  port: 5560                   # TCP port for LabVIEW data
-  timeout: 5.0                 # Socket timeout (seconds)
-  max_connections: 10          # Max concurrent connections
+# Telemetry Data - LabVIEW writes files to shared drive
+# Manager reads files from Y:/Xi/Data/telemetry/ into shared buffers
+# Flask displays data from these buffers
+# ARTIQ ndscan data comes via ZMQ (not files)
+telemetry:
+  enabled: true
   
-  # Data sources (LabVIEW programs that can send data)
-  sources:
-    - wavemeter                # Wavemeter.vi - laser frequency
-    - smile                    # SMILE.vi - PMT, pressure
-    - camera                   # Camera - position data
-    - artiq                    # ARTIQ - experimental data
-    - turbo                    # Turbo algorithm
+  # Where LabVIEW saves data files (relative to paths.output_base)
+  path: "telemetry"
   
-  # Telemetry channels
-  channels:
-    - laser_freq               # Laser frequency (MHz) - from wavemeter
-    - pmt                      # PMT counts - from SMILE
-    - pressure                 # Chamber pressure (mbar) - from SMILE
-    - pos_x                    # Ion X position - from camera
-    - pos_y                    # Ion Y position - from camera
-    - sig_x                    # Signal width X - from camera
-    - sig_y                    # Signal width Y - from camera
+  # Polling interval (seconds)
+  poll_interval: 1.0
+  
+  # Expected directory structure:
+  #   Y:/Xi/Data/telemetry/
+  #   ├── wavemeter/*.dat      - CSV: timestamp,frequency_mhz
+  #   ├── smile/pmt/*.dat      - CSV: timestamp,pmt_counts
+  #   ├── smile/pressure/*.dat - CSV: timestamp,pressure_mbar
+  #   └── camera/*.json        - JSON: pos_x, pos_y, sig_x, sig_y
+  
+  # Buffer configuration
+  max_points: 1000          # Max data points per channel
+  window_seconds: 300       # 5 minute rolling window
 
 hardware:
   # ARTIQ Worker defaults

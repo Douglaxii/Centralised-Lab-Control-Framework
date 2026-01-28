@@ -1,89 +1,135 @@
-# LabVIEW Data Integration Guide
+# LabVIEW Data Integration Guide (File-Based)
 
-This guide explains how to integrate data from your LabVIEW programs (Wavemeter.vi and SMILE.vi) into the Flask dashboard's telemetry display.
+This guide explains how to send data from your LabVIEW programs (Wavemeter.vi and SMILE.vi) to the Flask dashboard's telemetry display using **file-based communication** via the shared network drive `Y:\Xi\Data\`.
 
 ## Architecture Overview
 
 ```
 [Wavemeter.vi] ──┐
-                 ├──TCP:5560──> [Data Ingestion Server] ──┐
-[SMILE.vi] ──────┘                                       │
-                                                 [Shared Memory]
-                                                          │
-[Flask Server] <──────────────────────────────────────────┘
+                 ├──writes files──> Y:\Xi\Data\telemetry\ ──┐
+[SMILE.vi] ──────┘                                          │
+                                                            ├──┐
+[Camera Analysis] ──writes JSON──> Y:\Xi\Data\telemetry\ ──┘  │
+                                                              │
+                                                   [DataServer] (File Watcher)
+                                                              │
+[Flask Server] <──────────────────────────────────────────────┘
          │
          └──> [Web Browser] (Real-time plots)
 ```
 
 ## How It Works
 
-1. **Data Ingestion Server** (`server/communications/data_server.py`) listens on TCP port 5560
-2. **LabVIEW programs** connect and send JSON data over TCP
-3. **Server stores** data in shared rolling buffers (300-second window)
+1. **LabVIEW programs write data files** to `Y:\Xi\Data\telemetry\` subdirectories
+2. **DataServer** (running inside Manager) watches these directories for new files
+3. **Files are parsed** and data is stored in shared rolling buffers (5-minute window)
 4. **Flask reads** from shared buffers and streams to web dashboard
-5. **Dashboard displays** real-time plots with data from both LabVIEW and simulated sources
+5. **Dashboard displays** real-time plots with data from all sources
+
+## Why File-Based?
+
+- **Simple**: No TCP connections, sockets, or network code needed in LabVIEW
+- **Reliable**: Files act as a buffer - no data loss if Python is temporarily busy
+- **Debuggable**: Files are persistent - you can inspect what was sent
+- **Flexible**: LabVIEW PCs just need access to `Y:\` drive (already required for other data)
+
+## Directory Structure
+
+```
+Y:\Xi\Data\telemetry\
+├── wavemeter\              # Laser frequency data
+│   ├── freq_001.dat
+│   ├── freq_002.dat
+│   └── ...
+├── smile\
+│   ├── pmt\               # PMT counts
+│   │   ├── pmt_001.dat
+│   │   └── ...
+│   └── pressure\          # Chamber pressure
+│       ├── pres_001.dat
+│       └── ...
+└── camera\                # Ion position data (JSON)
+    ├── pos_001.json
+    └── ...
+```
 
 ## Configuration
-
-### 1. Server Configuration
 
 Edit `config/settings.yaml`:
 
 ```yaml
 data_ingestion:
   enabled: true
-  host: "0.0.0.0"        # Listen on all interfaces
-  port: 5560             # TCP port for LabVIEW data
-  timeout: 5.0
-  max_connections: 10
+  poll_interval: 0.5              # Check for new files every 500ms
+  delete_after_processing: false  # Keep original files (LabVIEW manages cleanup)
+  telemetry_path: "telemetry"     # Subdir under output_base
+  
+  sources:
+    wavemeter:
+      enabled: true
+      subdir: "wavemeter"
+      pattern: "*.dat"
+      format: "csv"              # timestamp,value
+      channel: "laser_freq"
+      
+    smile:
+      enabled: true
+      subdirs:
+        pmt: "smile/pmt"
+        pressure: "smile/pressure"
+      pattern: "*.dat"
+      format: "csv"
+      channels:
+        pmt: "pmt"
+        pressure: "pressure"
+        
+    camera:
+      enabled: true
+      subdir: "camera"
+      pattern: "*.json"
+      format: "json"
+      channels: ["pos_x", "pos_y", "sig_x", "sig_y"]
 ```
 
-### 2. LabVIEW Configuration
+## File Formats
 
-Ensure your LabVIEW programs connect to:
-- **IP Address**: IP of the Python server (e.g., `192.168.1.100`)
-- **Port**: `5560`
-- **Protocol**: TCP
+### CSV Format (Wavemeter, SMILE)
 
-## Data Protocol
+Simple text file with `timestamp,value` pairs:
 
-### JSON Format
+```csv
+1706380800.123,212.456789
+1706380800.623,212.456812
+1706380801.123,212.456798
+```
 
-Each data sample must be a single line of JSON terminated with newline (`\n`):
+**Fields:**
+- `timestamp`: Unix timestamp in seconds (with decimal for milliseconds)
+- `value`: The measurement value (float)
+
+**File naming:** Any `.dat` extension works. Suggested patterns:
+- `freq_YYYYMMDD_HHMMSS.dat`
+- `pmt_001.dat`
+- `pressure_temp.dat`
+
+### JSON Format (Camera Position Data)
+
+For multi-value data like camera position:
 
 ```json
-{"source": "wavemeter", "channel": "laser_freq", "value": 212.456789, "timestamp": 1706380800.123}
+{
+  "timestamp": 1706380800.123,
+  "pos_x": 150.5,
+  "pos_y": 220.3,
+  "sig_x": 5.2,
+  "sig_y": 4.8
+}
 ```
 
-### Required Fields
-
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `source` | string | Data source identifier | `"wavemeter"`, `"smile"` |
-| `channel` | string | Measurement channel | `"laser_freq"`, `"pmt"` |
-| `value` | float | The measurement value | `212.456789` |
-| `timestamp` | float | Unix timestamp (seconds) | `1706380800.123` |
-
-### Channel Mapping
-
-#### Wavemeter.vi Channels
-
-| Channel Name | Maps To | Description | Unit |
-|--------------|---------|-------------|------|
-| `laser_freq` | `laser_freq` | Laser frequency | MHz |
-| `frequency` | `laser_freq` | Alias | MHz |
-| `freq` | `laser_freq` | Alias | MHz |
-
-#### SMILE.vi Channels
-
-| Channel Name | Maps To | Description | Unit |
-|--------------|---------|-------------|------|
-| `pmt` | `pmt` | PMT photon counts | counts |
-| `pmt_counts` | `pmt` | Alias | counts |
-| `photon_counts` | `pmt` | Alias | counts |
-| `pressure` | `pressure` | Chamber pressure | mbar |
-| `chamber_pressure` | `pressure` | Alias | mbar |
-| `vacuum` | `pressure` | Alias | mbar |
+**Fields:**
+- `timestamp`: Unix timestamp (optional, defaults to file read time)
+- `pos_x`, `pos_y`: Ion position in pixels
+- `sig_x`, `sig_y`: Gaussian width / signal spread
 
 ## LabVIEW Implementation
 
@@ -93,75 +139,101 @@ Each data sample must be a single line of JSON terminated with newline (`\n`):
 ```
 [Initialize]
     │
-    ├─> [TCP Open Connection] ──> Server: "192.168.1.100", Port: 5560
-    │
     └─> [While Loop]
             │
             ├─> [Read Wavemeter] ──> Frequency (MHz)
             │
-            ├─> [Build JSON Cluster]
-            │       source: "wavemeter"
-            │       channel: "laser_freq"
-            │       value: <frequency>
-            │       timestamp: [Get Date/Time In Seconds]
+            ├─> [Get Date/Time In Seconds] ──> Timestamp
             │
-            ├─> [Flatten To JSON]
+            ├─> [Format Into String] ──> "%.3f,%.6f" (timestamp, frequency)
             │
-            ├─> [Concatenate Strings] ──> JSON + "\n"
+            ├─> [Build Path]
+            │       Base: "Y:\Xi\Data\telemetry\wavemeter\"
+            │       Filename: "freq_" + [Format Date/Time] + ".dat"
             │
-            ├─> [TCP Write]
+            ├─> [Write to Text File]
+            │       Content: timestamp + "," + frequency + "\n"
             │
             ├─> [Wait] ──> 100-500 ms
             │
             └─> [Check Stop]
 ```
 
-**JSON Output Example:**
-```json
-{"source": "wavemeter", "channel": "laser_freq", "value": 212.456789, "timestamp": 1706380800.123}
+**File Content Example:**
+```
+1706380800.123,212.456789
 ```
 
 ### SMILE.vi Example
 
-**Block Diagram:**
+**Block Diagram (PMT):**
 ```
 [Initialize]
-    │
-    ├─> [TCP Open Connection] ──> Server: "192.168.1.100", Port: 5560
     │
     └─> [While Loop]
             │
             ├─> [Read PMT] ──> Counts
-            ├─> [Build JSON] ──> source: "smile", channel: "pmt"
-            ├─> [TCP Write]
             │
-            ├─> [Read Pressure] ──> mbar  
-            ├─> [Build JSON] ──> source: "smile", channel: "pressure"
-            ├─> [TCP Write]
+            ├─> [Get Date/Time In Seconds] ──> Timestamp
+            │
+            ├─> [Format Into String] ──> "%.3f,%.1f" (timestamp, counts)
+            │
+            ├─> [Build Path]
+            │       Base: "Y:\Xi\Data\telemetry\smile\pmt\"
+            │       Filename: "pmt_" + [increment counter] + ".dat"
+            │
+            ├─> [Write to Text File]
+            │       Content: timestamp + "," + counts + "\n"
+            │
+            ├─> [Read Pressure Gauge] ──> Pressure (mbar)
+            │
+            ├─> [Write to Text File]
+            │       Path: "Y:\Xi\Data\telemetry\smile\pressure\pres_xxx.dat"
+            │       Content: timestamp + "," + pressure + "\n"
             │
             ├─> [Wait] ──> 100-500 ms
             │
             └─> [Check Stop]
 ```
 
-**JSON Output Examples:**
-```json
-{"source": "smile", "channel": "pmt", "value": 1250.0, "timestamp": 1706380800.123}
-{"source": "smile", "channel": "pressure", "value": 1.2e-10, "timestamp": 1706380800.124}
+**File Content Examples:**
+```
+# Y:\Xi\Data\telemetry\smile\pmt\pmt_001.dat
+1706380800.123,1250.0
+
+# Y:\Xi\Data\telemetry\smile\pressure\pres_001.dat  
+1706380800.124,1.2e-10
+```
+
+### Important LabVIEW Notes
+
+1. **File Permissions**: Ensure LabVIEW has write access to `Y:\Xi\Data\telemetry\`
+2. **Atomic Writes**: Write to a temp file, then rename to `.dat` to ensure complete writes
+3. **File Cleanup**: Implement periodic cleanup of old files (DataServer doesn't delete by default)
+4. **Rate Limiting**: Don't write too frequently - 1-10 Hz is usually sufficient
+
+**Recommended File Write Pattern (Atomic):**
+```
+1. Format data string: timestamp + "," + value + "\n"
+2. Generate temp filename: "Y:\...\wavemeter\freq_001.tmp"
+3. Write to temp file
+4. Rename to final filename: "freq_001.dat"
+   (This ensures DataServer never sees partial files)
 ```
 
 ## Starting the System
 
-### Step 1: Start Data Server
+### Step 1: Start Control Manager
+
+The DataServer runs automatically inside the Manager:
 
 ```bash
-python server/communications/data_server.py
+python server/communications/manager.py
 ```
 
 You should see:
 ```
-📊 Data Server listening on 0.0.0.0:5560
-   Ready for LabVIEW connections (Wavemeter.vi, SMILE.vi)
+INFO - DataServer started - watching Y:/Xi/Data/telemetry/
 ```
 
 ### Step 2: Start Flask Server
@@ -172,34 +244,45 @@ python server/Flask/flask_server.py
 
 ### Step 3: Start LabVIEW Programs
 
-Run your `Wavemeter.vi` and `SMILE.vi` programs.
+Run your `Wavemeter.vi` and `SMILE.vi` programs. They should start writing files to `Y:\Xi\Data\telemetry\`.
 
-### Step 4: Verify Connection
+### Step 4: Verify Data Flow
 
-In the Python console, you should see:
+Check that files are being created:
+```powershell
+# PowerShell
+Get-ChildItem Y:\Xi\Data\telemetry\wavemeter\ -Name
+Get-ChildItem Y:\Xi\Data\telemetry\smile\pmt\ -Name
 ```
-📡 Connection from ('192.168.1.50', 12345)
-Data: wavemeter/laser_freq = 212.457
-Data: smile/pmt = 1250.0
-Data: smile/pressure = 1.2e-10
+
+In the Manager console, you should see:
+```
+📈 Files: 12 | Sources active: 2/3 | Watchers: 3
 ```
 
 ## Testing Without LabVIEW
 
-Use the mock sender to test the system:
+Create test files manually:
 
-```bash
-# Simulate both wavemeter and SMILE
-python labview/mock_labview_sender.py --wavemeter --smile
+```powershell
+# Test wavemeter data
+"1706380800.123,212.456789" | Out-File -FilePath "Y:\Xi\Data\telemetry\wavemeter\test.dat"
 
-# Wavemeter only
-python labview/mock_labview_sender.py --wavemeter-only
+# Test SMILE PMT data  
+"1706380800.123,1250.0" | Out-File -FilePath "Y:\Xi\Data\telemetry\smile\pmt\test.dat"
 
-# SMILE only  
-python labview/mock_labview_sender.py --smile-only
+# Test pressure data
+"1706380800.123,1.2e-10" | Out-File -FilePath "Y:\Xi\Data\telemetry\smile\pressure\test.dat"
+```
 
-# Custom rates
-python labview/mock_labview_sender.py --wavemeter --smile --freq-rate 5.0 --pmt-rate 10.0
+Or use Python:
+```python
+import time
+
+# Write test data
+timestamp = time.time()
+with open("Y:/Xi/Data/telemetry/wavemeter/test.dat", "w") as f:
+    f.write(f"{timestamp},212.456789\n")
 ```
 
 ## API Endpoints
@@ -224,8 +307,18 @@ Response:
 {
   "status": "ok",
   "sources": {
-    "wavemeter": {"connected": true, "last_seen": 1706380800.5},
-    "smile": {"connected": true, "last_seen": 1706380800.4}
+    "wavemeter": {
+      "connected": true,
+      "last_seen": 1706380800.5,
+      "file_count": 120,
+      "last_value": 212.456
+    },
+    "smile": {
+      "connected": true,
+      "last_seen": 1706380800.4,
+      "file_count": 240,
+      "last_value": 1250.0
+    }
   }
 }
 ```
@@ -254,58 +347,58 @@ Response:
 
 The web dashboard shows:
 
-- **Status Bar**: Green dots indicate connected data sources (Wavemeter, SMILE)
+- **Status Bar**: Green dots indicate active data sources (Wavemeter, SMILE)
 - **Telemetry Plots**: 
   - **Laser Frequency** (MHz) - from Wavemeter.vi
   - **PMT** (counts) - from SMILE.vi
   - **Pressure** (mbar) - from SMILE.vi
-  - **Pos X/Y, Sig X/Y** - from camera (simulated if no real data)
+  - **Pos X/Y, Sig X/Y** - from camera image analysis
 
 ## Troubleshooting
 
-### LabVIEW Can't Connect
+### Files Not Being Processed
 
-1. **Check server is running:**
-   ```bash
-   python server/communications/data_server.py
+1. **Check paths exist:**
+   ```powershell
+   Test-Path "Y:\Xi\Data\telemetry\wavemeter"
+   Test-Path "Y:\Xi\Data\telemetry\smile\pmt"
    ```
 
-2. **Verify IP address:**
-   - LabVIEW must connect to Python server's IP
-   - If running on same PC: `127.0.0.1`
-   - If different PCs: Check network settings
+2. **Verify file format:**
+   ```powershell
+   Get-Content "Y:\Xi\Data\telemetry\wavemeter\test.dat"
+   # Should show: timestamp,value
+   ```
 
-3. **Check firewall:**
-   - Open port 5560 on Python server
-   - Allow LabVIEW through firewall
-
-4. **Test with mock sender:**
-   ```bash
-   python labview/mock_labview_sender.py --wavemeter --smile
+3. **Check DataServer logs:**
+   ```
+   INFO - Watching Y:\Xi\Data\telemetry\wavemeter for *.dat
    ```
 
 ### Data Not Showing in Plots
 
-1. **Check data format:**
-   - Ensure valid JSON
-   - Must end with newline (`\n`)
-   - Use correct source/channel names
+1. **Check file content format:**
+   - Must be: `timestamp,value` (no spaces, unless using TSV)
+   - Timestamp should be Unix epoch (seconds since 1970-01-01)
 
-2. **Verify in server console:**
-   - Should see "Data: wavemeter/laser_freq = ..."
+2. **Verify in Manager console:**
+   - Should see: `📈 Files: X | Sources active: Y/Z`
 
 3. **Check browser console:**
    - Open developer tools (F12)
-   - Check for JSON parse errors
+   - Check for SSE connection errors
 
-### Connection Drops
+### Permission Errors
 
-1. **Enable auto-reconnect in LabVIEW:**
-   - Try to reconnect every 5 seconds on failure
+1. **Check LabVIEW can write to Y: drive:**
+   - Test with simple file write in LabVIEW
+   - Check Windows file permissions
 
-2. **Check network stability:**
-   - Use wired connection if possible
-   - Check for IP conflicts
+2. **Verify Python can read:**
+   ```python
+   import os
+   print(os.listdir("Y:/Xi/Data/telemetry/wavemeter"))
+   ```
 
 ## Performance Considerations
 
@@ -316,71 +409,65 @@ Recommended maximum rates:
 - **PMT**: 10-100 Hz (depends on experiment)
 - **Pressure**: 0.1-1 Hz (slow changes)
 
+### File Management
+
+- DataServer **polls every 500ms** by default
+- Files are **NOT deleted** after processing (configurable)
+- Implement cleanup in LabVIEW to prevent disk full:
+  - Delete files older than 1 hour
+  - Or keep only last N files
+
 ### Buffer Size
 
 The server keeps:
-- **300 seconds** of history (5 minutes)
+- **5 minutes** (300 seconds) of history
 - **1000 data points** per channel (rolling buffer)
 
-Old data is automatically discarded.
+Old data is automatically discarded from memory (original files remain).
 
-### Network Bandwidth
+## Comparison: File-Based vs TCP-Based
 
-Typical bandwidth per source:
-- JSON overhead: ~100 bytes per sample
-- At 10 Hz: ~1 KB/s per channel
-- Negligible impact on modern networks
+| Aspect | File-Based (Current) | TCP-Based (Old) |
+|--------|---------------------|-----------------|
+| **Complexity** | Low - just write files | High - need TCP code |
+| **Reliability** | High - files buffer data | Medium - network issues |
+| **Latency** | ~500ms (poll interval) | ~10-100ms |
+| **Debug** | Easy - inspect files | Hard - wireshark needed |
+| **Rate Limit** | File system I/O | Network bandwidth |
 
-## Advanced Topics
-
-### Sending Multiple Channels
-
-You can send multiple channels in one TCP message:
-```json
-{"source": "smile", "channel": "pmt", "value": 1250, "timestamp": 1706380800.1}
-{"source": "smile", "channel": "pressure", "value": 1.2e-10, "timestamp": 1706380800.1}
-```
-
-### Custom Metadata
-
-Add extra fields (ignored by server, useful for debugging):
-```json
-{
-  "source": "wavemeter",
-  "channel": "laser_freq",
-  "value": 212.456,
-  "timestamp": 1706380800.123,
-  "unit": "MHz",
-  "laser_name": "369nm_cooling",
-  "labview_version": "2021"
-}
-```
-
-### Multiple LabVIEW Instances
-
-You can run multiple VIs on different PCs, all sending to the same server:
-- Wavemeter PC: `192.168.1.10`
-- SMILE PC: `192.168.1.20`
-- Python Server: `192.168.1.100:5560`
+For most lab telemetry (slow-changing values), file-based is preferred for simplicity.
 
 ## Complete Startup Sequence
 
 ```bash
-# Terminal 1: Data Ingestion Server
-python server/communications/data_server.py
-
-# Terminal 2: Control Manager
+# Terminal 1: Control Manager (includes DataServer)
 python server/communications/manager.py
 
-# Terminal 3: Flask Web Server
+# Terminal 2: Flask Web Server
 python server/Flask/flask_server.py
 
-# (Optional) Terminal 4: Mock LabVIEW for testing
-python labview/mock_labview_sender.py --wavemeter --smile
+# (Optional) Terminal 3: Test file writer
+python -c "
+import time
+while True:
+    with open('Y:/Xi/Data/telemetry/wavemeter/test.dat', 'a') as f:
+        f.write(f'{time.time()},{212.456 + 0.001 * (time.time() % 10)}\n')
+    time.sleep(1)
+"
 ```
 
 Then:
-1. Start LabVIEW VIs (or use mock sender)
+1. Start LabVIEW VIs (they write files to `Y:\Xi\Data\telemetry\`)
 2. Open browser to `http://localhost:5000`
 3. Verify data sources show green dots
 4. Watch telemetry plots update in real-time
+
+## Migration from TCP
+
+If you were using the old TCP-based data ingestion:
+
+1. **Stop using `DataIngestionServer`** class - it's been replaced by `DataServer`
+2. **Remove TCP connection code** from LabVIEW
+3. **Replace with file write code** (see examples above)
+4. **Update file paths** in config if needed
+5. **Test file creation** before starting full system
