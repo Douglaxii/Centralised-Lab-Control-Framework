@@ -1,0 +1,160 @@
+"""
+WAVEMETER DATA SENDER - LabVIEW VI Documentation
+
+This describes how to implement a LabVIEW VI that sends laser frequency
+data to the Python Data Ingestion Server.
+
+VI NAME: Wavemeter_Data_Sender.vi
+PURPOSE: Send laser frequency from wavemeter to Python server
+TARGET:  server/communications/data_server.py (port 5560)
+
+================================================================================
+BLOCK DIAGRAM STRUCTURE
+================================================================================
+
+[Main Loop]
+    |
+    ├─ [TCP Open Connection]
+    │     Server: "192.168.1.100" (or Python PC IP)
+    │     Port: 5560
+    │     Timeout: 5000 ms
+    |
+    ├─ [While Loop: Acquisition]
+    |     |
+    |     ├─ [Read Wavemeter]
+    |     |     Output: Frequency (MHz)
+    |     |
+    |     ├─ [Build JSON]
+    |     |     {
+    |     |       "source": "wavemeter",
+    |     |       "channel": "laser_freq",
+    |     |       "value": <frequency>,
+    |     |       "timestamp": <current_time>
+    |     |     }
+    |     |
+    |     ├─ [Add Newline]
+    |     |     JSON + "\n"
+    |     |
+    |     ├─ [TCP Write]
+    |     |     Send to Python server
+    |     |
+    |     ├─ [Wait]
+    |     |     Delay: 100-500 ms (adjust as needed)
+    |     |
+    |     └─ [Check Stop]
+    |
+    └─ [TCP Close Connection]
+
+================================================================================
+FRONT PANEL CONTROLS
+================================================================================
+
+Controls:
+  - Server IP (String): IP of Python server [192.168.1.100]
+  - Port (I32): Data server port [5560]
+  - Update Rate (ms): Loop delay [100-500 ms]
+  - Frequency Input (DBL): From wavemeter hardware
+  
+Indicators:
+  - Connection Status (LED): TCP connection state
+  - Samples Sent (I32): Total samples transmitted
+  - Error Out (Cluster): Error information
+
+================================================================================
+JSON FORMAT DETAILS
+================================================================================
+
+Required Fields:
+  {
+    "source": "wavemeter",      // Must be "wavemeter" for the server
+    "channel": "laser_freq",    // Can be: "laser_freq", "frequency", "wavemeter"
+    "value": 212.456789,        // Frequency in MHz (floating point)
+    "timestamp": 1706380800.123 // Unix timestamp (seconds since epoch)
+  }
+
+The timestamp is optional - if not provided, server uses receive time.
+
+================================================================================
+LABVIEW CODE SNIPPETS
+================================================================================
+
+1. BUILD JSON STRING (Using Unflatten/Flatten JSON)
+   
+   Create cluster type:
+   Type Def: WavemeterData.ctl
+   {
+     source: String
+     channel: String
+     value: Double
+     timestamp: Double
+   }
+   
+   Block Diagram:
+   [WavemeterData Cluster] --┬--> [Flatten To JSON] --> [String]
+                              |
+   [Get Date/Time In Seconds]─┘
+
+2. TCP COMMUNICATION
+   
+   Initialize (Outside Loop):
+   [TCP Open Connection]
+   - Remote Address: "192.168.1.100"
+   - Remote Port: 5560
+   - Connection ID: (wire to shift register)
+   
+   Inside Loop:
+   [TCP Write]
+   - Connection ID: (from shift register)
+   - Data: JSON String + Line Feed (\n)
+   
+   Cleanup:
+   [TCP Close Connection]
+
+3. RECONNECTION LOGIC
+   
+   [TCP Write] --Error?--> [Case Structure]
+                           True: [TCP Close] --> [TCP Open] --> [Continue]
+                           False: [Continue]
+
+================================================================================
+ERROR HANDLING
+================================================================================
+
+Common Errors:
+  - Connection refused: Python server not running
+  - Timeout: Network issues or server overloaded
+  - Broken pipe: Server restarted, need to reconnect
+
+Recommended Actions:
+  1. Log error with timestamp
+  2. Close TCP connection
+  3. Wait 1-5 seconds
+  4. Attempt reconnection
+  5. Resume data transmission
+
+================================================================================
+TESTING
+================================================================================
+
+1. Start Python Data Server:
+   python server/communications/data_server.py
+   
+2. Run this VI with test values
+
+3. Check Python console - should see:
+   "Data: wavemeter/laser_freq = 212.457"
+
+4. Open web dashboard to see frequency plot updating
+
+================================================================================
+EXAMPLE JSON MESSAGES
+================================================================================
+
+Single sample:
+  {"source":"wavemeter","channel":"laser_freq","value":212.456789,"timestamp":1706380800.123}
+
+With optional fields:
+  {"source":"wavemeter","channel":"laser_freq","value":212.456789,"timestamp":1706380800.123,"unit":"MHz","laser_id":"laser_369nm"}
+
+Note: Server ignores unknown fields, so you can add metadata safely.
+"""

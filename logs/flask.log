@@ -1,0 +1,94 @@
+2026-01-27 20:12:22,239 - [flask] - INFO - ==================================================
+2026-01-27 20:12:22,239 - [flask] - INFO - Flask server starting...
+2026-01-27 20:28:07,842 - [flask] - INFO - ==================================================
+2026-01-27 20:28:07,842 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-27 20:28:20,431 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:28:25,448 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:28:30,461 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:28:35,469 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:28:40,474 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:28:45,488 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:28:50,507 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:28:55,519 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:29:00,535 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:29:05,544 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:29:10,561 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:29:15,574 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:29:20,579 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:29:25,592 - [flask] - ERROR - Manager request timeout
+2026-01-27 20:29:27,305 - [flask] - ERROR - Manager request failed: Context was terminated
+2026-01-27 20:29:27,306 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 20:29:27,307 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 20:29:27,307 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 20:29:27,308 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 20:29:27,308 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 20:29:27,309 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 20:29:27,310 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 20:29:27,310 - [flask] - ERROR - Manager request failed: not a socket
+2026-01-27 21:03:28,455 - [flask] - INFO - ============================================================
+2026-01-27 21:03:28,456 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-27 21:03:28,456 - [flask] - INFO - Manager: 192.168.1.100:5557
+2026-01-27 21:03:28,456 - [flask] - INFO - Camera frames path: Y:\Stein\Server\Live_Frames
+2026-01-27 21:03:40,363 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:03:45,376 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 21:03:45,478 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:03:50,491 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 21:03:58,220 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:03,225 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 21:04:03,327 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:06,469 - [flask] - INFO - [Turbo] Iteration 5: Convergence delta 0.0886
+2026-01-27 21:04:08,333 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 21:04:08,333 - [flask] - INFO - [Turbo] ALGORITHM RUNNING: Turbo optimization enabled
+2026-01-27 21:04:08,335 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:13,347 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 21:04:13,449 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:16,478 - [flask] - INFO - [Turbo] Turbo: Optimizing Pos_x...
+2026-01-27 21:04:18,451 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 21:04:18,454 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:18,456 - [flask] - WARNING - SAFETY SHUTDOWN TRIGGERED - Stopping algorithm and resetting hardware
+2026-01-27 21:04:20,479 - [flask] - ERROR - [Turbo] ERROR: Optimization diverging. Resetting weights.
+2026-01-27 21:04:23,460 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 21:04:23,563 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:26,485 - [flask] - INFO - [Turbo] Iteration 5: Convergence delta 0.0874
+2026-01-27 21:04:28,567 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 21:04:28,569 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:33,582 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 21:04:33,685 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:36,492 - [flask] - INFO - [Turbo] Turbo: Optimizing Pos_y...
+2026-01-27 21:04:38,707 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 21:04:38,709 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:41,719 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 21:04:41,821 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 21:04:43,285 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-27 21:04:43,285 - [flask] - ERROR - ZMQ error: Context was terminated
+2026-01-27 21:04:43,286 - [flask] - ERROR - ZMQ error: Context was terminated
+2026-01-27 21:04:43,286 - [flask] - INFO - Cleanup complete
+2026-01-27 22:40:36,077 - [flask] - INFO - ============================================================
+2026-01-27 22:40:36,077 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-27 22:40:36,078 - [flask] - INFO - Manager: 192.168.1.100:5557
+2026-01-27 22:40:36,078 - [flask] - INFO - Camera frames path: Y:\Stein\Server\Live_Frames
+2026-01-27 22:42:12,973 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-27 22:42:12,973 - [flask] - INFO - Cleanup complete
+2026-01-27 23:36:28,974 - [flask] - INFO - ============================================================
+2026-01-27 23:36:28,975 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-27 23:36:28,975 - [flask] - INFO - Manager: 192.168.1.100:5557
+2026-01-27 23:36:28,975 - [flask] - INFO - Camera frames path: Y:\Stein\Server\Live_Frames
+2026-01-27 23:36:37,345 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:36:42,359 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 23:36:42,462 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:36:47,469 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 23:37:07,119 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:37:12,123 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 23:37:12,225 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:37:17,238 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 23:37:17,240 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:37:22,245 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 23:37:22,347 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:37:27,355 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-27 23:37:27,357 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:37:32,369 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-27 23:37:32,471 - [flask] - INFO - Connected to manager at 192.168.1.100:5557
+2026-01-27 23:37:36,060 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-27 23:37:36,061 - [flask] - ERROR - ZMQ error: Context was terminated
+2026-01-27 23:37:36,062 - [flask] - ERROR - ZMQ error: Bad address
+2026-01-27 23:37:36,062 - [flask] - INFO - Cleanup complete

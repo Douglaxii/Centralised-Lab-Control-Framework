@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ion Trap Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #F9FAFB;
+            --bg-card: #FFFFFF;
+            --bg-console: #F3F4F6;
+            --border-primary: #E5E7EB;
+            --border-focus: #3B82F6;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --text-data: #374151;
+            --accent-blue: #3B82F6;
+            --accent-blue-hover: #2563EB;
+            --accent-green: #10B981;
+            --accent-green-light: #D1FAE5;
+            --accent-red: #EF4444;
+            --accent-red-light: #FEE2E2;
+            --accent-yellow: #F59E0B;
+            --accent-cyan: #06B6D4;
+            --accent-purple: #8B5CF6;
+            --accent-orange: #F97316;
+            --spacing-xs: 2px;
+            --spacing-sm: 4px;
+            --spacing-md: 8px;
+            --spacing-lg: 12px;
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Status Bar - Compact */
+        .status-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-primary);
+            padding: var(--spacing-sm) var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .mode-indicator {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-primary);
+        }
+
+        .mode-MANUAL { background: #FEF3C7; color: #92400E; border-color: #F59E0B; }
+        .mode-AUTO { background: var(--accent-green-light); color: #065F46; border-color: var(--accent-green); }
+        .mode-SAFE { background: var(--accent-red-light); color: #991B1B; border-color: var(--accent-red); }
+
+        .system-status {
+            display: flex;
+            gap: var(--spacing-lg);
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent-green);
+        }
+
+        .status-dot.inactive { background-color: var(--text-muted); }
+        .status-dot.warning { background-color: var(--accent-yellow); }
+        .status-dot.error { background-color: var(--accent-red); }
+
+        /* Main Layout */
+        .dashboard-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md);
+            overflow: hidden;
+        }
+
+        /* Left Column */
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* Camera Section - No Header */
+        .camera-section {
+            flex: 3;
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .camera-container {
+            flex: 1;
+            position: relative;
+            background: #0a0c14;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .camera-feed {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: var(--spacing-sm);
+            left: var(--spacing-sm);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            color: white;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+        }
+
+        .camera-info {
+            position: absolute;
+            bottom: var(--spacing-sm);
+            right: var(--spacing-sm);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            color: white;
+            font-size: 0.7rem;
+            text-align: right;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #10B981;
+            font-weight: 600;
+        }
+
+        .live-indicator.warning { color: #F59E0B; }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .delay-warning {
+            position: absolute;
+            bottom: var(--spacing-sm);
+            left: var(--spacing-sm);
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .delay-warning.visible { display: block; }
+
+        /* Controls Section - Compact */
+        .controls-section {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .controls-content {
+            flex: 1;
+            padding: var(--spacing-sm);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
+            overflow: hidden;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: var(--spacing-sm);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .control-label {
+            font-size: 0.65rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Compact Input Styles */
+        .input-row {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .voltage-input, .freq-input {
+            width: 60px;
+            padding: 2px 4px;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .voltage-input:focus, .freq-input:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        .unit {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .btn {
+            padding: 2px 8px;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .btn:hover { background: var(--bg-primary); }
+        .btn:active { transform: translateY(1px); }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .btn-primary:hover { background: var(--accent-blue-hover); }
+
+        .btn-toggle {
+            padding: 2px 6px;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+            font-size: 0.7rem;
+            cursor: pointer;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+        }
+
+        .btn-toggle:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+        .btn-toggle.active { background: var(--accent-blue); border-color: var(--accent-blue); color: white; }
+
+        .btn-hold {
+            background: var(--accent-red-light);
+            color: var(--accent-red);
+            border-color: var(--accent-red);
+        }
+
+        .btn-hold:hover { background: var(--accent-red); color: white; }
+
+        .toggle-group {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        /* Slider - Compact */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .slider {
+            width: 80px;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border-primary);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        .slider-value {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-data);
+            min-width: 45px;
+            text-align: right;
+        }
+
+        .control-divider {
+            width: 1px;
+            background: var(--border-primary);
+            margin: 0 4px;
+        }
+
+        /* Right Column - Telemetry */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* Telemetry Section - Full Height */
+        .telemetry-section {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .telemetry-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: var(--spacing-sm);
+            gap: var(--spacing-sm);
+            overflow-y: auto;
+        }
+
+        .telemetry-tile {
+            flex: 1;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+        }
+
+        .telemetry-label {
+            width: 70px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .telemetry-chart-container {
+            flex: 1;
+            height: 100%;
+            min-height: 40px;
+            position: relative;
+        }
+
+        .telemetry-chart {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Time Axis */
+        .time-axis-container {
+            padding: 2px var(--spacing-sm);
+            border-top: 1px solid var(--border-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body>
+    <!-- Status Bar - Minimal -->
+    <div class="status-bar">
+        <div class="mode-indicator mode-MANUAL" id="mode_indicator">
+            <span id="mode_text">MANUAL</span>
+        </div>
+        <div class="system-status">
+            <div class="status-item">
+                <span class="status-dot" id="worker_dot"></span>
+                <span>ARTIQ</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot" id="wavemeter_dot"></span>
+                <span>Wave</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot" id="smile_dot"></span>
+                <span>SMILE</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot" id="camera_dot"></span>
+                <span>Cam</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="dashboard-container">
+        <!-- LEFT COLUMN: Camera + Controls -->
+        <div class="left-column">
+            <!-- Camera - No Header -->
+            <div class="camera-section">
+                <div class="camera-container">
+                    <img src="/video_feed" class="camera-feed" id="camera_feed" alt="CCD">
+                    <div class="camera-overlay">
+                        <div class="live-indicator" id="live_indicator">
+                            <span class="live-dot"></span>
+                            <span>LIVE</span>
+                        </div>
+                    </div>
+                    <div class="camera-info">
+                        <div>Pos: <span id="ion_pos">--, --</span></div>
+                        <div>Lat: <span id="latency_val">--</span>ms</div>
+                    </div>
+                    <div class="delay-warning" id="delay_warning">High Delay</div>
+                </div>
+            </div>
+
+            <!-- Controls - Compact Grid -->
+            <div class="controls-section">
+                <div class="controls-content">
+                    <!-- Row 1: RF & DDS -->
+                    <div class="control-grid">
+                        <div class="control-group">
+                            <span class="control-label">RF (V)</span>
+                            <div class="input-row">
+                                <input type="number" class="voltage-input" id="u_rf" value="200" min="0" max="500" step="1">
+                                <button class="btn btn-primary" onclick="setRF()">Set</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <span class="control-label">DDS (kHz)</span>
+                            <div class="input-row">
+                                <input type="number" class="freq-input" id="dds_freq" value="0" min="0" max="500" step="1">
+                                <button class="btn btn-primary" onclick="setDDSFreq()">Set</button>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <span class="control-label">DDS Profile</span>
+                            <select class="btn" id="dds_profile" onchange="setDDSProfile()" style="width: 80px; font-size: 0.7rem; padding: 2px;">
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Electrodes -->
+                    <div class="control-grid">
+                        <div class="control-group">
+                            <span class="control-label">EC1</span>
+                            <div class="input-row">
+                                <input type="number" class="voltage-input" id="ec1" value="0" step="0.1">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <span class="control-label">EC2</span>
+                            <div class="input-row">
+                                <input type="number" class="voltage-input" id="ec2" value="0" step="0.1">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <span class="control-label">Comp</span>
+                            <div class="input-row">
+                                <input type="number" class="voltage-input" id="comp_h" value="0" step="0.1" placeholder="H" style="width: 35px;">
+                                <input type="number" class="voltage-input" id="comp_v" value="0" step="0.1" placeholder="V" style="width: 35px;">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <button class="btn btn-primary" onclick="submitElectrodes()" style="padding: 2px 12px;">Apply Electrodes</button>
+                    </div>
+
+                    <!-- Row 3: Piezo -->
+                    <div class="control-group">
+                        <span class="control-label">Piezo (0-4V)</span>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="piezo_slider" min="0" max="4" step="0.01" value="0" oninput="updatePiezoValue(this.value)">
+                            <span class="slider-value" id="piezo_value">0.00 V</span>
+                            <button class="btn" onclick="setPiezo()">Set</button>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Toggles -->
+                    <div style="display: flex; gap: var(--spacing-md); align-items: flex-start;">
+                        <div class="control-group" style="flex: 1;">
+                            <span class="control-label">Hardware</span>
+                            <div class="toggle-group">
+                                <button class="btn-toggle" id="toggle_bephi" onclick="toggleButton('bephi')">Bephi</button>
+                                <button class="btn-toggle active" id="toggle_b_field" onclick="toggleButton('b_field')">B</button>
+                                <button class="btn-toggle" id="toggle_be_oven" onclick="toggleButton('be_oven')">Oven</button>
+                            </div>
+                        </div>
+                        <div class="control-group" style="flex: 1;">
+                            <span class="control-label">Lasers</span>
+                            <div class="toggle-group">
+                                <button class="btn-toggle" id="toggle_uv3" onclick="toggleButton('uv3')">UV3</button>
+                                <button class="btn-toggle btn-hold" id="toggle_e_gun" 
+                                        onmousedown="setToggle('e_gun', true)" 
+                                        onmouseup="setToggle('e_gun', false)"
+                                        onmouseleave="setToggle('e_gun', false)">e-gun</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Telemetry (Full Height) -->
+        <div class="right-column">
+            <div class="telemetry-section">
+                <div class="telemetry-container">
+                    <!-- Combined Position Plot -->
+                    <div class="telemetry-tile">
+                        <span class="telemetry-label">Position</span>
+                        <div class="telemetry-chart-container">
+                            <canvas id="chart_pos" class="telemetry-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Combined Sigma Plot -->
+                    <div class="telemetry-tile">
+                        <span class="telemetry-label">Sigma</span>
+                        <div class="telemetry-chart-container">
+                            <canvas id="chart_sig" class="telemetry-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Pressure -->
+                    <div class="telemetry-tile">
+                        <span class="telemetry-label">Pressure</span>
+                        <div class="telemetry-chart-container">
+                            <canvas id="chart_pressure" class="telemetry-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- Laser Frequency -->
+                    <div class="telemetry-tile">
+                        <span class="telemetry-label">Laser</span>
+                        <div class="telemetry-chart-container">
+                            <canvas id="chart_laser_freq" class="telemetry-chart"></canvas>
+                        </div>
+                    </div>
+                    <!-- PMT (with time labels) -->
+                    <div class="telemetry-tile">
+                        <span class="telemetry-label">PMT</span>
+                        <div class="telemetry-chart-container">
+                            <canvas id="chart_pmt" class="telemetry-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="time-axis-container" id="time_axis">
+                    <span>Time →</span>
+                    <span id="time_ticks"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart Colors
+        const chartColors = {
+            pos_x: { border: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' },
+            pos_y: { border: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' },
+            sig_x: { border: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
+            sig_y: { border: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' },
+            pressure: { border: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' },
+            laser_freq: { border: '#06B6D4', bg: 'rgba(6, 182, 212, 0.1)' },
+            pmt: { border: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' }
+        };
+
+        // Create Position Chart (Dual Y-Axis)
+        const posCtx = document.getElementById('chart_pos').getContext('2d');
+        const posChart = new Chart(posCtx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'X',
+                        data: [],
+                        borderColor: chartColors.pos_x.border,
+                        backgroundColor: chartColors.pos_x.bg,
+                        borderWidth: 1.5,
+                        yAxisID: 'y',
+                        fill: false
+                    },
+                    {
+                        label: 'Y',
+                        data: [],
+                        borderColor: chartColors.pos_y.border,
+                        backgroundColor: chartColors.pos_y.bg,
+                        borderWidth: 1.5,
+                        yAxisID: 'y1',
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { intersect: false },
+                plugins: { legend: { display: true, labels: { font: { size: 9 }, boxWidth: 10 } } },
+                scales: {
+                    x: { display: true, ticks: { display: false }, grid: { display: false } },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        min: 140,
+                        max: 180,
+                        grid: { color: '#E5E7EB', drawBorder: false },
+                        ticks: { color: chartColors.pos_x.border, font: { size: 8 }, maxTicksLimit: 3 }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        min: 200,
+                        max: 500,
+                        grid: { display: false },
+                        ticks: { color: chartColors.pos_y.border, font: { size: 8 }, maxTicksLimit: 3 }
+                    }
+                },
+                elements: { line: { tension: 0.1 }, point: { radius: 0, hitRadius: 10 } }
+            }
+        });
+
+        // Create Sigma Chart (Single Y-Axis)
+        const sigCtx = document.getElementById('chart_sig').getContext('2d');
+        const sigChart = new Chart(sigCtx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'X',
+                        data: [],
+                        borderColor: chartColors.sig_x.border,
+                        borderWidth: 1.5,
+                        fill: false
+                    },
+                    {
+                        label: 'Y',
+                        data: [],
+                        borderColor: chartColors.sig_y.border,
+                        borderWidth: 1.5,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: { legend: { display: true, labels: { font: { size: 9 }, boxWidth: 10 } } },
+                scales: {
+                    x: { display: true, ticks: { display: false }, grid: { display: false } },
+                    y: {
+                        display: true,
+                        grid: { color: '#E5E7EB', drawBorder: false },
+                        ticks: { font: { size: 8 }, maxTicksLimit: 3 }
+                    }
+                },
+                elements: { line: { tension: 0.1 }, point: { radius: 0, hitRadius: 10 } }
+            }
+        });
+
+        // Create Standard Charts
+        function createStandardChart(canvasId, colorKey) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const color = chartColors[colorKey];
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        data: [],
+                        borderColor: color.border,
+                        backgroundColor: color.bg,
+                        borderWidth: 1.5,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: true, ticks: { display: false }, grid: { display: false } },
+                        y: {
+                            display: true,
+                            grid: { color: '#E5E7EB', drawBorder: false },
+                            ticks: { color: '#9CA3AF', font: { size: 8, family: 'Fira Code' }, maxTicksLimit: 3 }
+                        }
+                    },
+                    elements: { line: { tension: 0.1 }, point: { radius: 0, hitRadius: 10 } }
+                }
+            });
+        }
+
+        const pressureChart = createStandardChart('chart_pressure', 'pressure');
+        const laserChart = createStandardChart('chart_laser_freq', 'laser_freq');
+        const pmtChart = createStandardChart('chart_pmt', 'pmt');
+
+        // Time formatting: YYYYMMDDHHMMSS -> MM:SS
+        function formatTime(timestamp) {
+            const str = String(timestamp);
+            if (str.length >= 12) {
+                const mm = str.slice(8, 10);
+                const ss = str.slice(10, 12);
+                return `${mm}:${ss}`;
+            }
+            return str;
+        }
+
+        // Update Time Axis
+        function updateTimeAxis(times) {
+            if (!times || times.length === 0) return;
+            const ticks = [];
+            const step = Math.max(1, Math.floor(times.length / 5));
+            for (let i = 0; i < times.length; i += step) {
+                ticks.push(formatTime(times[i]));
+            }
+            document.getElementById('time_ticks').textContent = ticks.join(' | ');
+        }
+
+        // Telemetry Stream
+        const telemetrySource = new EventSource('/api/telemetry/stream');
+        
+        telemetrySource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                
+                // Update Position Chart (Dual Axis)
+                if (data.pos_x && data.pos_y) {
+                    const xValues = data.pos_x.map(p => typeof p === 'object' ? p.v : p);
+                    const yValues = data.pos_y.map(p => typeof p === 'object' ? p.v : p);
+                    posChart.data.datasets[0].data = xValues;
+                    posChart.data.datasets[1].data = yValues;
+                    posChart.update('none');
+                }
+                
+                // Update Sigma Chart
+                if (data.sig_x && data.sig_y) {
+                    const xValues = data.sig_x.map(p => typeof p === 'object' ? p.v : p);
+                    const yValues = data.sig_y.map(p => typeof p === 'object' ? p.v : p);
+                    sigChart.data.datasets[0].data = xValues;
+                    sigChart.data.datasets[1].data = yValues;
+                    sigChart.update('none');
+                }
+                
+                // Update Standard Charts
+                if (data.pressure) {
+                    pressureChart.data.datasets[0].data = data.pressure.map(p => typeof p === 'object' ? p.v : p);
+                    pressureChart.update('none');
+                }
+                if (data.laser_freq) {
+                    laserChart.data.datasets[0].data = data.laser_freq.map(p => typeof p === 'object' ? p.v : p);
+                    laserChart.update('none');
+                }
+                if (data.pmt) {
+                    pmtChart.data.datasets[0].data = data.pmt.map(p => typeof p === 'object' ? p.v : p);
+                    pmtChart.update('none');
+                }
+                
+                // Update time axis from timestamps
+                if (data.pmt && data.pmt.length > 0) {
+                    const times = data.pmt.map(p => typeof p === 'object' ? p.t : Date.now() / 1000);
+                    updateTimeAxis(times);
+                }
+                
+                // Update camera info
+                if (data.camera) {
+                    updateCameraDisplay(data.camera);
+                }
+                
+                // Update data sources
+                if (data.data_sources) {
+                    updateDataSources(data.data_sources);
+                }
+                
+            } catch (e) {
+                console.error('Telemetry parse error:', e);
+            }
+        };
+
+        function updateCameraDisplay(camera) {
+            const latencyEl = document.getElementById('latency_val');
+            const liveIndicator = document.getElementById('live_indicator');
+            const delayWarning = document.getElementById('delay_warning');
+            
+            if (latencyEl) latencyEl.textContent = camera.latency_ms ? camera.latency_ms.toFixed(0) : '--';
+            if (liveIndicator) liveIndicator.classList.toggle('warning', camera.high_delay_warning);
+            if (delayWarning) delayWarning.classList.toggle('visible', camera.high_delay_warning);
+            
+            const cameraDot = document.getElementById('camera_dot');
+            if (cameraDot) cameraDot.className = 'status-dot' + (camera.is_live ? '' : ' inactive');
+        }
+
+        function updateDataSources(sources) {
+            if (!sources) return;
+            
+            const wavemeterDot = document.getElementById('wavemeter_dot');
+            const smileDot = document.getElementById('smile_dot');
+            
+            if (wavemeterDot && sources.wavemeter) {
+                wavemeterDot.className = 'status-dot' + (sources.wavemeter.connected ? '' : ' inactive');
+            }
+            if (smileDot && sources.smile) {
+                smileDot.className = 'status-dot' + (sources.smile.connected ? '' : ' inactive');
+            }
+        }
+
+        // Control Functions
+        async function setRF() {
+            const u_rf = parseFloat(document.getElementById('u_rf').value);
+            if (u_rf < 0 || u_rf > 500) { alert('RF must be 0-500V'); return; }
+            
+            try {
+                const resp = await fetch('/api/control/rf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ u_rf_volts: u_rf })
+                });
+                const data = await resp.json();
+                if (data.status !== 'success') console.error('RF set failed:', data.message);
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        async function setDDSFreq() {
+            const freq = parseFloat(document.getElementById('dds_freq').value);
+            if (freq < 0 || freq > 500) { alert('DDS must be 0-500kHz'); return; }
+            
+            try {
+                const resp = await fetch('/api/control/dds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ freq_khz: freq })
+                });
+                const data = await resp.json();
+                if (data.status !== 'success') console.error('DDS freq set failed:', data.message);
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        async function setDDSProfile() {
+            const profile = parseInt(document.getElementById('dds_profile').value);
+            try {
+                const resp = await fetch('/api/control/dds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile })
+                });
+                const data = await resp.json();
+                if (data.status !== 'success') console.error('DDS set failed:', data.message);
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        async function submitElectrodes() {
+            const params = {
+                ec1: parseFloat(document.getElementById('ec1').value),
+                ec2: parseFloat(document.getElementById('ec2').value),
+                comp_h: parseFloat(document.getElementById('comp_h').value),
+                comp_v: parseFloat(document.getElementById('comp_v').value)
+            };
+            
+            try {
+                const resp = await fetch('/api/control/electrodes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(params)
+                });
+                const data = await resp.json();
+                if (data.status !== 'success') console.error('Electrodes failed:', data.message);
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        function updatePiezoValue(value) {
+            document.getElementById('piezo_value').textContent = parseFloat(value).toFixed(2) + ' V';
+        }
+
+        async function setPiezo() {
+            const piezo = parseFloat(document.getElementById('piezo_slider').value);
+            if (piezo < 0 || piezo > 4) { alert('Piezo must be 0-4V'); return; }
+            
+            try {
+                const resp = await fetch('/api/control/piezo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ piezo })
+                });
+                const data = await resp.json();
+                if (data.status !== 'success') console.error('Piezo failed:', data.message);
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        async function toggleButton(name) {
+            const btn = document.getElementById(`toggle_${name}`);
+            const newState = !btn.classList.contains('active');
+            await setToggle(name, newState);
+        }
+
+        async function setToggle(name, state) {
+            const btn = document.getElementById(`toggle_${name}`);
+            if (!btn) return;
+            
+            try {
+                const resp = await fetch(`/api/control/toggle/${name}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state })
+                });
+                const data = await resp.json();
+                if (data.status === 'success') btn.classList.toggle('active', state);
+            } catch (e) { console.error('Error:', e); }
+        }
+
+        // Initialize status
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.mode) {
+                    const modeInd = document.getElementById('mode_indicator');
+                    const modeText = document.getElementById('mode_text');
+                    modeInd.className = `mode-indicator mode-${data.mode}`;
+                    modeText.textContent = data.mode;
+                }
+                if (data.worker_alive !== undefined) {
+                    const workerDot = document.getElementById('worker_dot');
+                    workerDot.className = 'status-dot' + (data.worker_alive ? '' : ' inactive');
+                }
+            })
+            .catch(e => console.error('Status fetch failed:', e));
+
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            posChart.resize();
+            sigChart.resize();
+            pressureChart.resize();
+            laserChart.resize();
+            pmtChart.resize();
+        });
+    </script>
+</body>
+</html>
