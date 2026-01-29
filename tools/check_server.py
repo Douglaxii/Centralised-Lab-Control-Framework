@@ -56,7 +56,7 @@ if missing:
 # Check paths exist
 print("\n[4] Checking Paths...")
 try:
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from core import get_config
     config = get_config()
     paths_to_check = [

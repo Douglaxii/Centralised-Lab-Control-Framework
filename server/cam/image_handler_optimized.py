@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Optimized Image Handler for Intel Core i9 + NVIDIA T400
+Optimized Image Handler for Intel Core i9 + NVIDIA Quadro P400
 - Numba JIT compilation for CPU-intensive functions
 - Parallel processing support
 - Optional GPU acceleration for OpenCV operations
@@ -112,7 +112,7 @@ class GPUAccelerator:
                 cv2.cuda.setDevice(0)
                 self.cuda_device = cv2.cuda.Device(0)
                 self.has_cuda = True
-                print(f"[ImageHandler] NVIDIA T400 GPU acceleration enabled")
+                print(f"[ImageHandler] NVIDIA Quadro P400 GPU acceleration enabled")
                 print(f"[ImageHandler] GPU: {self.cuda_device.name()}")
             else:
                 print("[ImageHandler] OpenCV CUDA not available")

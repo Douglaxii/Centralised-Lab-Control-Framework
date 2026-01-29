@@ -1,7 +1,7 @@
 """
 Benchmark script for Image Handler optimizations
 Compares performance: Original vs Numba-optimized vs Parallel processing
-Optimized for Intel Core i9 + NVIDIA T400
+Optimized for Intel Core i9 + NVIDIA Quadro P400
 """
 
 import os

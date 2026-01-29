@@ -32,7 +32,7 @@ from server.cam.image_handler import Image_Handler
 
 # Configuration
 config = get_config()
-BASE_OUTPUT_PATH = config.get_path('output_base', 'Y:/Xi/Data')
+BASE_OUTPUT_PATH = config.get_path('output_base')
 RAW_FRAMES_DIR = os.path.join(BASE_OUTPUT_PATH, 'jpg_frames')
 LABELLED_FRAMES_DIR = os.path.join(BASE_OUTPUT_PATH, 'jpg_frames_labelled')
 

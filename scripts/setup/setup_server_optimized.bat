@@ -1,12 +1,12 @@
 @echo off
 REM ============================================================================
-REM Server Setup Script - Optimized for Intel Core i9 + NVIDIA T400
+REM Server Setup Script - Optimized for Intel Core i9 + NVIDIA Quadro P400
 REM ============================================================================
 
 echo.
 echo  ============================================
 echo   Lab Control Framework - Server Setup
-echo   Optimized for Intel Core i9 + NVIDIA T400
+echo   Optimized for Intel Core i9 + NVIDIA Quadro P400
 echo  ============================================
 echo.
 

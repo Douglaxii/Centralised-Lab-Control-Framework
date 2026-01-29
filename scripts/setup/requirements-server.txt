@@ -1,5 +1,5 @@
 # Lab Control Framework - Server Optimized Dependencies
-# For Intel Core i9 + NVIDIA T400 GPU
+# For Intel Core i9 + NVIDIA Quadro P400 GPU
 # Install with: pip install -r requirements-server.txt
 
 # ==============================================================================
@@ -26,7 +26,7 @@ llvmlite>=0.40.0
 # mkl-random
 
 # ==============================================================================
-# NVIDIA T400 GPU SUPPORT (Optional)
+# NVIDIA QUADRO P400 GPU SUPPORT (Optional)
 # ==============================================================================
 
 # OpenCV with CUDA support - requires manual build or special wheel

@@ -50,7 +50,7 @@ The following paths will be created automatically, but ensure drives exist:
 
 Run the diagnostic script to verify:
 ```bash
-python check_server.py
+python tools/check_server.py
 ```
 
 Expected output:
@@ -73,18 +73,11 @@ Expected output:
 
 3. **If services still fail**, check individual logs:
    ```bash
-   type logs\manager.log
-   type logs\camera.log
-   type logs\flask.log
+   type logs\server\manager.log
+   type logs\server\camera.log
+   type logs\server\flask.log
    ```
 
 ## Note on Previous Errors
 
-The `server_log/settings.yaml` file was a backup/reference but was not being used. The actual file being used is `config/settings.yaml` which is now fixed.
-
-The logs showed continuous restart loops because:
-1. YAML parsing failed → services couldn't start
-2. Launcher detected failures → kept restarting
-3. Cycle repeated
-
-This should now be resolved.
+The previous infinite restart loop was caused by the YAML parsing error - this is now fixed.

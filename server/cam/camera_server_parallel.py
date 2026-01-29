@@ -1,5 +1,5 @@
 """
-Parallel Camera Server - Optimized for Intel Core i9
+Parallel Camera Server - Optimized for Intel Core i9 + NVIDIA Quadro P400
 Uses ProcessPoolExecutor for true multi-core image processing.
 """
 
@@ -28,7 +28,7 @@ from core import get_config
 # CONFIGURATION
 # ==============================================================================
 config = get_config()
-BASE_OUTPUT_PATH = config.get_path('output_base', 'Y:/Xi/Data')
+BASE_OUTPUT_PATH = config.get_path('output_base')
 RAW_FRAMES_DIR = os.path.join(BASE_OUTPUT_PATH, 'jpg_frames')
 LABELLED_FRAMES_DIR = os.path.join(BASE_OUTPUT_PATH, 'jpg_frames_labelled')
 JSON_DIR = os.path.join(BASE_OUTPUT_PATH, 'cam_json')

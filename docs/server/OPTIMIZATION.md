@@ -2,7 +2,13 @@
 
 ## Hardware
 - **CPU**: Intel Core i9 (many cores)
-- **GPU**: NVIDIA T400 (entry-level professional GPU)
+- **GPU**: NVIDIA Quadro P400 (entry-level professional GPU)
+  - Architecture: Pascal (GP107)
+  - VRAM: 2GB GDDR5
+  - CUDA Cores: 256
+  - Released: 2017
+  - Good for: OpenCV operations, light compute
+  - Not suitable for: Deep learning, heavy GPU compute
 
 ## Optimizations Made
 
@@ -23,7 +29,7 @@ handler = Image_Handler(filename, xstart, xfinish, ystart, yfinish,
                         analysis=2, radius=20)
 
 # With GPU acceleration (T400 for OpenCV ops)
-handler = Image_Handler(filename, xstart, yfinish, ystart, yfinish,
+handler = Image_Handler(filename, xstart, xfinish, ystart, yfinish,
                         analysis=2, radius=20, use_gpu=True)
 ```
 
@@ -43,7 +49,7 @@ python server/cam/camera_server_parallel.py
 
 ### 3. GPU Acceleration (Optional)
 
-NVIDIA T400 can accelerate OpenCV operations:
+NVIDIA Quadro P400 can accelerate OpenCV operations:
 - Gaussian blur
 - Threshold operations
 
@@ -55,7 +61,7 @@ NVIDIA T400 can accelerate OpenCV operations:
 
 Run the automated setup script:
 ```bash
-setup_server_optimized.bat
+scripts\setup\setup_server_optimized.bat
 ```
 
 This will:
@@ -76,7 +82,7 @@ venv\Scripts\activate
 pip install numpy>=1.24.0
 pip install numba>=0.57.0 llvmlite>=0.40.0
 pip install scipy>=1.10.0 opencv-python>=4.8.0
-pip install -r requirements-server.txt
+pip install -r requirements.txt
 ```
 
 ## Benchmarking
@@ -109,9 +115,9 @@ This compares:
    - First run compiles functions
    - Subsequent runs use cached machine code
 
-### NVIDIA T400 GPU
+### NVIDIA Quadro P400 GPU
 
-The T400 is entry-level. Best practices:
+The Quadro P400 is entry-level. Best practices:
 - Use for Gaussian blur, threshold (fast)
 - Avoid for complex operations (limited VRAM)
 - CPU processing is often faster for small images (300x300)
@@ -120,7 +126,7 @@ The T400 is entry-level. Best practices:
 
 ### Original (Single-threaded)
 ```
-[Camera] → [Queue] → [Single Processor] → [Disk]
+[Camera] -> [Queue] -> [Single Processor] -> [Disk]
 ```
 - Uses 1 core
 - Simple, reliable
@@ -128,7 +134,7 @@ The T400 is entry-level. Best practices:
 
 ### Parallel (Multi-core)
 ```
-[Camera] → [Queue] → [Process Pool: Worker 1, Worker 2, ...] → [Result Queue] → [Writer]
+[Camera] -> [Queue] -> [Process Pool: Worker 1, Worker 2, ...] -> [Result Queue] -> [Writer]
 ```
 - Uses 75% of cores
 - Higher throughput
