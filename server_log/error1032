@@ -1,0 +1,416 @@
+(base) PS E:\mls> C:/Users/Hamamatsu/anaconda3/Scripts/activate
+(base) PS E:\mls> conda activate base
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/check_server.py
+======================================================================
+LAB CONTROL FRAMEWORK - SERVER DIAGNOSTIC
+======================================================================
+
+[1] Python Version: 3.12.4 | packaged by Anaconda, Inc. | (main, Jun 18 2024, 15:03:56) [MSC v.1929 64 bit (AMD64)]
+
+[2] Checking YAML Configuration...
+   [OK] YAML parse successful: config/settings.yaml
+   [OK] Master IP: 134.99.120.40
+   [OK] Output base: Y:/Xi/Data/server
+
+[3] Checking Python Dependencies...
+   [MISSING] opencv-python
+   [OK] numpy
+   [OK] scipy
+   [OK] pyyaml
+   [OK] pyzmq
+   [OK] flask
+   [OK] h5py
+   [OK] pandas
+
+[!] Missing packages. Install with:
+    pip install opencv-python
+
+[4] Checking Paths...
+   [OK] output_base: Y:\Xi\Data\server
+   [OK] jpg_frames: E:\mls_frames\jpg_frames
+   [OK] jpg_frames_labelled: E:\mls_frames\jpg_frames_labelled
+
+======================================================================
+RESULT: FAILED - Install missing packages
+        pip install opencv-python
+======================================================================
+(base) PS E:\mls> pip install opencv-python
+Collecting opencv-python
+  Using cached opencv_python-4.13.0.90-cp37-abi3-win_amd64.whl.metadata (20 kB)
+Collecting numpy>=2 (from opencv-python)
+  Using cached numpy-2.4.1-cp312-cp312-win_amd64.whl.metadata (6.6 kB)
+Using cached opencv_python-4.13.0.90-cp37-abi3-win_amd64.whl (40.2 MB)
+Using cached numpy-2.4.1-cp312-cp312-win_amd64.whl (12.3 MB)
+Installing collected packages: numpy, opencv-python
+  Attempting uninstall: numpy
+    Found existing installation: numpy 1.26.4
+    Uninstalling numpy-1.26.4:
+      Successfully uninstalled numpy-1.26.4
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+contourpy 1.2.0 requires numpy<2.0,>=1.20, but you have numpy 2.4.1 which is incompatible.
+numba 0.59.1 requires numpy<1.27,>=1.22, but you have numpy 2.4.1 which is incompatible.
+pywavelets 1.5.0 requires numpy<2.0,>=1.22.4, but you have numpy 2.4.1 which is incompatible.
+scipy 1.13.1 requires numpy<2.3,>=1.22.4, but you have numpy 2.4.1 which is incompatible.
+streamlit 1.32.0 requires numpy<2,>=1.19.3, but you have numpy 2.4.1 which is incompatible.
+Successfully installed numpy-2.4.1 opencv-python-4.13.0.90
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/check_server.py
+======================================================================
+LAB CONTROL FRAMEWORK - SERVER DIAGNOSTIC
+======================================================================
+
+[1] Python Version: 3.12.4 | packaged by Anaconda, Inc. | (main, Jun 18 2024, 15:03:56) [MSC v.1929 64 bit (AMD64)]
+
+[2] Checking YAML Configuration...
+   [OK] YAML parse successful: config/settings.yaml
+   [OK] Master IP: 134.99.120.40
+   [OK] Output base: Y:/Xi/Data/server
+
+[3] Checking Python Dependencies...
+   [OK] opencv-python
+   [OK] numpy
+e:\mls\check_server.py:46: UserWarning: A NumPy version >=1.22.4 and <2.3.0 is required for this version of SciPy (detected version 2.4.1)
+  __import__(module)
+   [OK] scipy
+   [OK] pyyaml
+   [OK] pyzmq
+   [OK] flask
+Traceback (most recent call last):
+  File "e:\mls\check_server.py", line 46, in <module>
+    __import__(module)
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\h5py\__init__.py", line 45, in <module>
+    from ._conv import register_converters as _register_converters, \
+  File "h5py\\_conv.pyx", line 1, in init h5py._conv
+  File "h5py\\h5r.pyx", line 1, in init h5py.h5r
+  File "h5py\\h5p.pyx", line 1, in init h5py.h5p
+ValueError: numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/launcher.py
+2026-01-29 10:29:59,965 | INFO     | Launcher        | ============================================================
+2026-01-29 10:29:59,966 | INFO     | Launcher        | Starting all services...
+2026-01-29 10:29:59,966 | INFO     | Launcher        | ============================================================
+2026-01-29 10:29:59,966 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:29:59,972 | INFO     | Launcher        | [Camera] Started with PID 13628
+2026-01-29 10:30:00,973 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\communications\manager.py
+2026-01-29 10:30:00,976 | INFO     | Launcher        | [Manager] Started with PID 1864
+2026-01-29 10:30:01,993 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:01,999 | INFO     | Launcher        | [Flask] Started with PID 7848
+2026-01-29 10:30:03,003 | INFO     | Launcher        | ============================================================
+2026-01-29 10:30:03,003 | INFO     | Launcher        | All services started!
+2026-01-29 10:30:03,003 | INFO     | Launcher        | ============================================================
+2026-01-29 10:30:03,006 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+
+============================================================
+Interactive Mode - Commands:
+  status, restart <service>, stop, quit
+============================================================
+
+launcher> 2026-01-29 10:30:03,507 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:03,510 | INFO     | Launcher        | [Camera] Started with PID 10860
+2026-01-29 10:30:03,526 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:04,028 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:04,028 | INFO     | Launcher        | [Flask] Started with PID 4484
+2026-01-29 10:30:09,033 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:09,534 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:09,534 | INFO     | Launcher        | [Camera] Started with PID 17788
+2026-01-29 10:30:09,534 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:10,042 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:10,044 | INFO     | Launcher        | [Flask] Started with PID 12628
+2026-01-29 10:30:15,047 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:15,548 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:15,551 | INFO     | Launcher        | [Camera] Started with PID 11272
+2026-01-29 10:30:15,567 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:16,068 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:16,068 | INFO     | Launcher        | [Flask] Started with PID 7632
+2026-01-29 10:30:21,071 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:21,572 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:21,572 | INFO     | Launcher        | [Camera] Started with PID 17156
+2026-01-29 10:30:21,572 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:22,079 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:22,082 | INFO     | Launcher        | [Flask] Started with PID 10148
+2026-01-29 10:30:27,084 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:27,586 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:27,587 | INFO     | Launcher        | [Camera] Started with PID 12544
+2026-01-29 10:30:27,594 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:28,095 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:28,100 | INFO     | Launcher        | [Flask] Started with PID 8804
+2026-01-29 10:30:33,101 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:33,602 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:33,607 | INFO     | Launcher        | [Camera] Started with PID 7648
+2026-01-29 10:30:33,607 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:34,112 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:34,116 | INFO     | Launcher        | [Flask] Started with PID 4384
+2026-01-29 10:30:39,117 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:39,618 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:39,625 | INFO     | Launcher        | [Camera] Started with PID 18424
+2026-01-29 10:30:39,625 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:40,127 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:40,132 | INFO     | Launcher        | [Flask] Started with PID 1100
+2026-01-29 10:30:45,133 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:45,634 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:45,634 | INFO     | Launcher        | [Camera] Started with PID 14140
+2026-01-29 10:30:45,642 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:46,143 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:46,149 | INFO     | Launcher        | [Flask] Started with PID 5400
+2026-01-29 10:30:51,151 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:51,652 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:51,657 | INFO     | Launcher        | [Camera] Started with PID 9852
+2026-01-29 10:30:51,657 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:52,160 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:52,160 | INFO     | Launcher        | [Flask] Started with PID 17908
+2026-01-29 10:30:57,163 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:30:57,664 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:30:57,664 | INFO     | Launcher        | [Camera] Started with PID 14776
+2026-01-29 10:30:57,664 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:30:58,173 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:30:58,178 | INFO     | Launcher        | [Flask] Started with PID 11860
+2026-01-29 10:31:03,179 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:31:03,680 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:31:03,685 | INFO     | Launcher        | [Camera] Started with PID 9860
+2026-01-29 10:31:03,686 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 10:31:04,187 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:31:04,187 | INFO     | Launcher        | [Flask] Started with PID 948
+
+Use 'quit' or 'stop' to exit
+launcher> 2026-01-29 10:31:09,193 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 10:31:09,693 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\cam\camera_server.py
+2026-01-29 10:31:09,699 | INFO     | Launcher        | [Camera] Started with PID 4128
+2026-01-29 10:31:09,700 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+e2026-01-29 10:31:10,202 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\mls\server\Flask\flask_server.py
+2026-01-29 10:31:10,204 | INFO     | Launcher        | [Flask] Started with PID 16484
+xit
+Unknown command: exit
+launcher> quit
+2026-01-29 10:31:13,388 | INFO     | Launcher        | ============================================================
+2026-01-29 10:31:13,398 | INFO     | Launcher        | Stopping all services...
+2026-01-29 10:31:13,398 | INFO     | Launcher        | ============================================================
+2026-01-29 10:31:13,398 | INFO     | Launcher        | [Manager] Stopping (PID: 1864)...
+2026-01-29 10:31:13,398 | INFO     | Launcher        | [Manager] Stopped gracefully
+2026-01-29 10:31:13,398 | INFO     | Launcher        | All services stopped
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/server/cam/camera_server_parallel.py
+Traceback (most recent call last):
+  File "e:\mls\server\cam\camera_server_parallel.py", line 31, in <module>
+    BASE_OUTPUT_PATH = config.get_path('output_base', 'Y:/Xi/Data')
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: Config.get_path() takes 2 positional arguments but 3 were given
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/server/cam/camera_server.py
+e:\mls\server\cam\image_handler.py:5: UserWarning: A NumPy version >=1.22.4 and <2.3.0 is required for this version of SciPy (detected version 2.4.1)
+  from scipy.optimize import curve_fit
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "e:\mls\server\cam\camera_server.py", line 31, in <module>
+    from server.cam.image_handler import Image_Handler
+  File "e:\mls\server\cam\image_handler.py", line 5, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+Traceback (most recent call last):
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\numpy\core\_multiarray_umath.py", line 46, in __getattr__
+    raise ImportError(msg)
+ImportError:
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+
+Traceback (most recent call last):
+  File "e:\mls\server\cam\camera_server.py", line 31, in <module>
+    from server.cam.image_handler import Image_Handler
+  File "e:\mls\server\cam\image_handler.py", line 5, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+ImportError: numpy.core.multiarray failed to import
+(base) PS E:\mls> pip install numpy
+Requirement already satisfied: numpy in c:\users\hamamatsu\anaconda3\lib\site-packages (2.4.1)
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/server/cam/image_handler_optimized.py
+e:\mls\server\cam\image_handler_optimized.py:11: UserWarning: A NumPy version >=1.22.4 and <2.3.0 is required for this version of SciPy (detected version 2.4.1)
+  from scipy.optimize import curve_fit
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "e:\mls\server\cam\image_handler_optimized.py", line 11, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+Traceback (most recent call last):
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\numpy\core\_multiarray_umath.py", line 46, in __getattr__
+    raise ImportError(msg)
+ImportError:
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+
+Traceback (most recent call last):
+  File "e:\mls\server\cam\image_handler_optimized.py", line 11, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+ImportError: numpy.core.multiarray failed to import
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/server/cam/image_handler_server.py
+e:\mls\server\cam\image_handler.py:5: UserWarning: A NumPy version >=1.22.4 and <2.3.0 is required for this version of SciPy (detected version 2.4.1)
+  from scipy.optimize import curve_fit
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "e:\mls\server\cam\image_handler_server.py", line 10, in <module>
+    from image_handler import Image_Handler
+  File "e:\mls\server\cam\image_handler.py", line 5, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+Traceback (most recent call last):
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\numpy\core\_multiarray_umath.py", line 46, in __getattr__
+    raise ImportError(msg)
+ImportError:
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+
+Traceback (most recent call last):
+  File "e:\mls\server\cam\image_handler_server.py", line 10, in <module>
+    from image_handler import Image_Handler
+  File "e:\mls\server\cam\image_handler.py", line 5, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+ImportError: numpy.core.multiarray failed to import
+(base) PS E:\mls> & C:/Users/Hamamatsu/anaconda3/python.exe e:/mls/server/cam/image_handler.py
+e:\mls\server\cam\image_handler.py:5: UserWarning: A NumPy version >=1.22.4 and <2.3.0 is required for this version of SciPy (detected version 2.4.1)
+  from scipy.optimize import curve_fit
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "e:\mls\server\cam\image_handler.py", line 5, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+Traceback (most recent call last):
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\numpy\core\_multiarray_umath.py", line 46, in __getattr__
+    raise ImportError(msg)
+ImportError:
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.4.1 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+
+Traceback (most recent call last):
+  File "e:\mls\server\cam\image_handler.py", line 5, in <module>
+    from scipy.optimize import curve_fit
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\__init__.py", line 413, in <module>
+    from ._optimize import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\optimize\_optimize.py", line 35, in <module>
+    from scipy.linalg import cholesky, issymmetric, LinAlgError
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\__init__.py", line 203, in <module>
+    from ._misc import *
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\_misc.py", line 3, in <module>
+    from .blas import get_blas_funcs
+  File "C:\Users\Hamamatsu\anaconda3\Lib\site-packages\scipy\linalg\blas.py", line 213, in <module>
+    from scipy.linalg import _fblas
+ImportError: numpy.core.multiarray failed to import
+(base) PS E:\mls> 
