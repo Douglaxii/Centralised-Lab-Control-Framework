@@ -1,0 +1,260 @@
+2026-01-29 08:35:51,777 | INFO     | Launcher        | ============================================================
+2026-01-29 08:35:51,777 | INFO     | Launcher        | Starting all services...
+2026-01-29 08:35:51,777 | INFO     | Launcher        | ============================================================
+2026-01-29 08:35:51,777 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 08:35:51,790 | INFO     | Launcher        | [Camera] Started with PID 10528
+2026-01-29 08:35:52,793 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 08:35:52,812 | INFO     | Launcher        | [Manager] Started with PID 15012
+2026-01-29 08:35:53,817 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 08:35:53,832 | INFO     | Launcher        | [Flask] Started with PID 3204
+2026-01-29 08:35:54,833 | INFO     | Launcher        | ============================================================
+2026-01-29 08:35:54,833 | INFO     | Launcher        | All services started!
+2026-01-29 08:35:54,833 | INFO     | Launcher        | ============================================================
+2026-01-29 08:35:54,833 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 08:35:55,337 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 08:35:55,345 | INFO     | Launcher        | [Camera] Started with PID 4472
+2026-01-29 08:35:55,345 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 08:35:55,846 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 08:35:55,850 | INFO     | Launcher        | [Manager] Started with PID 17512
+2026-01-29 08:35:55,850 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 08:35:56,353 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 08:35:56,353 | INFO     | Launcher        | [Flask] Started with PID 18564
+2026-01-29 08:36:01,360 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 08:36:01,861 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 08:36:01,867 | INFO     | Launcher        | [Camera] Started with PID 2532
+2026-01-29 08:36:01,867 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 08:36:02,369 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 08:36:02,374 | INFO     | Launcher        | [Manager] Started with PID 1516
+2026-01-29 08:36:02,374 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 08:36:02,876 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 08:36:02,883 | INFO     | Launcher        | [Flask] Started with PID 14428
+2026-01-29 08:36:07,884 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 08:36:08,385 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 08:36:08,385 | INFO     | Launcher        | [Camera] Started with PID 22644
+2026-01-29 08:36:08,392 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 08:36:08,893 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 08:36:08,898 | INFO     | Launcher        | [Manager] Started with PID 8208
+2026-01-29 08:36:08,898 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 08:36:09,401 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 08:36:09,401 | INFO     | Launcher        | [Flask] Started with PID 9700
+2026-01-29 08:36:14,409 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 08:36:14,910 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 08:36:14,912 | INFO     | Launcher        | [Camera] Started with PID 11032
+2026-01-29 08:36:14,912 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 08:36:15,418 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 08:36:15,424 | INFO     | Launcher        | [Manager] Started with PID 18284
+2026-01-29 08:36:15,425 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 08:36:15,926 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 08:36:15,934 | INFO     | Launcher        | [Flask] Started with PID 17712
+2026-01-29 08:36:20,936 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 08:36:21,437 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 08:36:21,437 | INFO     | Launcher        | [Camera] Started with PID 17292
+2026-01-29 08:36:21,437 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 08:36:21,946 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 08:36:21,950 | INFO     | Launcher        | [Manager] Started with PID 21452
+2026-01-29 08:36:21,950 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 08:36:22,456 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 08:36:22,456 | INFO     | Launcher        | [Flask] Started with PID 21988
+2026-01-29 08:36:27,463 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 08:36:27,965 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 08:36:27,970 | INFO     | Launcher        | [Camera] Started with PID 22980
+2026-01-29 08:36:27,972 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 08:36:28,473 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 08:36:28,473 | INFO     | Launcher        | [Manager] Started with PID 21952
+2026-01-29 08:36:28,473 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 08:36:28,981 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\AppData\Local\Programs\Python\Python312\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 08:36:28,981 | INFO     | Launcher        | [Flask] Started with PID 11128
+2026-01-29 08:36:32,020 | INFO     | Launcher        | ============================================================
+2026-01-29 08:36:32,020 | INFO     | Launcher        | Stopping all services...
+2026-01-29 08:36:32,020 | INFO     | Launcher        | ============================================================
+2026-01-29 08:36:32,020 | INFO     | Launcher        | All services stopped
+2026-01-29 09:04:56,685 | INFO     | Launcher        | ============================================================
+2026-01-29 09:04:56,685 | INFO     | Launcher        | Starting all services...
+2026-01-29 09:04:56,685 | INFO     | Launcher        | ============================================================
+2026-01-29 09:04:56,686 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:04:56,690 | INFO     | Launcher        | [Camera] Started with PID 1196
+2026-01-29 09:04:57,692 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:04:57,702 | INFO     | Launcher        | [Manager] Started with PID 4460
+2026-01-29 09:04:58,703 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:04:58,714 | INFO     | Launcher        | [Flask] Started with PID 22408
+2026-01-29 09:04:59,718 | INFO     | Launcher        | ============================================================
+2026-01-29 09:04:59,718 | INFO     | Launcher        | All services started!
+2026-01-29 09:04:59,718 | INFO     | Launcher        | ============================================================
+2026-01-29 09:04:59,718 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:05:00,222 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:05:00,222 | INFO     | Launcher        | [Camera] Started with PID 2284
+2026-01-29 09:05:00,222 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:05:00,728 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:05:00,728 | INFO     | Launcher        | [Manager] Started with PID 21808
+2026-01-29 09:05:00,733 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:05:01,234 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:05:01,234 | INFO     | Launcher        | [Flask] Started with PID 19264
+2026-01-29 09:05:06,241 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:05:06,742 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:05:06,747 | INFO     | Launcher        | [Camera] Started with PID 21244
+2026-01-29 09:05:06,748 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:05:07,249 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:05:07,249 | INFO     | Launcher        | [Manager] Started with PID 15596
+2026-01-29 09:05:07,256 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:05:07,757 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:05:07,759 | INFO     | Launcher        | [Flask] Started with PID 8392
+2026-01-29 09:05:12,764 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:05:13,265 | INFO     | Launcher        | [Camera] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:05:13,265 | INFO     | Launcher        | [Camera] Started with PID 23128
+2026-01-29 09:05:13,265 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:05:13,771 | INFO     | Launcher        | [Manager] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:05:13,776 | INFO     | Launcher        | [Manager] Started with PID 22988
+2026-01-29 09:05:13,776 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:05:14,278 | INFO     | Launcher        | [Flask] Starting: C:\Users\Hamamatsu\anaconda3\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:05:14,281 | INFO     | Launcher        | [Flask] Started with PID 1504
+2026-01-29 09:05:19,285 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:05:19,685 | INFO     | Launcher        | ============================================================
+2026-01-29 09:05:19,685 | INFO     | Launcher        | Stopping all services...
+2026-01-29 09:05:19,685 | INFO     | Launcher        | ============================================================
+2026-01-29 09:05:19,685 | INFO     | Launcher        | All services stopped
+2026-01-29 09:11:14,312 | INFO     | Launcher        | ============================================================
+2026-01-29 09:11:14,312 | INFO     | Launcher        | Starting all services...
+2026-01-29 09:11:14,312 | INFO     | Launcher        | ============================================================
+2026-01-29 09:11:14,312 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:11:14,324 | INFO     | Launcher        | [Camera] Started with PID 16112
+2026-01-29 09:11:15,325 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:11:15,329 | INFO     | Launcher        | [Manager] Started with PID 9972
+2026-01-29 09:11:16,332 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:11:16,345 | INFO     | Launcher        | [Flask] Started with PID 22760
+2026-01-29 09:11:17,347 | INFO     | Launcher        | ============================================================
+2026-01-29 09:11:17,347 | INFO     | Launcher        | All services started!
+2026-01-29 09:11:17,347 | INFO     | Launcher        | ============================================================
+2026-01-29 09:11:17,347 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:11:17,851 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:11:17,851 | INFO     | Launcher        | [Camera] Started with PID 18648
+2026-01-29 09:11:17,851 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:11:18,358 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:11:18,362 | INFO     | Launcher        | [Manager] Started with PID 11836
+2026-01-29 09:11:18,362 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:11:18,862 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:11:18,867 | INFO     | Launcher        | [Flask] Started with PID 23072
+2026-01-29 09:11:23,868 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:11:24,369 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:11:24,370 | INFO     | Launcher        | [Camera] Started with PID 20292
+2026-01-29 09:11:24,370 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:11:24,877 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:11:24,878 | INFO     | Launcher        | [Manager] Started with PID 5656
+2026-01-29 09:11:24,878 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:11:25,383 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:11:25,383 | INFO     | Launcher        | [Flask] Started with PID 9780
+2026-01-29 09:11:30,387 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:11:30,888 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:11:30,890 | INFO     | Launcher        | [Camera] Started with PID 22728
+2026-01-29 09:11:30,890 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:11:31,395 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:11:31,395 | INFO     | Launcher        | [Manager] Started with PID 11256
+2026-01-29 09:11:31,395 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:11:31,899 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:11:31,899 | INFO     | Launcher        | [Flask] Started with PID 22708
+2026-01-29 09:11:31,992 | INFO     | Launcher        | ============================================================
+2026-01-29 09:11:31,992 | INFO     | Launcher        | Stopping all services...
+2026-01-29 09:11:31,992 | INFO     | Launcher        | ============================================================
+2026-01-29 09:11:31,992 | INFO     | Launcher        | [Flask] Stopping (PID: 22708)...
+2026-01-29 09:11:31,995 | INFO     | Launcher        | [Flask] Stopped gracefully
+2026-01-29 09:11:31,995 | INFO     | Launcher        | [Camera] Stopping (PID: 22728)...
+2026-01-29 09:11:32,008 | INFO     | Launcher        | [Camera] Stopped gracefully
+2026-01-29 09:11:32,008 | INFO     | Launcher        | All services stopped
+2026-01-29 09:19:01,443 | INFO     | Launcher        | ============================================================
+2026-01-29 09:19:01,443 | INFO     | Launcher        | Starting all services...
+2026-01-29 09:19:01,443 | INFO     | Launcher        | ============================================================
+2026-01-29 09:19:01,443 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:19:01,448 | INFO     | Launcher        | [Camera] Started with PID 10612
+2026-01-29 09:19:02,451 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:19:02,463 | INFO     | Launcher        | [Manager] Started with PID 10680
+2026-01-29 09:19:03,464 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:19:03,468 | INFO     | Launcher        | [Flask] Started with PID 20416
+2026-01-29 09:19:04,473 | INFO     | Launcher        | ============================================================
+2026-01-29 09:19:04,473 | INFO     | Launcher        | All services started!
+2026-01-29 09:19:04,473 | INFO     | Launcher        | ============================================================
+2026-01-29 09:19:04,476 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:19:04,977 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:19:04,977 | INFO     | Launcher        | [Camera] Started with PID 12528
+2026-01-29 09:19:04,977 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:19:05,481 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:19:05,483 | INFO     | Launcher        | [Manager] Started with PID 23236
+2026-01-29 09:19:05,483 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:19:05,987 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:19:05,987 | INFO     | Launcher        | [Flask] Started with PID 5892
+2026-01-29 09:19:10,991 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:19:11,492 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:19:11,492 | INFO     | Launcher        | [Camera] Started with PID 20832
+2026-01-29 09:19:11,492 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:19:11,997 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:19:12,001 | INFO     | Launcher        | [Manager] Started with PID 16528
+2026-01-29 09:19:12,002 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:19:12,503 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:19:12,505 | INFO     | Launcher        | [Flask] Started with PID 18648
+2026-01-29 09:19:14,529 | INFO     | Launcher        | ============================================================
+2026-01-29 09:19:14,529 | INFO     | Launcher        | Stopping all services...
+2026-01-29 09:19:14,529 | INFO     | Launcher        | ============================================================
+2026-01-29 09:19:14,529 | INFO     | Launcher        | All services stopped
+2026-01-29 09:53:09,942 | INFO     | Launcher        | ============================================================
+2026-01-29 09:53:09,942 | INFO     | Launcher        | Starting all services...
+2026-01-29 09:53:09,942 | INFO     | Launcher        | ============================================================
+2026-01-29 09:53:09,942 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:53:09,953 | INFO     | Launcher        | [Camera] Started with PID 11640
+2026-01-29 09:53:10,962 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:53:10,966 | INFO     | Launcher        | [Manager] Started with PID 4940
+2026-01-29 09:53:11,974 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:53:11,984 | INFO     | Launcher        | [Flask] Started with PID 13868
+2026-01-29 09:53:12,988 | INFO     | Launcher        | ============================================================
+2026-01-29 09:53:12,989 | INFO     | Launcher        | All services started!
+2026-01-29 09:53:12,989 | INFO     | Launcher        | ============================================================
+2026-01-29 09:53:12,991 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:53:13,493 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:53:13,493 | INFO     | Launcher        | [Camera] Started with PID 8464
+2026-01-29 09:53:13,493 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:53:14,000 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:53:14,005 | INFO     | Launcher        | [Manager] Started with PID 12324
+2026-01-29 09:53:14,005 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:53:14,507 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:53:14,511 | INFO     | Launcher        | [Flask] Started with PID 23008
+2026-01-29 09:53:19,512 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:53:20,013 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:53:20,020 | INFO     | Launcher        | [Camera] Started with PID 16424
+2026-01-29 09:53:20,020 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:53:20,521 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:53:20,521 | INFO     | Launcher        | [Manager] Started with PID 22292
+2026-01-29 09:53:20,521 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:53:21,027 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:53:21,033 | INFO     | Launcher        | [Flask] Started with PID 20832
+2026-01-29 09:53:26,034 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:53:26,534 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:53:26,534 | INFO     | Launcher        | [Camera] Started with PID 2564
+2026-01-29 09:53:26,534 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:53:27,043 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:53:27,048 | INFO     | Launcher        | [Manager] Started with PID 12604
+2026-01-29 09:53:27,049 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:53:27,550 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:53:27,555 | INFO     | Launcher        | [Flask] Started with PID 21964
+2026-01-29 09:53:32,556 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:53:33,057 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:53:33,060 | INFO     | Launcher        | [Camera] Started with PID 22768
+2026-01-29 09:53:33,060 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:53:33,566 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:53:33,571 | INFO     | Launcher        | [Manager] Started with PID 1824
+2026-01-29 09:53:33,571 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:53:34,072 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:53:34,085 | INFO     | Launcher        | [Flask] Started with PID 21596
+2026-01-29 09:53:39,086 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-29 09:53:39,587 | INFO     | Launcher        | [Camera] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\cam\camera_server.py
+2026-01-29 09:53:39,587 | INFO     | Launcher        | [Camera] Started with PID 12776
+2026-01-29 09:53:39,587 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-29 09:53:40,095 | INFO     | Launcher        | [Manager] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\communications\manager.py
+2026-01-29 09:53:40,095 | INFO     | Launcher        | [Manager] Started with PID 15156
+2026-01-29 09:53:40,095 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-29 09:53:40,601 | INFO     | Launcher        | [Flask] Starting: E:\Xi\mls\.venv\Scripts\python.exe e:\Xi\mls\server\Flask\flask_server.py
+2026-01-29 09:53:40,606 | INFO     | Launcher        | [Flask] Started with PID 6464
+2026-01-29 09:53:41,057 | INFO     | Launcher        | ============================================================
+2026-01-29 09:53:41,057 | INFO     | Launcher        | Stopping all services...
+2026-01-29 09:53:41,057 | INFO     | Launcher        | ============================================================
+2026-01-29 09:53:41,059 | INFO     | Launcher        | [Flask] Stopping (PID: 6464)...
+2026-01-29 09:53:41,069 | INFO     | Launcher        | [Flask] Stopped gracefully
+2026-01-29 09:53:41,069 | INFO     | Launcher        | [Camera] Stopping (PID: 12776)...
+2026-01-29 09:53:41,089 | INFO     | Launcher        | [Camera] Stopped gracefully
+2026-01-29 09:53:41,089 | INFO     | Launcher        | All services stopped
