@@ -613,6 +613,10 @@ class ControlManager:
                 return
             
             self.labview = LabVIEWInterface()
+            
+            # Register pressure alert callback for immediate notification
+            self.labview.set_pressure_alert_callback(self._on_pressure_alert)
+            
             self.labview.start()
             
             # Try initial connection
@@ -625,6 +629,49 @@ class ControlManager:
         except Exception as e:
             self.logger.error(f"Failed to initialize LabVIEW interface: {e}")
             self.labview = None
+    
+    def _on_pressure_alert(self, pressure: float, threshold: float, timestamp: float, action: str):
+        """
+        Handle pressure alert from LabVIEW pressure monitor.
+        
+        This is called IMMEDIATELY when pressure exceeds threshold.
+        The piezo and e-gun are already being killed by the LabVIEW kill switch.
+        Here we handle manager-level notifications and logging.
+        
+        Args:
+            pressure: Current pressure reading (mbar)
+            threshold: Threshold that was exceeded (mbar)
+            timestamp: When the alert occurred
+            action: Action taken (e.g., "KILL_PIEZO_EGUN")
+        """
+        self.logger.error(
+            f"🚨 MANAGER RECEIVED PRESSURE ALERT: {pressure:.2e} mbar > {threshold:.2e} mbar! "
+            f"Action={action}"
+        )
+        
+        # Update internal state
+        self.params["piezo"] = 0.0
+        self.params["e_gun"] = False
+        
+        # Publish emergency commands to ARTIQ workers
+        self._publish_emergency_zero("piezo")
+        self._publish_emergency_zero("e_gun")
+        
+        # Store in experiment context if active
+        if self.current_exp:
+            self.current_exp.add_result("pressure_alert", {
+                "pressure_mbar": pressure,
+                "threshold_mbar": threshold,
+                "timestamp": timestamp,
+                "action": action,
+                "phase": self.current_exp.phase
+            })
+        
+        # Set safety flag
+        self.safety_triggered = True
+        
+        # Note: The actual hardware kill is handled by LabVIEW kill switch
+        # This is just for manager-level coordination and logging
     
     def _setup_kill_switch_callbacks(self):
         """

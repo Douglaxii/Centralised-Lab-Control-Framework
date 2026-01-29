@@ -60,6 +60,9 @@ class LabVIEWKillSwitch:
         "e_gun": 10.0,   # 10 seconds (testing mode)
     }
     
+    # Pressure safety threshold (mbar) - immediate kill if exceeded
+    PRESSURE_THRESHOLD_MBAR = 5e-9  # 5e-9 mbar threshold
+    
     def __init__(self, labview_interface: 'LabVIEWInterface'):
         self._labview = labview_interface
         self._active: Dict[str, Dict[str, Any]] = {}
@@ -194,6 +197,28 @@ class LabVIEWKillSwitch:
                     status[device] = {"armed": False, "limit": limit}
             return status
     
+    def trigger_pressure_alert(self, pressure: float, threshold: float):
+        """
+        Trigger immediate kill due to pressure threshold exceeded.
+        This is called when pressure exceeds safe limits.
+        
+        Args:
+            pressure: Current pressure reading (mbar)
+            threshold: Threshold that was exceeded (mbar)
+        """
+        self.logger.error(
+            f"PRESSURE ALERT: {pressure:.2e} mbar exceeds threshold {threshold:.2e} mbar! "
+            f"Immediately killing piezo and e-gun!"
+        )
+        
+        # Kill piezo immediately
+        if "piezo" not in self._active or not self._active.get("piezo", {}).get("killed", False):
+            self._kill_device("piezo", f"PRESSURE_ALERT: {pressure:.2e} mbar")
+        
+        # Kill e-gun immediately
+        if "e_gun" not in self._active or not self._active.get("e_gun", {}).get("killed", False):
+            self._kill_device("e_gun", f"PRESSURE_ALERT: {pressure:.2e} mbar")
+    
     def shutdown(self):
         """Shutdown and kill all devices."""
         self._running = False
@@ -211,6 +236,260 @@ class LabVIEWCommandType(Enum):
     GET_STATUS = "get_status"             # Query current state
     EMERGENCY_STOP = "emergency_stop"     # Immediate stop
     PING = "ping"                         # Keepalive
+    PRESSURE_ALERT = "pressure_alert"     # Pressure threshold exceeded
+
+
+class PressureMonitor:
+    """
+    Real-time pressure monitor with immediate safety response.
+    
+    Monitors pressure data from SMILE/LabVIEW via file system (Y:/Xi/Data/telemetry/)
+    and triggers immediate kill switch when threshold is exceeded.
+    
+    Features:
+    - Ultra-low latency response (< 50ms from detection to action)
+    - Immediate piezo and e-gun shutdown on pressure spike
+    - Server notification via callback
+    - Configurable thresholds
+    - Hysteresis to prevent oscillation
+    """
+    
+    # Default pressure threshold (mbar) - vacuum is typically 1e-10 to 1e-9
+    DEFAULT_THRESHOLD_MBAR = 5e-9
+    
+    # Hysteresis factor (threshold must drop to threshold/hysteresis before reset)
+    HYSTERESIS = 2.0
+    
+    # Check interval (seconds) - high frequency for safety
+    CHECK_INTERVAL = 0.05  # 20 Hz check rate
+    
+    def __init__(
+        self,
+        labview_interface: 'LabVIEWInterface',
+        threshold_mbar: float = None,
+        pressure_file_path: str = None,
+        alert_callback: Optional[Callable] = None,
+        check_interval: float = None
+    ):
+        """
+        Initialize pressure monitor.
+        
+        Args:
+            labview_interface: LabVIEW interface for triggering kill switch
+            threshold_mbar: Pressure threshold in mbar (default: 5e-9)
+            pressure_file_path: Path to pressure data file (optional, uses telemetry dir)
+            alert_callback: Callback function(pressure, threshold, timestamp) for server notification
+            check_interval: Check interval in seconds (default: 0.05 = 20Hz)
+        """
+        self.logger = logging.getLogger("pressure_monitor")
+        self.labview = labview_interface
+        
+        # Get config values
+        config = get_config()
+        
+        self.threshold = threshold_mbar or config.get('labview.pressure_threshold_mbar', self.DEFAULT_THRESHOLD_MBAR)
+        self.check_interval = check_interval or config.get('labview.pressure_check_interval', self.CHECK_INTERVAL)
+        self.alert_callback = alert_callback
+        
+        # Get pressure file path from config or use default
+        output_base = config.get_path('output_base') if config else "Y:/Xi/Data"
+        self.pressure_dir = Path(pressure_file_path or f"{output_base}/telemetry/smile/pressure")
+        
+        # State
+        self.running = False
+        self.thread: Optional[threading.Thread] = None
+        self.alert_active = False
+        self.last_pressure: Optional[float] = None
+        self.last_read_time: Optional[float] = None
+        self.known_files: set = set()
+        
+        # Statistics
+        self.stats = {
+            "checks": 0,
+            "alerts_triggered": 0,
+            "last_alert_time": None,
+            "max_pressure_seen": 0.0,
+        }
+        
+        self.logger.info(
+            f"PressureMonitor initialized (threshold: {self.threshold:.2e} mbar, "
+            f"check interval: {self.check_interval}s)"
+        )
+    
+    def start(self):
+        """Start pressure monitoring thread."""
+        if self.running:
+            return
+        
+        self.running = True
+        self.thread = threading.Thread(
+            target=self._monitor_loop,
+            daemon=True,
+            name="PressureMonitor"
+        )
+        self.thread.start()
+        self.logger.info(f"Pressure monitoring started (watching: {self.pressure_dir})")
+    
+    def stop(self):
+        """Stop pressure monitoring."""
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=2.0)
+        self.logger.info("Pressure monitoring stopped")
+    
+    def _monitor_loop(self):
+        """Main monitoring loop - runs at high frequency."""
+        while self.running:
+            try:
+                loop_start = time.time()
+                
+                # Read latest pressure
+                pressure = self._read_latest_pressure()
+                
+                if pressure is not None:
+                    self.last_pressure = pressure
+                    self.stats["checks"] += 1
+                    
+                    # Track max pressure
+                    if pressure > self.stats["max_pressure_seen"]:
+                        self.stats["max_pressure_seen"] = pressure
+                    
+                    # Check threshold
+                    self._check_threshold(pressure)
+                
+                # Maintain check interval
+                elapsed = time.time() - loop_start
+                sleep_time = max(0, self.check_interval - elapsed)
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                    
+            except Exception as e:
+                self.logger.error(f"Pressure monitor error: {e}")
+                time.sleep(0.1)  # Brief pause on error
+    
+    def _read_latest_pressure(self) -> Optional[float]:
+        """
+        Read the most recent pressure value from telemetry files.
+        
+        Returns:
+            Pressure in mbar, or None if no data available
+        """
+        try:
+            if not self.pressure_dir.exists():
+                return None
+            
+            # Find most recent .dat file
+            dat_files = list(self.pressure_dir.glob("*.dat"))
+            if not dat_files:
+                return None
+            
+            latest_file = max(dat_files, key=lambda p: p.stat().st_mtime)
+            
+            # Read the file (CSV format: timestamp,pressure_mbar)
+            with open(latest_file, 'r') as f:
+                line = f.readline().strip()
+                if ',' in line:
+                    parts = line.split(',')
+                    if len(parts) >= 2:
+                        timestamp = float(parts[0])
+                        pressure = float(parts[1])
+                        
+                        # Check if data is fresh (within last 5 seconds)
+                        if time.time() - timestamp < 5.0:
+                            self.last_read_time = timestamp
+                            return pressure
+                        
+        except Exception as e:
+            self.logger.debug(f"Failed to read pressure: {e}")
+        
+        return None
+    
+    def _check_threshold(self, pressure: float):
+        """
+        Check pressure against threshold and trigger alert if needed.
+        
+        Uses hysteresis to prevent rapid on/off cycling:
+        - Alert triggers when pressure > threshold
+        - Alert resets when pressure < threshold / hysteresis
+        """
+        if pressure > self.threshold:
+            if not self.alert_active:
+                # Pressure just crossed threshold - TRIGGER ALERT
+                self._trigger_alert(pressure)
+        elif self.alert_active:
+            # Check hysteresis for reset
+            reset_threshold = self.threshold / self.HYSTERESIS
+            if pressure < reset_threshold:
+                # Pressure dropped enough - reset alert
+                self._reset_alert(pressure)
+    
+    def _trigger_alert(self, pressure: float):
+        """Trigger pressure alert - immediate action required."""
+        alert_time = time.time()
+        self.alert_active = True
+        self.stats["alerts_triggered"] += 1
+        self.stats["last_alert_time"] = alert_time
+        
+        self.logger.error(
+            f"🚨 PRESSURE ALERT TRIGGERED: {pressure:.2e} mbar > {self.threshold:.2e} mbar threshold! "
+            f"Immediately killing piezo and e-gun!"
+        )
+        
+        # IMMEDIATE ACTION: Kill piezo and e-gun via kill switch
+        if self.labview and self.labview.kill_switch:
+            self.labview.kill_switch.trigger_pressure_alert(pressure, self.threshold)
+        
+        # Notify server via callback
+        if self.alert_callback:
+            try:
+                self.alert_callback(
+                    pressure=pressure,
+                    threshold=self.threshold,
+                    timestamp=alert_time,
+                    action="KILL_PIEZO_EGUN"
+                )
+            except Exception as e:
+                self.logger.error(f"Alert callback failed: {e}")
+    
+    def _reset_alert(self, pressure: float):
+        """Reset pressure alert when pressure returns to safe levels."""
+        self.alert_active = False
+        self.logger.info(
+            f"Pressure alert reset: {pressure:.2e} mbar returned to safe levels "
+            f"(threshold: {self.threshold:.2e} mbar)"
+        )
+    
+    def get_status(self) -> Dict[str, Any]:
+        """Get current monitor status."""
+        return {
+            "running": self.running,
+            "alert_active": self.alert_active,
+            "threshold_mbar": self.threshold,
+            "check_interval_seconds": self.check_interval,
+            "last_pressure_mbar": self.last_pressure,
+            "last_read_time": self.last_read_time,
+            "pressure_age_seconds": time.time() - self.last_read_time if self.last_read_time else None,
+            "stats": self.stats.copy(),
+            "pressure_dir": str(self.pressure_dir)
+        }
+    
+    def set_threshold(self, threshold_mbar: float):
+        """Update pressure threshold."""
+        old_threshold = self.threshold
+        self.threshold = threshold_mbar
+        self.logger.info(f"Pressure threshold updated: {old_threshold:.2e} -> {threshold_mbar:.2e} mbar")
+
+
+class LabVIEWCommandType(Enum):
+    """Types of commands that can be sent to LabVIEW."""
+    SET_VOLTAGE = "set_voltage"           # U_RF, Piezo
+    SET_TOGGLE = "set_toggle"             # Oven, B-field, Bephi, UV3, E-gun
+    SET_SHUTTER = "set_shutter"           # HD Valve shutters
+    SET_FREQUENCY = "set_frequency"       # DDS Frequency
+    GET_STATUS = "get_status"             # Query current state
+    EMERGENCY_STOP = "emergency_stop"     # Immediate stop
+    PING = "ping"                         # Keepalive
+    PRESSURE_ALERT = "pressure_alert"     # Pressure threshold exceeded
 
 
 @dataclass
@@ -306,6 +585,10 @@ class LabVIEWInterface:
         # Kill switch - FINAL safety layer
         self.kill_switch = LabVIEWKillSwitch(self)
         
+        # Pressure monitor - IMMEDIATE safety response for vacuum protection
+        self.pressure_monitor: Optional[PressureMonitor] = None
+        self._pressure_alert_callback: Optional[Callable] = None
+        
         self.logger.info(f"LabVIEW Interface initialized ({self.host}:{self.port})")
     
     def start(self):
@@ -317,15 +600,98 @@ class LabVIEWInterface:
             name="LabVIEWMonitor"
         )
         self.monitor_thread.start()
+        
+        # Start pressure monitoring (safety critical)
+        self._start_pressure_monitor()
+        
         self.logger.info("LabVIEW Interface started")
     
     def stop(self):
         """Stop the interface and close connection."""
         self.running = False
+        # Stop pressure monitoring
+        self._stop_pressure_monitor()
         # Shutdown kill switch (will zero all outputs)
         self.kill_switch.shutdown()
         self.disconnect()
         self.logger.info("LabVIEW Interface stopped")
+    
+    def _start_pressure_monitor(self):
+        """Initialize and start pressure monitoring."""
+        try:
+            config = get_config()
+            threshold = config.get('labview.pressure_threshold_mbar', 5e-9)
+            
+            self.pressure_monitor = PressureMonitor(
+                labview_interface=self,
+                threshold_mbar=threshold,
+                alert_callback=self._on_pressure_alert
+            )
+            self.pressure_monitor.start()
+            self.logger.info(f"Pressure monitoring started (threshold: {threshold:.2e} mbar)")
+        except Exception as e:
+            self.logger.error(f"Failed to start pressure monitoring: {e}")
+    
+    def _stop_pressure_monitor(self):
+        """Stop pressure monitoring."""
+        if self.pressure_monitor:
+            self.pressure_monitor.stop()
+            self.logger.info("Pressure monitoring stopped")
+    
+    def _on_pressure_alert(self, pressure: float, threshold: float, timestamp: float, action: str):
+        """
+        Handle pressure alert - notify server and trigger safety actions.
+        
+        This is called by PressureMonitor when threshold is exceeded.
+        """
+        self.logger.error(
+            f"Pressure alert callback triggered: {pressure:.2e} mbar > {threshold:.2e} mbar, "
+            f"action={action}"
+        )
+        
+        # Notify via status callback if registered
+        if self.status_callback:
+            try:
+                self.status_callback({
+                    "type": "PRESSURE_ALERT",
+                    "pressure_mbar": pressure,
+                    "threshold_mbar": threshold,
+                    "timestamp": timestamp,
+                    "action_taken": action,
+                    "source": "LabVIEW_PressureMonitor"
+                })
+            except Exception as e:
+                self.logger.error(f"Status callback error: {e}")
+    
+    def set_pressure_alert_callback(self, callback: Callable):
+        """
+        Set callback for pressure alerts.
+        
+        Args:
+            callback: Function(pressure, threshold, timestamp, action) to call on alert
+        """
+        self._pressure_alert_callback = callback
+        if self.pressure_monitor:
+            self.pressure_monitor.alert_callback = callback
+        self.logger.info("Pressure alert callback registered")
+    
+    def set_pressure_threshold(self, threshold_mbar: float):
+        """
+        Update pressure threshold.
+        
+        Args:
+            threshold_mbar: New threshold in mbar (e.g., 5e-9 for 5x10^-9 mbar)
+        """
+        if self.pressure_monitor:
+            self.pressure_monitor.set_threshold(threshold_mbar)
+        else:
+            self.logger.warning("Pressure monitor not running, cannot set threshold")
+    
+    def get_pressure_status(self) -> Dict[str, Any]:
+        """Get current pressure monitoring status."""
+        if self.pressure_monitor:
+            return self.pressure_monitor.get_status()
+        return {"running": False, "error": "Pressure monitor not initialized"}
     
     def connect(self) -> bool:
         """
@@ -737,12 +1103,18 @@ class LabVIEWInterface:
     
     def get_connection_info(self) -> Dict[str, Any]:
         """Get connection information."""
-        return {
+        info = {
             "host": self.host,
             "port": self.port,
             "connected": self.connected,
             "timeout": self.timeout
         }
+        
+        # Add pressure monitoring status
+        pressure_status = self.get_pressure_status()
+        info["pressure_monitor"] = pressure_status
+        
+        return info
 
 
 # ==============================================================================

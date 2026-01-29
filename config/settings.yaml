@@ -55,6 +55,11 @@ labview:
   max_retries: 3                # Max retry attempts
   auto_reconnect: true          # Auto-reconnect on connection loss
   
+  # Pressure Safety Configuration
+  # If pressure exceeds this threshold, piezo and e-gun are immediately killed
+  pressure_threshold_mbar: 5.0e-9    # 5 x 10^-9 mbar threshold
+  pressure_check_interval: 0.05      # 20 Hz check rate (seconds)
+  
   # Supported devices (must match LabVIEW implementation)
   devices:
     - U_RF                      # RF voltage (0-1000V)
