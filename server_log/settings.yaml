@@ -27,17 +27,17 @@ paths:
   artiq_data: "C:/artiq-master/results"
   
   # Output paths
-  output_base: "Y:\Xi\Data\server"
+  output_base: "Y:/Xi/Data/server"
   
   # Camera paths
-  camera_frames: "E:\mls_frames\camera_frames"      # Legacy: raw camera frames
-  camera_settings: "E:\mls_frames\camera_settings"  # Camera configuration files
-  camera_dcimg: "E:\mls_frames\camera_dcimg"                      # DCIMG recordings
-  live_frames: "E:\mls_frames\live_frames"          # Legacy: live preview frames
+  camera_frames: "E:/mls_frames/camera_frames"      # Legacy: raw camera frames
+  camera_settings: "E:/mls_frames/camera_settings"  # Camera configuration files
+  camera_dcimg: "E:/mls_frames/camera_dcimg"                      # DCIMG recordings
+  live_frames: "E:/mls_frames/live_frames"          # Legacy: live preview frames
   
   # New unified camera paths (used by camera_server.py)
-  jpg_frames: "E:\mls_frames\jpg_frames"                 # Raw JPG frames from camera
-  jpg_frames_labelled: "E:\mls_frames\jpg_frames_labelled"  # Annotated/processed frames for Flask streaming
+  jpg_frames: "E:/mls_frames/jpg_frames"                 # Raw JPG frames from camera
+  jpg_frames_labelled: "E:/mls_frames/jpg_frames_labelled"  # Annotated/processed frames for Flask streaming
   
   # Settings paths
   dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
@@ -57,8 +57,8 @@ labview:
   
   # Pressure Safety Configuration
   # If pressure exceeds this threshold, piezo and e-gun are immediately killed
-  pressure_threshold_mbar: 5.0e-10    # 5 x 10^-9 mbar threshold
-  pressure_check_interval: 0.1      # 10 Hz check rate (seconds)
+  pressure_threshold_mbar: 5.0e-9    # 5 x 10^-9 mbar threshold
+  pressure_check_interval: 0.05      # 20 Hz check rate (seconds)
   
   # Supported devices (must match LabVIEW implementation)
   devices:

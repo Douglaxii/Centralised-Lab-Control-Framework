@@ -4,7 +4,7 @@
 ---
 network:
   # IP Addresses
-  master_ip: "192.168.1.100"      # Camera/Master PC
+  master_ip: "134.99.120.40"      # Camera/Master PC
   
   # ZMQ Ports
   cmd_port: 5555                  # Master -> Worker commands (PUB/SUB)
@@ -27,28 +27,28 @@ paths:
   artiq_data: "C:/artiq-master/results"
   
   # Output paths
-  output_base: "Y:/Xi/Data"
+  output_base: "Y:/Xi/Data/server"
   
   # Camera paths
-  camera_frames: "Y:/Stein/Server/Camera_Frames"      # Legacy: raw camera frames
-  camera_settings: "Y:/Stein/Server/Camera_Settings"  # Camera configuration files
-  camera_dcimg: "Y:/Stein/dcimg"                      # DCIMG recordings
-  live_frames: "Y:/Stein/Server/Live_Frames"          # Legacy: live preview frames
+  camera_frames: "E:/mls_frames/camera_frames"      # Legacy: raw camera frames
+  camera_settings: "E:/mls_frames/camera_settings"  # Camera configuration files
+  camera_dcimg: "E:/mls_frames/camera_dcimg"                      # DCIMG recordings
+  live_frames: "E:/mls_frames/live_frames"          # Legacy: live preview frames
   
   # New unified camera paths (used by camera_server.py)
-  jpg_frames: "Y:/Xi/Data/jpg_frames"                 # Raw JPG frames from camera
-  jpg_frames_labelled: "Y:/Xi/Data/jpg_frames_labelled"  # Annotated/processed frames for Flask streaming
+  jpg_frames: "E:/mls_frames/jpg_frames"                 # Raw JPG frames from camera
+  jpg_frames_labelled: "E:/mls_frames/jpg_frames_labelled"  # Annotated/processed frames for Flask streaming
   
   # Settings paths
   dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
   
   # Debug paths
-  debug_path: "Y:/Stein/Server/Debug"
+  debug_path: "Y:/Xi/Data/Server/Debug"
 
 labview:
   # LabVIEW SMILE Interface Configuration
   enabled: true                 # Enable LabVIEW TCP communication
-  host: "192.168.1.100"         # LabVIEW PC IP (SMILE computer)
+  host: "172.17.1.217"         # LabVIEW PC IP (SMILE computer)
   port: 5559                    # LabVIEW TCP listener port
   timeout: 5.0                  # Command timeout (seconds)
   retry_delay: 1.0              # Delay between retries (seconds)

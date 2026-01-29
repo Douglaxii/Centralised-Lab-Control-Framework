@@ -1,0 +1,93 @@
+# Lab Control Framework - Server Optimized Dependencies
+# For Intel Core i9 + NVIDIA T400 GPU
+# Install with: pip install -r requirements-server.txt
+
+# ==============================================================================
+# CORE DEPENDENCIES
+# ==============================================================================
+pyyaml>=6.0
+pyzmq>=25.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# ==============================================================================
+# PERFORMANCE OPTIMIZATIONS FOR INTEL CORE I9
+# ==============================================================================
+
+# Numba - JIT compilation for Python (MAJOR speedup for numerical code)
+# Uses Intel SVML for vectorized math operations
+numba>=0.57.0
+llvmlite>=0.40.0
+
+# Intel-optimized numpy/scipy (optional but recommended)
+# Uncomment if using conda or if wheels available:
+# mkl-service
+# mkl-fft
+# mkl-random
+
+# ==============================================================================
+# NVIDIA T400 GPU SUPPORT (Optional)
+# ==============================================================================
+
+# OpenCV with CUDA support - requires manual build or special wheel
+# Standard opencv-python does NOT include CUDA
+# For T400 GPU acceleration, use one of:
+# 1. opencv-python (CPU only, works fine for most operations)
+# 2. Build OpenCV from source with CUDA 11.8+
+# 3. Use opencv-python-cuda if available for your platform
+
+# CUDA Python bindings (optional, for custom GPU kernels)
+# cuda-python>=12.0  # Only if doing custom CUDA development
+
+# ==============================================================================
+# WEB UI
+# ==============================================================================
+flask>=2.3.0
+
+# ==============================================================================
+# DATA ANALYSIS
+# ==============================================================================
+h5py>=3.8.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+
+# ==============================================================================
+# IMAGE PROCESSING
+# ==============================================================================
+opencv-python>=4.8.0
+# opencv-contrib-python>=4.8.0  # Extra features if needed
+
+# ==============================================================================
+# PARALLEL PROCESSING
+# ==============================================================================
+# concurrent.futures is in stdlib (Python 3.2+)
+# Additional parallel tools:
+# joblib>=1.3.0  # Alternative parallel processing
+
+# ==============================================================================
+# DEVELOPMENT & TESTING
+# ==============================================================================
+pytest>=7.4.0
+black>=23.0.0
+pylint>=2.17.0
+
+# ==============================================================================
+# SERVER-SPECIFIC NOTES
+# ==============================================================================
+# 
+# INTEL CORE I9 OPTIMIZATIONS:
+# - Numba uses all available cores automatically for prange loops
+# - Set NUMBA_NUM_THREADS environment variable to control thread count
+# - Recommended: Leave 2-4 cores free for system/Flask
+#
+# NVIDIA T400 GPU:
+# - Entry-level professional GPU (2GB or 4GB VRAM)
+# - Useful for OpenCV Gaussian blur, threshold operations
+# - Not powerful enough for deep learning inference
+# - OpenCV CUDA requires building from source on Windows
+#
+# INSTALLATION ORDER (IMPORTANT):
+# 1. pip install numpy  (first, for correct BLAS detection)
+# 2. pip install numba llvmlite
+# 3. pip install scipy opencv-python
+# 4. pip install -r requirements-server.txt (remaining packages)
