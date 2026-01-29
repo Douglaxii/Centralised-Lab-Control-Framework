@@ -8,8 +8,8 @@ from artiq.experiment import *
 from oitg.units import V, us, ms
 import numpy as np
 
-from compensation import Compensation
-from endcaps import EndCaps
+from comp import Compensation
+from ec import EndCaps
 
 
 class TrapControl(ExpFragment):
