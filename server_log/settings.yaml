@@ -1,0 +1,207 @@
+# Lab Control Framework Configuration
+# Centralized configuration for all components
+
+---
+network:
+  # IP Addresses
+  master_ip: "134.99.120.40"      # Camera/Master PC
+  
+  # ZMQ Ports
+  cmd_port: 5555                  # Master -> Worker commands (PUB/SUB)
+  data_port: 5556                 # Worker -> Master data (PUSH/PULL)
+  client_port: 5557               # Flask -> Manager (REQ/REP)
+  camera_port: 5558               # Camera server (TCP socket)
+  
+  # Timeouts (seconds)
+  connection_timeout: 5.0
+  receive_timeout: 1.0
+  watchdog_timeout: 60.0
+  heartbeat_interval: 10.0
+  
+  # Retry settings
+  max_retries: 5
+  retry_base_delay: 1.0
+
+paths:
+  # ARTIQ paths
+  artiq_data: "C:/artiq-master/results"
+  
+  # Output paths
+  output_base: "Y:\Xi\Data\server"
+  
+  # Camera paths
+  camera_frames: "E:\mls_frames\camera_frames"      # Legacy: raw camera frames
+  camera_settings: "E:\mls_frames\camera_settings"  # Camera configuration files
+  camera_dcimg: "E:\mls_frames\camera_dcimg"                      # DCIMG recordings
+  live_frames: "E:\mls_frames\live_frames"          # Legacy: live preview frames
+  
+  # New unified camera paths (used by camera_server.py)
+  jpg_frames: "E:\mls_frames\jpg_frames"                 # Raw JPG frames from camera
+  jpg_frames_labelled: "E:\mls_frames\jpg_frames_labelled"  # Annotated/processed frames for Flask streaming
+  
+  # Settings paths
+  dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
+  
+  # Debug paths
+  debug_path: "Y:/Xi/Data/Server/Debug"
+
+labview:
+  # LabVIEW SMILE Interface Configuration
+  enabled: true                 # Enable LabVIEW TCP communication
+  host: "172.17.1.217"         # LabVIEW PC IP (SMILE computer)
+  port: 5559                    # LabVIEW TCP listener port
+  timeout: 5.0                  # Command timeout (seconds)
+  retry_delay: 1.0              # Delay between retries (seconds)
+  max_retries: 3                # Max retry attempts
+  auto_reconnect: true          # Auto-reconnect on connection loss
+  
+  # Pressure Safety Configuration
+  # If pressure exceeds this threshold, piezo and e-gun are immediately killed
+  pressure_threshold_mbar: 5.0e-10    # 5 x 10^-9 mbar threshold
+  pressure_check_interval: 0.1      # 10 Hz check rate (seconds)
+  
+  # Supported devices (must match LabVIEW implementation)
+  devices:
+    - U_RF                      # RF voltage (0-1000V)
+    - piezo                     # Piezo voltage (-10 to 10V)
+    - be_oven                   # Be+ oven (on/off)
+    - b_field                   # B-field (on/off)
+    - bephi                     # Bephi (on/off)
+    - uv3                       # UV3 laser (on/off)
+    - e_gun                     # Electron gun (on/off)
+    - hd_shutter_1              # HD valve shutter 1
+    - hd_shutter_2              # HD valve shutter 2
+    - dds                       # DDS frequency control
+
+# Telemetry Data - LabVIEW writes files to shared drive
+# Manager reads files from Y:/Xi/Data/telemetry/ into shared buffers
+# Flask displays data from these buffers
+# ARTIQ ndscan data comes via ZMQ (not files)
+telemetry:
+  enabled: true
+  
+  # Where LabVIEW saves data files (relative to paths.output_base)
+  path: "telemetry"
+  
+  # Polling interval (seconds)
+  poll_interval: 1.0
+  
+  # Expected directory structure:
+  #   Y:/Xi/Data/telemetry/
+  #   ├── wavemeter/*.dat      - CSV: timestamp,frequency_mhz
+  #   ├── smile/pmt/*.dat      - CSV: timestamp,pmt_counts
+  #   ├── smile/pressure/*.dat - CSV: timestamp,pressure_mbar
+  #   └── camera/*.json        - JSON: pos_x, pos_y, sig_x, sig_y
+  
+  # Buffer configuration
+  max_points: 1000          # Max data points per channel
+  window_seconds: 300       # 5 minute rolling window
+
+hardware:
+  # ARTIQ Worker defaults
+  worker_defaults:
+    # DC Defaults (Safe Mode)
+    ec1: 0.0
+    ec2: 0.0
+    comp_h: 0.0
+    comp_v: 0.0
+    
+    # RF Voltage (real voltage in volts, not SMILE mV)
+    # Calibrated: 700mV on SMILE interface = 100V real
+    u_rf_volts: 200.0
+    
+    # Piezo voltage for laser frequency tuning (0-4V range)
+    piezo: 0.0
+    
+    # Cooling Parameters
+    # Raman laser frequencies (MHz)
+    freq0: 212.5
+    freq1: 212.5
+    # Raman amplitudes (0-1)
+    amp0: 0.05
+    amp1: 0.05
+    # Cooling shutters
+    sw0: false
+    sw1: false
+    
+    # Toggles
+    bephi: false
+    b_field: true
+    be_oven: false
+    uv3: false
+    e_gun: false
+    
+    # DDS profile selection
+    dds_profile: 0
+    
+    # DDS frequency (0-500 kHz)
+    dds_freq_khz: 0
+    
+    # Sweep Defaults
+    sweep_target: 307        # kHz
+    sweep_span: 40.0         # Total span +/- 20kHz
+    sweep_att: 25.0          # dB
+    sweep_on: 300.0          # ms
+    sweep_off: 300.0         # ms
+    sweep_points: 41         # int
+
+  # Camera settings
+  camera:
+    target_temperature: -20.0      # Celsius
+    cooler_timeout: 300            # seconds
+    max_frames_default: 100
+    exposure_default: 0.3
+    trigger_mode: "extern"         # "extern" or "software"
+    
+    # Subarray settings
+    subarray:
+      hsize: 300
+      hpos: 1624
+      vsize: 600
+      vpos: 1396
+    
+    # Trigger delay (seconds)
+    trigger_delay: 0.033138
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
+  file_rotation:
+    max_bytes: 1048576      # 1MB
+    backup_count: 5
+  
+  # Component log files
+  files:
+    manager: "logs/manager.log"
+    worker: "logs/artiq_worker.log"
+    camera: "logs/camera.log"
+    analysis: "logs/analysis.log"
+
+analysis:
+  # Image handler defaults
+  image_handler:
+    roi:
+      xstart: 0
+      xfinish: 300
+      ystart: 0
+      yfinish: 300
+    radius: 20
+    # Adaptive fitting window parameters
+    base_window: 30      # Base half-window for initial profile extraction
+    min_window: 20       # Minimum window size for narrow profiles
+    
+  # Sweep analysis
+  sweep:
+    model: "lorentzian"
+    initial_guess:
+      gamma: 5000.0          # 5 kHz
+
+experiment:
+  # Experiment tracking
+  auto_generate_id: true
+  id_prefix: "EXP"
+  save_metadata: true
+  
+  # Data retention
+  max_frames_keep: 100     # Max frames in live folder
+  cleanup_interval: 5      # seconds
