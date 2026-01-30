@@ -25,6 +25,7 @@ import time
 import json
 import threading
 import logging
+import socket
 from typing import Optional, Dict, Any, Set, Callable
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -44,6 +45,144 @@ from core.enums import (
     SystemMode, AlgorithmState, CommandType,
     smile_mv_to_real_volts
 )
+
+
+# =============================================================================
+# CAMERA INTERFACE - Direct control of CCD camera
+# =============================================================================
+
+class CameraInterface:
+    """
+    Direct interface to the camera server.
+    
+    Provides simplified camera control without going through Flask.
+    Communicates directly with camera_server via TCP.
+    
+    This eliminates the messy chain:
+    ARTIQ -> Flask -> TCP -> camera_server -> camera_logic
+    
+    And replaces it with:
+    Manager -> camera_server (direct TCP)
+    ARTIQ TTL trigger -> camera (hardware trigger)
+    """
+    
+    def __init__(self, host: str = '127.0.0.1', port: Optional[int] = None):
+        """
+        Initialize camera interface.
+        
+        Args:
+            host: Camera server host (default: localhost)
+            port: Camera server port (default from config or 5558)
+        """
+        self.logger = logging.getLogger("camera_interface")
+        
+        # Load configuration
+        config = get_config()
+        self.host = host
+        self.port = port or config.get('network.camera_port', 5558)
+        self.timeout = 5.0
+        
+        # Camera state
+        self.is_recording = False
+        self.lock = threading.RLock()
+        
+        self.logger.info(f"Camera Interface initialized ({self.host}:{self.port})")
+    
+    def _send_command(self, command: str) -> tuple[bool, str]:
+        """
+        Send command to camera server.
+        
+        Args:
+            command: Command string (START, START_INF, STOP, STATUS)
+            
+        Returns:
+            Tuple of (success, response_message)
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(self.timeout)
+                s.connect((self.host, self.port))
+                s.sendall(command.encode() + b'\n')
+                response = s.recv(1024).decode().strip()
+                
+                if response.startswith("OK:"):
+                    return True, response
+                else:
+                    return False, response
+                    
+        except socket.timeout:
+            self.logger.error(f"Camera server timeout")
+            return False, "Timeout"
+        except ConnectionRefusedError:
+            self.logger.error(f"Camera server not available at {self.host}:{self.port}")
+            return False, "Connection refused"
+        except Exception as e:
+            self.logger.error(f"Camera communication error: {e}")
+            return False, str(e)
+    
+    def start_recording(self, mode: str = "inf", exp_id: Optional[str] = None) -> bool:
+        """
+        Start camera recording.
+        
+        Args:
+            mode: Recording mode - "inf" for infinite capture, "single" for DCIMG recording
+            exp_id: Optional experiment ID for metadata
+            
+        Returns:
+            True if successful
+        """
+        with self.lock:
+            if mode == "inf":
+                success, msg = self._send_command("START_INF")
+            else:
+                success, msg = self._send_command("START")
+            
+            if success:
+                self.is_recording = True
+                self.logger.info(f"Camera recording started ({mode} mode)")
+                
+                # Send experiment ID if provided
+                if exp_id:
+                    self._send_command(f"EXP_ID:{exp_id}")
+            else:
+                self.logger.error(f"Failed to start camera: {msg}")
+            
+            return success
+    
+    def stop_recording(self) -> bool:
+        """
+        Stop camera recording.
+        
+        Returns:
+            True if successful
+        """
+        with self.lock:
+            success, msg = self._send_command("STOP")
+            
+            if success:
+                self.is_recording = False
+                self.logger.info("Camera recording stopped")
+            else:
+                self.logger.error(f"Failed to stop camera: {msg}")
+            
+            return success
+    
+    def get_status(self) -> Dict[str, Any]:
+        """
+        Get camera status.
+        
+        Returns:
+            Dictionary with status information
+        """
+        success, msg = self._send_command("STATUS")
+        
+        with self.lock:
+            return {
+                "connected": success,
+                "recording": self.is_recording,
+                "status_message": msg if success else "Unknown",
+                "server": f"{self.host}:{self.port}"
+            }
 
 
 # =============================================================================
@@ -220,7 +359,7 @@ class LabVIEWFileReader:
     Reads data files written by LabVIEW to shared drive and stores in telemetry.
     
     Expected directory structure:
-        Y:/Xi/Data/telemetry/
+        E:/Data/telemetry/
         ├── wavemeter/*.dat      - CSV: timestamp,frequency_mhz
         ├── smile/pmt/*.dat      - CSV: timestamp,pmt_counts
         ├── smile/pressure/*.dat - CSV: timestamp,pressure_mbar
@@ -229,7 +368,7 @@ class LabVIEWFileReader:
     This runs in a background thread polling for new files.
     """
     
-    def __init__(self, base_path: str = "Y:/Xi/Data/telemetry", poll_interval: float = 1.0):
+    def __init__(self, base_path: str = "E:/Data/telemetry", poll_interval: float = 1.0):
         self.logger = logging.getLogger("labview_file_reader")
         self.base_path = Path(base_path)
         self.poll_interval = poll_interval
@@ -589,6 +728,10 @@ class ControlManager:
         self.labview_data_reader = LabVIEWFileReader()
         self.labview_data_reader.start()
         
+        # Camera Interface (direct control, bypassing Flask)
+        self.camera: Optional[CameraInterface] = None
+        self._init_camera()
+        
         # Start background threads
         self._start_background_threads()
         
@@ -629,6 +772,23 @@ class ControlManager:
         except Exception as e:
             self.logger.error(f"Failed to initialize LabVIEW interface: {e}")
             self.labview = None
+    
+    def _init_camera(self):
+        """Initialize camera interface for direct control."""
+        try:
+            self.camera = CameraInterface()
+            self.logger.info("Camera interface initialized")
+            
+            # Test connection
+            status = self.camera.get_status()
+            if status["connected"]:
+                self.logger.info("Camera server connection verified")
+            else:
+                self.logger.warning("Camera server not available (will retry on demand)")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to initialize camera interface: {e}")
+            self.camera = None
     
     def _on_pressure_alert(self, pressure: float, threshold: float, timestamp: float, action: str):
         """
@@ -845,6 +1005,14 @@ class ControlManager:
                 return self._handle_turbo_status(req)
             elif action == "TURBO_CONTROL":
                 return self._handle_turbo_control(req)
+            elif action == "CAMERA_START":
+                return self._handle_camera_start(req)
+            elif action == "CAMERA_STOP":
+                return self._handle_camera_stop(req)
+            elif action == "CAMERA_STATUS":
+                return self._handle_camera_status(req)
+            elif action == "CAMERA_TRIGGER":
+                return self._handle_camera_trigger(req)
             else:
                 return {"status": "error", "message": f"Unknown action: {action}", "code": "UNKNOWN_ACTION"}
     
@@ -1203,12 +1371,20 @@ class ControlManager:
         }
     
     def _handle_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle general STATUS query including kill switch status."""
+        """Handle general STATUS query including kill switch and camera status."""
         with self.worker_lock:
             worker_alive = self.worker_alive
         
         with self.turbo_lock:
             turbo_dict = self.turbo_state.to_dict()
+        
+        # Get camera status if available
+        camera_status = None
+        if self.camera:
+            try:
+                camera_status = self.camera.get_status()
+            except:
+                camera_status = {"available": False}
         
         return {
             "status": "success",
@@ -1218,7 +1394,8 @@ class ControlManager:
             "params": self.params,
             "turbo": turbo_dict,
             "safety_triggered": self.safety_triggered,
-            "kill_switch": self.kill_switch.get_status()
+            "kill_switch": self.kill_switch.get_status(),
+            "camera": camera_status
         }
     
     def _handle_turbo_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
@@ -1267,6 +1444,109 @@ class ControlManager:
         
         else:
             return {"status": "error", "message": f"Unknown turbo command: {command}"}
+    
+    def _handle_camera_start(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Start camera recording with optional TTL trigger.
+        
+        Simplified workflow:
+        1. Start camera recording (direct TCP to camera_server)
+        2. Optionally send TTL trigger command to ARTIQ
+        
+        Args:
+            req: Request with optional 'trigger' flag and 'mode' (inf/single)
+        """
+        mode = req.get("mode", "inf")  # "inf" for infinite, "single" for DCIMG
+        send_trigger = req.get("trigger", True)  # Whether to send TTL trigger
+        exp_id = req.get("exp_id") or (self.current_exp.exp_id if self.current_exp else None)
+        
+        self.logger.info(f"Camera start requested: mode={mode}, trigger={send_trigger}")
+        
+        # Check camera interface
+        if not self.camera:
+            return {"status": "error", "message": "Camera interface not available", "code": "CAMERA_NOT_AVAILABLE"}
+        
+        try:
+            # Step 1: Start camera recording
+            success = self.camera.start_recording(mode=mode, exp_id=exp_id)
+            if not success:
+                return {"status": "error", "message": "Failed to start camera recording", "code": "CAMERA_START_FAILED"}
+            
+            # Step 2: Send TTL trigger command to ARTIQ if requested
+            if send_trigger:
+                self._publish_camera_trigger(exp_id)
+                self.logger.info("Camera TTL trigger command sent to ARTIQ")
+            
+            return {
+                "status": "success",
+                "message": f"Camera started ({mode} mode)",
+                "mode": mode,
+                "trigger_sent": send_trigger
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Camera start failed: {e}")
+            return {"status": "error", "message": str(e), "code": "CAMERA_ERROR"}
+    
+    def _handle_camera_stop(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """Stop camera recording."""
+        self.logger.info("Camera stop requested")
+        
+        if not self.camera:
+            return {"status": "error", "message": "Camera interface not available", "code": "CAMERA_NOT_AVAILABLE"}
+        
+        try:
+            success = self.camera.stop_recording()
+            if success:
+                return {"status": "success", "message": "Camera stopped"}
+            else:
+                return {"status": "error", "message": "Failed to stop camera", "code": "CAMERA_STOP_FAILED"}
+        except Exception as e:
+            self.logger.error(f"Camera stop failed: {e}")
+            return {"status": "error", "message": str(e), "code": "CAMERA_ERROR"}
+    
+    def _handle_camera_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """Get camera status."""
+        if not self.camera:
+            return {"status": "error", "message": "Camera interface not available", "code": "CAMERA_NOT_AVAILABLE"}
+        
+        try:
+            status = self.camera.get_status()
+            return {"status": "success", "camera": status}
+        except Exception as e:
+            self.logger.error(f"Camera status check failed: {e}")
+            return {"status": "error", "message": str(e), "code": "CAMERA_ERROR"}
+    
+    def _handle_camera_trigger(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Send TTL trigger command to ARTIQ for camera.
+        This is used when you want to trigger the camera without starting recording.
+        """
+        exp_id = req.get("exp_id") or (self.current_exp.exp_id if self.current_exp else None)
+        
+        self.logger.info("Camera TTL trigger requested")
+        
+        try:
+            self._publish_camera_trigger(exp_id)
+            return {"status": "success", "message": "Camera TTL trigger command sent to ARTIQ"}
+        except Exception as e:
+            self.logger.error(f"Camera trigger failed: {e}")
+            return {"status": "error", "message": str(e), "code": "TRIGGER_ERROR"}
+    
+    def _publish_camera_trigger(self, exp_id: Optional[str] = None):
+        """
+        Publish camera TTL trigger command to ARTIQ worker.
+        
+        The ARTIQ worker will execute the actual TTL pulse on the hardware.
+        """
+        msg = {
+            "type": "CAMERA_TRIGGER",
+            "exp_id": exp_id,
+            "timestamp": time.time()
+        }
+        self.pub_socket.send_string("ARTIQ", flags=zmq.SNDMORE)
+        self.pub_socket.send_json(msg)
+        self.logger.debug(f"Published camera trigger command for exp {exp_id}")
     
     # ==========================================================================
     # PUBLISH COMMANDS TO WORKERS
@@ -1595,6 +1875,14 @@ class ControlManager:
         """Graceful shutdown."""
         self.logger.info("Shutting down Control Manager...")
         self.running = False
+        
+        # Stop camera recording if active
+        if self.camera:
+            self.logger.info("Stopping camera recording...")
+            try:
+                self.camera.stop_recording()
+            except Exception as e:
+                self.logger.warning(f"Error stopping camera: {e}")
         
         # Stop LabVIEW file reader
         if hasattr(self, 'labview_data_reader') and self.labview_data_reader:

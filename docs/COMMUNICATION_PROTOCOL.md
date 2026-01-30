@@ -634,7 +634,71 @@ Data Format (one per line):
 }
 ```
 
-### 6.4 LabVIEW SMILE Protocol (Port 5559)
+### 6.4 HTTP Health Check Endpoints (Port 5000)
+
+#### Health Check (Liveness)
+**Endpoint:** `GET /health`
+
+Returns the overall health status of the Flask server for monitoring and load balancers.
+
+**Response (Healthy - HTTP 200):**
+```json
+{
+  "status": "healthy",
+  "timestamp": 1706380800.123,
+  "uptime_seconds": 3600.5,
+  "uptime_formatted": "1h 0m",
+  "version": "1.0.0",
+  "service": "smile-flask-server",
+  "checks": {
+    "server": "ok",
+    "manager_connected": true,
+    "telemetry_available": true,
+    "camera_path_accessible": true
+  }
+}
+```
+
+**Response (Degraded - HTTP 503):**
+```json
+{
+  "status": "degraded",
+  "checks": {
+    "server": "ok",
+    "manager_connected": false,
+    ...
+  }
+}
+```
+
+#### Readiness Check
+**Endpoint:** `GET /ready`
+
+Returns whether the server is ready to accept traffic. Used by Kubernetes and container orchestration.
+
+**Response (Ready - HTTP 200):**
+```json
+{
+  "ready": true,
+  "checks": {
+    "manager": true,
+    "camera_path": true
+  }
+}
+```
+
+**Response (Not Ready - HTTP 503):**
+```json
+{
+  "ready": false,
+  "checks": {
+    "manager": false,
+    "camera_path": false
+  }
+}
+```
+
+### 6.5 LabVIEW SMILE Protocol (Port 5559)
 
 #### Command Types
 
@@ -679,7 +743,7 @@ Data Format (one per line):
 
 Status values: `ok`, `error`, `busy`
 
-### 6.5 Data Ingestion Protocol (Port 5560)
+### 6.6 Data Ingestion Protocol (Port 5560)
 
 #### Telemetry Data Format
 ```json
@@ -710,7 +774,49 @@ Status values: `ok`, `error`, `busy`
 | sig_x, sigma_x, width_x | sig_x | Signal width X |
 | sig_y, sigma_y, width_y | sig_y | Signal width Y |
 
-### 6.6 Camera Server Protocol (Port 5558)
+### 6.7 Simplified Control API (Port 5000)
+
+Unified endpoint for controlling all devices.
+
+**Endpoint:** `POST /api/set`
+
+**Request Format:**
+```json
+{
+  "device": "<device_name>",
+  "value": <value>
+}
+```
+
+**Supported Devices:**
+
+| Device | Value Type | Example | Description |
+|--------|-----------|---------|-------------|
+| `u_rf` | float | `{"device": "u_rf", "value": 350.0}` | RF voltage (0-500V) |
+| `trap` | array[4] | `{"device": "trap", "value": [10, 10, 6, 37]}` | [EC1, EC2, Comp_H, Comp_V] |
+| `ec1`, `ec2` | float | `{"device": "ec1", "value": 5.0}` | Single electrode |
+| `comp_h`, `comp_v` | float | `{"device": "comp_h", "value": 6.0}` | Compensation electrodes |
+| `piezo` | float | `{"device": "piezo", "value": 2.5}` | Piezo voltage (0-4V) |
+| `dds` | float | `{"device": "dds", "value": 135.0}` | DDS frequency (MHz) |
+| `dds_profile` | int | `{"device": "dds_profile", "value": 0}` | DDS profile (0-7) |
+| `b_field` | 1/0 | `{"device": "b_field", "value": 1}` | B-field ON/OFF |
+| `be_oven` | 1/0 | `{"device": "be_oven", "value": 1}` | Oven ON/OFF |
+| `uv3` | 1/0 | `{"device": "uv3", "value": 1}` | UV3 ON/OFF |
+| `e_gun` | 1/0 | `{"device": "e_gun", "value": 0}` | E-gun ON/OFF |
+| `bephi` | 1/0 | `{"device": "bephi", "value": 1}` | Bephi ON/OFF |
+| `sweep` | array | `{"device": "sweep", "value": [300, 320, 21]}` | [start_khz, end_khz, steps] |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "device": "u_rf",
+  "value": 350.0,
+  "params": {"u_rf_volts": 350.0}
+}
+```
+
+### 6.8 Camera Server Protocol (Port 5558)
 
 #### Commands (Plain Text)
 
@@ -735,14 +841,13 @@ Status values: `ok`, `error`, `busy`
 **Valid Parameters:**
 ```python
 VALID_PARAMS = {
-    "u_rf_volts",  # RF Voltage (0-500V)
-    "ec1", "ec2", "comp_h", "comp_v",  # Electrodes (-100 to 100V)
-    "freq0", "amp0", "freq1", "amp1",  # Cooling (200-220 MHz, 0-1 amp)
-    "sw0", "sw1",  # Shutters
-    "bephi", "b_field", "be_oven", "uv3", "e_gun",  # Toggles
-    "piezo",  # Piezo (0-4V)
-    "dds_profile",  # DDS profile (0-7)
-    "dds_freq_khz"  # DDS frequency (0-500 kHz)
+    "u_rf",  # RF Voltage (0-1500mVV)
+    "ec1", "ec2", "comp_h", "comp_v",  # Electrodes (-1 to 50V)
+    "sw0","amp0", "sw1","amp1"  # ramanboard (1 or 0, [0,1])
+    "bephi", "b_field", "be_oven", "uv3", "e_gun",  # 1 or 0
+    "hd_voltage",  # Piezo (0-4V)
+    "hd_shutter"   # piezo valve (1,0)
+    "dds_freq_Mhz"  # DDS frequency (0-500 MHz)
 }
 ```
 
@@ -769,16 +874,22 @@ VALID_PARAMS = {
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Main dashboard |
+| `/health` | GET | Health check (liveness probe) |
+| `/ready` | GET | Readiness check |
 | `/video_feed` | GET | MJPEG camera stream |
 | `/api/telemetry/stream` | GET | SSE telemetry stream |
 | `/api/turbo/logs/stream` | GET | SSE algorithm logs |
 | `/api/status` | GET | System status |
-| `/api/control/electrodes` | POST | Set electrode voltages |
-| `/api/control/rf` | POST | Set RF voltage |
-| `/api/control/piezo` | POST | Set piezo voltage |
-| `/api/control/toggle/<name>` | POST | Set toggle state |
-| `/api/control/dds` | POST | Set DDS profile/frequency |
+| `/api/killswitch/status` | GET | Kill switch status |
+| `/api/set` | POST | **Simplified unified control** |
+| `/api/control/electrodes` | POST | Set electrode voltages (legacy) |
+| `/api/control/rf` | POST | Set RF voltage (legacy) |
+| `/api/control/piezo/setpoint` | POST | Set piezo voltage setpoint (legacy) |
+| `/api/control/piezo/output` | POST | Enable/disable piezo output (legacy) |
+| `/api/control/toggle/<name>` | POST | Set toggle state (legacy) |
+| `/api/control/dds` | POST | Set DDS profile/frequency (legacy) |
 | `/api/safety/toggle` | POST | Engage/disengage safety |
+| `/api/safety/status` | GET | Get safety status |
 | `/api/mode` | POST | Change system mode |
 | `/api/sweep` | POST | Trigger sweep |
 | `/api/compare` | POST | Trigger secular comparison |

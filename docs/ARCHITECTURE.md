@@ -150,6 +150,7 @@ network:
 paths:
   artiq_data: "C:/artiq-master/results"
   output_base: "Y:/Xi/Data"
+  labview_tdms: "Y:/Xi/Data/PMT"     # LabVIEW TDMS files
   camera_frames: "Y:/Stein/Server/Camera_Frames"
 
 hardware:

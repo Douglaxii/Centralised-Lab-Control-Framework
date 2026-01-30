@@ -1,0 +1,249 @@
+2026-01-30 12:08:59,144 - [flask] - INFO - ============================================================
+2026-01-30 12:08:59,144 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 12:08:59,145 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 12:08:59,145 - [flask] - INFO - Camera labelled frames path: E:\Data\camera\processed_frames
+2026-01-30 12:09:08,332 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:09:13,333 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:09:13,436 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:09:18,443 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:11:10,692 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:15,793 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:11:15,895 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:20,896 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:11:20,898 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:25,901 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:11:26,004 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:31,016 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:11:31,019 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:36,021 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:11:36,123 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:41,137 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:11:41,139 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:46,143 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:11:46,245 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:51,255 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:11:51,258 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:11:56,265 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:11:56,368 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:01,374 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:12:01,376 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:06,386 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:12:06,488 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:11,494 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:12:11,494 - [flask] - ERROR - Failed to apply e-gun state: Manager timeout
+2026-01-30 12:12:11,496 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:16,508 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:12:16,610 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:21,618 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:12:21,619 - [flask] - ERROR - Failed to apply e-gun state: Manager timeout
+2026-01-30 12:12:21,620 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:21,621 - [flask] - INFO - E-gun disabled
+2026-01-30 12:12:26,630 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:12:26,732 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:31,741 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:12:31,743 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:36,752 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:12:36,854 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:41,866 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:12:41,869 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:46,881 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:12:46,983 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:51,998 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:12:51,999 - [flask] - ERROR - Failed to apply piezo voltage: Manager timeout
+2026-01-30 12:12:52,000 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:12:57,002 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:12:57,104 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:13:02,115 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:13:02,116 - [flask] - ERROR - Failed to apply piezo voltage: Manager timeout
+2026-01-30 12:13:02,118 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:13:02,118 - [flask] - INFO - Piezo output disabled
+2026-01-30 12:13:07,122 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:13:07,224 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:13:12,236 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:13:12,239 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:13:17,243 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:13:17,345 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:13:22,350 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:14:47,612 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 12:14:47,613 - [flask] - INFO - Cleanup complete
+2026-01-30 12:18:17,704 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:22,706 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:18:22,808 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:27,819 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:18:27,825 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:32,834 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:18:32,936 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:37,951 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:18:37,954 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:42,959 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:18:43,061 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:48,067 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:18:48,071 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:53,071 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:18:53,174 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:18:58,180 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:18:58,183 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:03,199 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:19:03,301 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:08,312 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:19:08,314 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:13,325 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:19:13,427 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:18,428 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:19:18,430 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:23,444 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:19:23,547 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:28,547 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:19:28,548 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:33,550 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:19:33,653 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:38,666 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:19:38,666 - [flask] - INFO - Piezo setpoint updated to 2.5V
+2026-01-30 12:19:38,668 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:43,671 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 12:19:43,772 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 12:19:48,776 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 12:19:48,776 - [flask] - ERROR - Failed to apply piezo voltage: Manager timeout
+2026-01-30 12:20:39,812 - [flask] - INFO - Piezo setpoint updated to 2.5V
+2026-01-30 12:20:39,813 - [flask] - WARNING - PIEZO OUTPUT ENABLED: 2.5V (kill switch: 10s max)
+2026-01-30 13:06:57,736 - [flask] - INFO - ============================================================
+2026-01-30 13:06:57,736 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 13:06:57,737 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 13:06:57,737 - [flask] - INFO - Camera labelled frames path: E:\Data\camera\processed_frames
+2026-01-30 13:07:05,638 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:07:10,650 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:07:10,752 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:07:15,756 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:07:41,423 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 13:07:41,424 - [flask] - INFO - Cleanup complete
+2026-01-30 13:13:54,061 - [flask] - INFO - ============================================================
+2026-01-30 13:13:54,061 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 13:13:54,061 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 13:13:54,062 - [flask] - INFO - Camera labelled frames path: E:\Data\camera\processed_frames
+2026-01-30 13:14:11,969 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:16,979 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:14:17,081 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:22,095 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:14:22,097 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:27,099 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:14:27,201 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:32,217 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:14:32,219 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:37,233 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:14:37,336 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:42,346 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:14:42,348 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:47,350 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:14:47,452 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:52,462 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:14:52,464 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:14:57,469 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:14:57,571 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:15:02,574 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:15:02,576 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:15:07,580 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:15:07,682 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:15:12,693 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:15:12,695 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:15:17,706 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:15:17,808 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:15:22,812 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 13:15:22,813 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:15:27,823 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 13:15:27,925 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 13:15:32,347 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 13:15:32,347 - [flask] - ERROR - ZMQ error: Context was terminated
+2026-01-30 13:15:32,348 - [flask] - ERROR - ZMQ error: Bad address
+2026-01-30 13:15:32,348 - [flask] - INFO - Cleanup complete
+2026-01-30 13:15:49,908 - [flask] - INFO - ============================================================
+2026-01-30 13:15:49,908 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 13:15:49,908 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 13:15:49,908 - [flask] - INFO - Camera labelled frames path: E:\Data\camera\processed_frames
+2026-01-30 13:15:49,908 - [flask] - ERROR - Fatal error: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 13:15:49,929 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 13:15:49,929 - [flask] - INFO - Cleanup complete
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 13:15:52,406 - [flask] - INFO - ============================================================
+2026-01-30 13:15:52,406 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 13:15:52,406 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 13:15:52,406 - [flask] - INFO - Camera labelled frames path: E:\Data\camera\processed_frames
+2026-01-30 13:15:52,406 - [flask] - ERROR - Fatal error: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 13:15:52,408 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 13:15:52,409 - [flask] - INFO - Cleanup complete
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 13:15:58,919 - [flask] - INFO - ============================================================
+2026-01-30 13:15:58,919 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 13:15:58,919 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 13:15:58,919 - [flask] - INFO - Camera labelled frames path: E:\Data\camera\processed_frames
+2026-01-30 13:15:58,919 - [flask] - ERROR - Fatal error: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 13:15:58,921 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 13:15:58,921 - [flask] - INFO - Cleanup complete
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 13:16:05,441 - [flask] - INFO - ============================================================
+2026-01-30 13:16:05,441 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 13:16:05,442 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 13:16:05,442 - [flask] - INFO - Camera labelled frames path: E:\Data\camera\processed_frames
+2026-01-30 13:16:05,442 - [flask] - ERROR - Fatal error: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 13:16:05,444 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 13:16:05,444 - [flask] - INFO - Cleanup complete
+Traceback (most recent call last):
+  File "d:\MLS\server\Flask\flask_server.py", line 2130, in <module>
+    print(f"\U0001f30d Dashboard running at http://0.0.0.0:5000")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>

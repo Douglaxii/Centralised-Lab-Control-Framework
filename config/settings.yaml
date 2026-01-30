@@ -1,5 +1,6 @@
 # Lab Control Framework Configuration
 # Centralized configuration for all components
+# Updated: LabVIEW writes TDMS files to Y:/Xi/Data/PMT
 
 ---
 network:
@@ -26,24 +27,39 @@ paths:
   # ARTIQ paths
   artiq_data: "C:/artiq-master/results"
   
-  # Output paths
-  output_base: "Y:/Xi/Data/server"
+  # ============================================================================
+  # LABVIEW DATA DIRECTORY - Y:/Xi/Data (LabVIEW writes TDMS files here)
+  # ============================================================================
   
-  # Camera paths
-  camera_frames: "E:/mls_frames/camera_frames"      # Legacy: raw camera frames
-  camera_settings: "E:/mls_frames/camera_settings"  # Camera configuration files
-  camera_dcimg: "E:/mls_frames/camera_dcimg"                      # DCIMG recordings
-  live_frames: "E:/mls_frames/live_frames"          # Legacy: live preview frames
+  # Base output path - LabVIEW data location
+  output_base: "Y:/Xi/Data"
   
-  # New unified camera paths (used by camera_server.py)
-  jpg_frames: "E:/mls_frames/jpg_frames"                 # Raw JPG frames from camera
-  jpg_frames_labelled: "E:/mls_frames/jpg_frames_labelled"  # Annotated/processed frames for Flask streaming
+  # LabVIEW TDMS data paths
+  labview_tdms: "Y:/Xi/Data/PMT"                       # LabVIEW TDMS files
+  labview_telemetry: "Y:/Xi/Data/telemetry"            # LabVIEW telemetry data
+  
+  # Camera paths - can be on local drive or network
+  camera_frames: "Y:/Xi/Data/camera/raw_frames"        # Raw camera frames
+  camera_settings: "Y:/Xi/Data/camera/settings"        # Camera configuration files
+  camera_dcimg: "Y:/Xi/Data/camera/dcimg"              # DCIMG recordings
+  live_frames: "Y:/Xi/Data/camera/live_frames"         # Live preview frames
+  
+  # Processed camera data
+  jpg_frames: "Y:/Xi/Data/camera/raw_frames"           # Raw JPG frames from camera
+  jpg_frames_labelled: "Y:/Xi/Data/camera/processed_frames"  # Annotated/processed frames
+  
+  # Experiment data
+  experiments: "Y:/Xi/Data/experiments"                # Experiment metadata and results
+  
+  # Analysis data
+  analysis_results: "Y:/Xi/Data/analysis/results"      # Analysis output
+  analysis_settings: "Y:/Xi/Data/analysis/settings"    # Analysis configuration
   
   # Settings paths
   dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
   
   # Debug paths
-  debug_path: "Y:/Xi/Data/Server/Debug"
+  debug_path: "Y:/Xi/Data/debug"
 
 labview:
   # LabVIEW SMILE Interface Configuration
@@ -80,8 +96,8 @@ labview:
 telemetry:
   enabled: true
   
-  # Where LabVIEW saves data files (relative to paths.output_base)
-  path: "telemetry"
+  # Where LabVIEW saves data files
+  path: "Y:/Xi/Data/telemetry"
   
   # Polling interval (seconds)
   poll_interval: 1.0
@@ -92,6 +108,10 @@ telemetry:
   #   ├── smile/pmt/*.dat      - CSV: timestamp,pmt_counts
   #   ├── smile/pressure/*.dat - CSV: timestamp,pressure_mbar
   #   └── camera/*.json        - JSON: pos_x, pos_y, sig_x, sig_y
+  
+  # TDMS files (LabVIEW writes to Y:/Xi/Data/PMT/)
+  tdms_path: "Y:/Xi/Data/PMT"
+  tdms_extension: ".tdms"
   
   # Buffer configuration
   max_points: 1000          # Max data points per channel
@@ -170,12 +190,12 @@ logging:
     max_bytes: 1048576      # 1MB
     backup_count: 5
   
-  # Component log files
+  # Component log files (stored in Y:/Xi/Data/logs/)
   files:
-    manager: "logs/manager.log"
-    worker: "logs/artiq_worker.log"
-    camera: "logs/camera.log"
-    analysis: "logs/analysis.log"
+    manager: "Y:/Xi/Data/logs/manager.log"
+    worker: "Y:/Xi/Data/logs/artiq_worker.log"
+    camera: "Y:/Xi/Data/logs/camera.log"
+    analysis: "Y:/Xi/Data/logs/analysis.log"
 
 analysis:
   # Image handler defaults

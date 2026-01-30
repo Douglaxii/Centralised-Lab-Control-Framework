@@ -57,11 +57,11 @@ class LabVIEWKillSwitch:
     
     TIME_LIMITS = {
         "piezo": 10.0,   # 10 seconds
-        "e_gun": 10.0,   # 10 seconds (testing mode)
+        "e_gun": 30.0,   # 30 seconds max
     }
     
     # Pressure safety threshold (mbar) - immediate kill if exceeded
-    PRESSURE_THRESHOLD_MBAR = 5e-9  # 5e-9 mbar threshold
+    PRESSURE_THRESHOLD_MBAR = 5e-10  # 5e-9 mbar threshold
     
     def __init__(self, labview_interface: 'LabVIEWInterface'):
         self._labview = labview_interface
@@ -243,7 +243,7 @@ class PressureMonitor:
     """
     Real-time pressure monitor with immediate safety response.
     
-    Monitors pressure data from SMILE/LabVIEW via file system (Y:/Xi/Data/telemetry/)
+    Monitors pressure data from SMILE/LabVIEW via file system (E:/Data/telemetry/)
     and triggers immediate kill switch when threshold is exceeded.
     
     Features:
@@ -292,7 +292,7 @@ class PressureMonitor:
         self.alert_callback = alert_callback
         
         # Get pressure file path from config or use default
-        output_base = config.get_path('output_base') if config else "Y:/Xi/Data"
+        output_base = config.get_path('output_base') if config else "E:/Data"
         self.pressure_dir = Path(pressure_file_path or f"{output_base}/telemetry/smile/pressure")
         
         # State

@@ -19,8 +19,8 @@ services:
     jpeg_quality: 85        # Balance quality vs size
     
     # Paths
-    raw_frames: "Y:/Xi/Data/jpg_frames"
-    labelled_frames: "Y:/Xi/Data/jpg_frames_labelled"
+    raw_frames: "E:/Data/camera/raw_frames"
+    labelled_frames: "E:/Data/camera/processed_frames"
     
     # Memory optimization
     max_concurrent_processing: 2  # Limit concurrent image processing
@@ -116,10 +116,10 @@ logging:
   
   # Separate log files per service
   files:
-    camera: "logs/camera_server.log"
-    manager: "logs/manager.log"
-    flask: "logs/flask_server.log"
-    launcher: "logs/launcher.log"
+    camera: "E:/Data/logs/camera_server.log"
+    manager: "E:/Data/logs/manager.log"
+    flask: "E:/Data/logs/flask_server.log"
+    launcher: "E:/Data/logs/launcher.log"
   
   # Log rotation
   rotation:

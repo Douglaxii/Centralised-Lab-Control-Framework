@@ -101,7 +101,7 @@ class ExperimentContext:
         Save experiment context to disk.
         
         Args:
-            directory: Directory to save in (default: Y:/Xi/Data/[date]/metadata)
+            directory: Directory to save in (default: E:/Data/[date]/metadata)
         """
         if directory is None:
             config = get_config()

@@ -1,0 +1,164 @@
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\'

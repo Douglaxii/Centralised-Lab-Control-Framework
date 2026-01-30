@@ -1,0 +1,44 @@
+2026-01-30 13:15:47,523 | INFO     | Launcher        | ============================================================
+2026-01-30 13:15:47,524 | INFO     | Launcher        | Starting all services...
+2026-01-30 13:15:47,524 | INFO     | Launcher        | ============================================================
+2026-01-30 13:15:47,524 | INFO     | Launcher        | [Camera] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\cam\camera_server.py
+2026-01-30 13:15:47,531 | INFO     | Launcher        | [Camera] Started with PID 48876
+2026-01-30 13:15:48,532 | INFO     | Launcher        | [Manager] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\communications\manager.py
+2026-01-30 13:15:48,544 | INFO     | Launcher        | [Manager] Started with PID 17076
+2026-01-30 13:15:49,544 | INFO     | Launcher        | [Flask] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\Flask\flask_server.py
+2026-01-30 13:15:49,550 | INFO     | Launcher        | [Flask] Started with PID 46296
+2026-01-30 13:15:50,551 | INFO     | Launcher        | ============================================================
+2026-01-30 13:15:50,551 | INFO     | Launcher        | All services started!
+2026-01-30 13:15:50,551 | INFO     | Launcher        | ============================================================
+2026-01-30 13:15:50,552 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-30 13:15:51,053 | INFO     | Launcher        | [Camera] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\cam\camera_server.py
+2026-01-30 13:15:51,056 | INFO     | Launcher        | [Camera] Started with PID 48672
+2026-01-30 13:15:51,056 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-30 13:15:51,557 | INFO     | Launcher        | [Manager] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\communications\manager.py
+2026-01-30 13:15:51,560 | INFO     | Launcher        | [Manager] Started with PID 47516
+2026-01-30 13:15:51,560 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-30 13:15:52,061 | INFO     | Launcher        | [Flask] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\Flask\flask_server.py
+2026-01-30 13:15:52,064 | INFO     | Launcher        | [Flask] Started with PID 40272
+2026-01-30 13:15:57,065 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-30 13:15:57,566 | INFO     | Launcher        | [Camera] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\cam\camera_server.py
+2026-01-30 13:15:57,569 | INFO     | Launcher        | [Camera] Started with PID 40936
+2026-01-30 13:15:57,570 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-30 13:15:58,070 | INFO     | Launcher        | [Manager] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\communications\manager.py
+2026-01-30 13:15:58,074 | INFO     | Launcher        | [Manager] Started with PID 46892
+2026-01-30 13:15:58,074 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-30 13:15:58,574 | INFO     | Launcher        | [Flask] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\Flask\flask_server.py
+2026-01-30 13:15:58,578 | INFO     | Launcher        | [Flask] Started with PID 46360
+2026-01-30 13:16:03,578 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-30 13:16:04,079 | INFO     | Launcher        | [Camera] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\cam\camera_server.py
+2026-01-30 13:16:04,082 | INFO     | Launcher        | [Camera] Started with PID 41896
+2026-01-30 13:16:04,082 | WARNING  | Launcher        | [manager] Health check failed, restarting...
+2026-01-30 13:16:04,583 | INFO     | Launcher        | [Manager] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\communications\manager.py
+2026-01-30 13:16:04,587 | INFO     | Launcher        | [Manager] Started with PID 6564
+2026-01-30 13:16:04,587 | WARNING  | Launcher        | [flask] Health check failed, restarting...
+2026-01-30 13:16:05,088 | INFO     | Launcher        | [Flask] Starting: C:\Users\Dougl\AppData\Local\Programs\Python\Python313\python.exe d:\MLS\server\Flask\flask_server.py
+2026-01-30 13:16:05,091 | INFO     | Launcher        | [Flask] Started with PID 43668
+2026-01-30 13:16:10,091 | WARNING  | Launcher        | [camera] Health check failed, restarting...
+2026-01-30 13:16:10,171 | INFO     | Launcher        | ============================================================
+2026-01-30 13:16:10,171 | INFO     | Launcher        | Stopping all services...
+2026-01-30 13:16:10,171 | INFO     | Launcher        | ============================================================
+2026-01-30 13:16:10,171 | INFO     | Launcher        | All services stopped

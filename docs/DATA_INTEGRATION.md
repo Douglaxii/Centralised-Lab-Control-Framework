@@ -2,6 +2,8 @@
 
 This guide explains how to send data from your LabVIEW programs (Wavemeter.vi and SMILE.vi) to the Flask dashboard's telemetry display using **file-based communication** via the shared network drive `Y:\Xi\Data\`.
 
+> **Note:** LabVIEW writes TDMS format files to `Y:\Xi\Data\PMT\`
+
 ## Architecture Overview
 
 ```

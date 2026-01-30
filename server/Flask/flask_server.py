@@ -228,7 +228,7 @@ class KillSwitchManager:
 kill_switch = KillSwitchManager()
 
 # Import shared telemetry storage (Manager reads files, Flask displays)
-# LabVIEW writes data files to Y:/Xi/Data/, Manager reads them
+# LabVIEW writes data files to E:/Data/, Manager reads them
 try:
     from server.communications.data_server import (
         get_telemetry_data, 
@@ -255,9 +255,9 @@ CAMERA_HOST = config.get_camera_setting('host') or "127.0.0.1"
 CAMERA_PORT = config.get_camera_setting('port') or 5555
 
 # Camera frame paths - new unified structure
-# Raw frames: Y:/Xi/Data/jpg_frames/YYMMDD/
-# Labelled frames: Y:/Xi/Data/jpg_frames_labelled/YYMMDD/
-LIVE_FRAMES_PATH = config.get_path('jpg_frames_labelled') if hasattr(config, 'get_path') else "Y:/Xi/Data/jpg_frames_labelled"
+# Raw frames: E:/Data/jpg_frames/YYMMDD/
+# Labelled frames: E:/Data/jpg_frames_labelled/YYMMDD/
+LIVE_FRAMES_PATH = config.get_path('jpg_frames_labelled') if hasattr(config, 'get_path') else "E:/Data/jpg_frames_labelled"
 
 app = Flask(__name__)
 
@@ -368,12 +368,13 @@ current_state = {
         # Laser & Electron
         "uv3": False,
         # Piezo: setpoint voltage and output state (kill switch protected)
-        "piezo": 0.0,           # Target voltage setpoint
+        "piezo": 2.4,           # Target voltage setpoint (default for HD valve)
         "piezo_output": False,  # True = apply setpoint, False = 0V output
-        # E-gun: kill switch protected (max 30s)
+        # E-gun: kill switch protected (max 10s)
         "e_gun": False,
-        # DDS
+        # DDS: Default 135.0 MHz per protocol
         "dds_profile": 0,
+        "dds_freq_Mhz": 135.0,
     },
     "worker_alive": False,
     "camera_active": False,
@@ -578,7 +579,7 @@ def read_frame_from_disk() -> Optional[Tuple[np.ndarray, float, Dict[str, Any]]]
     """
     Read the latest annotated frame from jpg_frames_labelled directory.
     
-    Directory structure: Y:/Xi/Data/jpg_frames_labelled/YYMMDD/*_labelled.jpg
+    Directory structure: E:/Data/jpg_frames_labelled/YYMMDD/*_labelled.jpg
     
     Returns:
         Tuple of (frame, timestamp, fit_params) or None if no frame available
@@ -658,7 +659,7 @@ def update_ion_position_from_file():
         
         # Fallback to legacy path
         if not json_folder.exists():
-            json_folder = Path(f"Y:/Xi/Data/{current_date_str}/cam_json")
+            json_folder = Path(f"E:/Data/{current_date_str}/cam_json")
         
         if not json_folder.exists():
             return
@@ -1151,6 +1152,94 @@ def simulate_turbo_algorithm():
 # Start background simulation threads
 threading.Thread(target=simulate_telemetry, daemon=True, name="TelemetrySim").start()
 threading.Thread(target=simulate_turbo_algorithm, daemon=True, name="TurboSim").start()
+
+
+# =============================================================================
+# FLASK ROUTES - HEALTH & STATUS
+# =============================================================================
+
+import time as time_module
+
+# Server start time for uptime tracking
+SERVER_START_TIME = time_module.time()
+
+
+@app.route('/health')
+def health_check():
+    """
+    Health check endpoint for monitoring and load balancers.
+    
+    Returns:
+        - HTTP 200 if server is healthy
+        - Basic status info (uptime, version, dependencies)
+    
+    This endpoint should be lightweight and fast - no blocking calls.
+    """
+    uptime_seconds = time_module.time() - SERVER_START_TIME
+    
+    # Check if manager socket is connected (non-blocking check)
+    manager_connected = manager_socket is not None
+    
+    health_data = {
+        "status": "healthy",
+        "timestamp": time_module.time(),
+        "uptime_seconds": round(uptime_seconds, 2),
+        "uptime_formatted": format_uptime(uptime_seconds),
+        "version": "1.0.0",
+        "service": "smile-flask-server",
+        "checks": {
+            "server": "ok",
+            "manager_connected": manager_connected,
+            "telemetry_available": TELEMETRY_AVAILABLE,
+            "camera_path_accessible": Path(LIVE_FRAMES_PATH).exists() if LIVE_FRAMES_PATH else False
+        }
+    }
+    
+    # Return 503 if critical components are down
+    if not manager_connected:
+        health_data["status"] = "degraded"
+        return jsonify(health_data), 503
+    
+    return jsonify(health_data), 200
+
+
+def format_uptime(seconds):
+    """Format uptime seconds to human readable string."""
+    days = int(seconds // 86400)
+    hours = int((seconds % 86400) // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    
+    if days > 0:
+        return f"{days}d {hours}h {minutes}m"
+    elif hours > 0:
+        return f"{hours}h {minutes}m {secs}s"
+    else:
+        return f"{minutes}m {secs}s"
+
+
+@app.route('/ready')
+def readiness_check():
+    """
+    Readiness check for Kubernetes/container orchestration.
+    
+    Returns 200 when the server is ready to accept traffic.
+    This checks if all required dependencies are available.
+    """
+    ready = True
+    checks = {}
+    
+    # Check manager connection
+    checks["manager"] = manager_socket is not None
+    ready = ready and checks["manager"]
+    
+    # Check camera path
+    checks["camera_path"] = Path(LIVE_FRAMES_PATH).exists() if LIVE_FRAMES_PATH else False
+    
+    if ready:
+        return jsonify({"ready": True, "checks": checks}), 200
+    else:
+        return jsonify({"ready": False, "checks": checks}), 503
 
 
 # =============================================================================
@@ -1688,13 +1777,23 @@ def trigger_killswitch():
 
 @app.route('/api/control/dds', methods=['POST'])
 def set_dds():
-    """Set DDS profile and/or frequency."""
+    """
+    Set DDS profile and/or frequency.
+    
+    Protocol-compliant parameter names:
+    - dds_profile: 0-7 (DDS profile selection)
+    - dds_freq_Mhz: 0-500 (DDS frequency in MHz)
+    
+    Legacy aliases (for backwards compatibility):
+    - profile -> dds_profile
+    - freq_mhz -> dds_freq_Mhz
+    """
     try:
         data = request.get_json()
         params = {}
         
-        # Handle profile
-        profile = data.get("profile")
+        # Handle profile (protocol: dds_profile, legacy: profile)
+        profile = data.get("dds_profile") or data.get("profile")
         if profile is not None:
             profile = int(profile)
             if not 0 <= profile <= 7:
@@ -1704,21 +1803,23 @@ def set_dds():
                 }), 400
             params["dds_profile"] = profile
         
-        # Handle frequency (0-500 kHz)
-        freq_khz = data.get("freq_khz")
-        if freq_khz is not None:
-            freq_khz = float(freq_khz)
-            if not 0 <= freq_khz <= 500:
+        # Handle frequency (protocol: dds_freq_Mhz)
+        # Accept dds_freq_Mhz (protocol) or freq_mhz (legacy)
+        freq_mhz = data.get("dds_freq_Mhz") or data.get("freq_mhz") or data.get("freq_mhz_legacy")
+        
+        if freq_mhz is not None:
+            freq_mhz = float(freq_mhz)
+            if not 0 <= freq_mhz <= 500:  # 0-500 MHz
                 return jsonify({
                     "status": "error",
-                    "message": f"DDS frequency {freq_khz} kHz out of range [0, 500]"
+                    "message": f"DDS frequency {freq_mhz} MHz out of range [0, 500]"
                 }), 400
-            params["dds_freq_khz"] = freq_khz
+            params["dds_freq_Mhz"] = freq_mhz
         
         if not params:
             return jsonify({
                 "status": "error",
-                "message": "No valid parameters provided (profile or freq_khz)"
+                "message": "No valid parameters provided (dds_profile or dds_freq_Mhz)"
             }), 400
         
         resp = send_to_manager({
@@ -1731,12 +1832,13 @@ def set_dds():
             with state_lock:
                 if "dds_profile" in params:
                     current_state["params"]["dds_profile"] = params["dds_profile"]
-                if "dds_freq_khz" in params:
-                    current_state["params"]["dds_freq_khz"] = params["dds_freq_khz"]
+                if "dds_freq_Mhz" in params:
+                    current_state["params"]["dds_freq_Mhz"] = params["dds_freq_Mhz"]
+            
             return jsonify({
                 "status": "success", 
                 "dds_profile": params.get("dds_profile"),
-                "dds_freq_khz": params.get("dds_freq_khz")
+                "dds_freq_Mhz": params.get("dds_freq_Mhz")
             })
         else:
             return jsonify({
@@ -1748,6 +1850,161 @@ def set_dds():
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
         logger.error(f"DDS control error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/set', methods=['POST'])
+def set_device():
+    """
+    Simplified unified control endpoint for all devices.
+    
+    New protocol format: {"device": "<name>", "value": <value>}
+    
+    Supported devices:
+    - {"device": "u_rf", "value": 700.0}              # RF voltage (0-500V)
+    - {"device": "trap", "value": [10, 10, 6, 37]}    # EC1, EC2, Comp_H, Comp_V
+    - {"device": "ec1", "value": 10.0}                # Single electrode
+    - {"device": "ec2", "value": 10.0}
+    - {"device": "comp_h", "value": 6.0}
+    - {"device": "comp_v", "value": 37.0}
+    - {"device": "piezo", "value": 2.5}               # Piezo voltage (0-4V)
+    - {"device": "dds", "value": 135.0}               # DDS frequency (MHz)
+    - {"device": "dds_profile", "value": 0}           # DDS profile (0-7)
+    - {"device": "b_field", "value": 1}               # 1=on, 0=off
+    - {"device": "be_oven", "value": 1}               # 1=on, 0=off
+    - {"device": "uv3", "value": 1}                   # 1=on, 0=off
+    - {"device": "e_gun", "value": 1}                 # 1=on, 0=off
+    - {"device": "bephi", "value": 1}                 # 1=on, 0=off
+    
+    Experiment commands:
+    - {"device": "sweep", "value": [start, end, steps, ...]}
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No JSON data provided"}), 400
+        
+        device = data.get("device")
+        value = data.get("value")
+        
+        if not device:
+            return jsonify({"status": "error", "message": "Missing 'device' field"}), 400
+        
+        # Build params based on device type
+        params = {}
+        
+        # Single value devices
+        single_value_devices = {
+            "u_rf": "u_rf_volts",
+            "ec1": "ec1",
+            "ec2": "ec2",
+            "comp_h": "comp_h",
+            "comp_v": "comp_v",
+            "piezo": "piezo",
+            "dds": "dds_freq_Mhz",
+            "dds_profile": "dds_profile",
+        }
+        
+        # Toggle devices (1/0 or true/false)
+        toggle_devices = {
+            "b_field": "b_field",
+            "be_oven": "be_oven",
+            "uv3": "uv3",
+            "e_gun": "e_gun",
+            "bephi": "bephi",
+        }
+        
+        if device in single_value_devices:
+            param_name = single_value_devices[device]
+            params[param_name] = float(value) if isinstance(value, (int, float, str)) else value
+            
+        elif device in toggle_devices:
+            param_name = toggle_devices[device]
+            # Convert 1/0 to boolean
+            if isinstance(value, (int, float)):
+                params[param_name] = bool(int(value))
+            else:
+                params[param_name] = bool(value)
+                
+        elif device == "trap":
+            # Trap electrodes: [EC1, EC2, Comp_H, Comp_V]
+            if isinstance(value, (list, tuple)) and len(value) >= 4:
+                params["ec1"] = float(value[0])
+                params["ec2"] = float(value[1])
+                params["comp_h"] = float(value[2])
+                params["comp_v"] = float(value[3])
+            else:
+                return jsonify({
+                    "status": "error", 
+                    "message": "trap value must be [EC1, EC2, Comp_H, Comp_V]"
+                }), 400
+        
+        elif device == "sweep":
+            # Sweep command - forward to manager as action
+            if isinstance(value, (list, tuple)):
+                sweep_params = {
+                    "target_frequency_khz": float(value[0]) if len(value) > 0 else 307.0,
+                    "span_khz": float(value[1]) if len(value) > 1 else 40.0,
+                    "steps": int(value[2]) if len(value) > 2 else 41,
+                }
+                # Add optional parameters if provided
+                if len(value) > 3:
+                    sweep_params["attenuation_db"] = float(value[3])
+                if len(value) > 4:
+                    sweep_params["on_time_ms"] = float(value[4])
+                if len(value) > 5:
+                    sweep_params["off_time_ms"] = float(value[5])
+            else:
+                sweep_params = {"target_frequency_khz": float(value)}
+            
+            resp = send_to_manager({
+                "action": "SWEEP",
+                "source": "USER",
+                "params": sweep_params
+            })
+            
+            return jsonify({
+                "status": resp.get("status", "error"),
+                "exp_id": resp.get("exp_id"),
+                "message": resp.get("message", resp.get("reason"))
+            })
+        
+        else:
+            return jsonify({
+                "status": "error",
+                "message": f"Unknown device: {device}",
+                "valid_devices": list(single_value_devices.keys()) + list(toggle_devices.keys()) + ["trap", "sweep"]
+            }), 400
+        
+        # Send to manager
+        resp = send_to_manager({
+            "action": "SET",
+            "source": "USER",
+            "params": params
+        })
+        
+        if resp.get("status") == "success":
+            # Update local state
+            with state_lock:
+                current_state["params"].update(params)
+            
+            return jsonify({
+                "status": "success",
+                "device": device,
+                "value": value,
+                "params": params
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": resp.get("message", "Failed"),
+                "code": resp.get("code", "UNKNOWN")
+            }), 400
+            
+    except ValueError as e:
+        return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
+    except Exception as e:
+        logger.error(f"Set device error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 

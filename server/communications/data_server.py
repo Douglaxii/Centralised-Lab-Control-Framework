@@ -1,7 +1,7 @@
 """
 Shared Telemetry Storage - Simple data structures for Flask display
 
-LabVIEW programs save data directly to Y:/Xi/Data/
+LabVIEW programs save data directly to E:/Data/
 Manager reads these files and populates the shared buffers below.
 Flask reads from these buffers for real-time display.
 

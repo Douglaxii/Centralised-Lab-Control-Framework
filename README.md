@@ -32,7 +32,8 @@ network:
   master_ip: "192.168.1.100"  # Your Master PC IP
 
 paths:
-  output_base: "Y:/Xi/Data"    # Your network drive
+  output_base: "Y:/Xi/Data"         # Your network drive
+  labview_tdms: "Y:/Xi/Data/PMT"    # LabVIEW TDMS files
 ```
 
 ### 3. Start All Services (Parallel Execution)

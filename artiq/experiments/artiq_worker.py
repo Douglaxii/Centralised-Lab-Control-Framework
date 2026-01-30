@@ -44,6 +44,7 @@ from compensation import Compensation
 from endcaps import EndCaps
 from Raman_board import RamanCooling
 from secularsweep import SecularSweep
+from cam import Camera
 
 
 class MainWorker(ExpFragment):
@@ -67,6 +68,7 @@ class MainWorker(ExpFragment):
         self.comp = self.setattr_fragment("compensation", Compensation)
         self.raman = self.setattr_fragment("raman", RamanCooling)
         self.secular = self.setattr_fragment("secular", SecularSweep)
+        self.cam = self.setattr_fragment("camera", Camera)
         
         # Load configuration
         self.config = get_config()
@@ -211,6 +213,8 @@ class MainWorker(ExpFragment):
                     self._handle_set_cooling(payload)
                 elif cmd_type == "RUN_SWEEP":
                     self._handle_run_sweep(payload, exp_id)
+                elif cmd_type == "CAMERA_TRIGGER":
+                    self._handle_camera_trigger(exp_id)
                 else:
                     self.logger.warning(f"Unknown command type: {cmd_type}")
                     
@@ -310,6 +314,40 @@ class MainWorker(ExpFragment):
             
             if self.current_exp:
                 self.current_exp.add_error(str(e), "artiq_sweep")
+    
+    def _handle_camera_trigger(self, exp_id: str):
+        """
+        Handle CAMERA_TRIGGER command.
+        
+        Sends a TTL pulse to trigger the camera for frame capture.
+        The camera must already be recording (infinite mode or DCIMG mode).
+        """
+        self.logger.info(f"Executing camera TTL trigger (exp: {exp_id})")
+        
+        try:
+            # Execute the TTL pulse on hardware
+            self.trigger_camera_ttl()
+            
+            # Send acknowledgment
+            self._send_status("CAMERA_TRIGGERED", {
+                "exp_id": exp_id,
+                "timestamp": time.time()
+            })
+            
+            self.logger.debug("Camera TTL trigger executed")
+            
+        except Exception as e:
+            self.logger.error(f"Camera trigger failed: {e}")
+            self._send_data({
+                "status": "CAMERA_TRIGGER_FAILED",
+                "exp_id": exp_id,
+                "error": str(e)
+            }, category="ERROR")
+    
+    @kernel
+    def trigger_camera_ttl(self):
+        """Send TTL pulse to trigger camera (executed on ARTIQ hardware)."""
+        self.cam.trigger(100.0)
     
     def _send_heartbeat(self):
         """Send periodic heartbeat to manager."""
@@ -412,6 +450,7 @@ class MainWorker(ExpFragment):
         self.comp.device_setup()
         self.raman.device_setup()
         self.secular.device_setup()
+        self.cam.device_setup()
         # Apply the default safe state immediately
         self.apply_safety_defaults()
 

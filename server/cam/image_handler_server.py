@@ -7,13 +7,13 @@ import cv2
 import numpy as np
 from datetime import datetime
 import shutil
-from image_handler import Image_Handler
+from image_handler_optimized import Image_Handler
 
 
 # New unified camera paths (matches camera_server.py)
 # For folder-watching mode (alternative to TCP mode)
-WATCH_DIR = "Y:/Xi/Data/jpg_frames"   # Monitor raw frames directory
-BASE_SERVER_PATH = "Y:/Xi/Data"
+WATCH_DIR = "E:/Data/jpg_frames"   # Monitor raw frames directory
+BASE_SERVER_PATH = "E:/Data"
 
 POLL_INTERVAL = 0.2 # Check for new files every 20ms
 
@@ -57,9 +57,9 @@ def processor_thread():
     CONSUMER: Takes files from queue, runs analysis, saves output.
     
     New structure:
-    - Raw frames: Y:/Xi/Data/jpg_frames/YYMMDD/
-    - Annotated frames: Y:/Xi/Data/jpg_frames_labelled/YYMMDD/
-    - JSON data: Y:/Xi/Data/YYMMDD/cam_json/
+    - Raw frames: E:/Data/jpg_frames/YYMMDD/
+    - Annotated frames: E:/Data/jpg_frames_labelled/YYMMDD/
+    - JSON data: E:/Data/YYMMDD/cam_json/
     """
     print("[Processor] Ready to analyze.")
     print(f"[Processor] Watch dir: {WATCH_DIR}")

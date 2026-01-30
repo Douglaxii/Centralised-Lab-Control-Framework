@@ -173,7 +173,7 @@ def main():
             from camera_recording import FRAME_PATH
             os.makedirs(FRAME_PATH, exist_ok=True)
         except:
-            os.makedirs('Y:/Xi/Data/jpg_frames', exist_ok=True)
+            os.makedirs('E:/Data/jpg_frames', exist_ok=True)
     
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
