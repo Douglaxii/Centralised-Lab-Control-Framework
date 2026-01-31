@@ -35,8 +35,8 @@ from .enums import (
     MatchQuality,
     RF_SCALE_V_PER_MV,
     RF_SCALE_MV_PER_V,
-    smile_mv_to_real_volts,
-    real_volts_to_smile_mv,
+    u_rf_mv_to_U_RF_V,
+    U_RF_V_to_u_rf_mv,
 )
 
 __all__ = [
@@ -67,6 +67,6 @@ __all__ = [
     # RF Voltage utilities
     'RF_SCALE_V_PER_MV',
     'RF_SCALE_MV_PER_V',
-    'smile_mv_to_real_volts',
-    'real_volts_to_smile_mv',
+    'u_rf_mv_to_U_RF_V',
+    'U_RF_V_to_u_rf_mv',
 ]

@@ -24,10 +24,17 @@ class Config:
     
     def _load_config(self, config_path: Optional[str] = None):
         """Load configuration from YAML file."""
+        project_root = Path(__file__).parent.parent
+        
         if config_path is None:
-            # Default location: project_root/config/settings.yaml
-            project_root = Path(__file__).parent.parent
-            config_path = project_root / "config" / "settings.yaml"
+            # Check if local config exists first
+            local_config = project_root / "config" / "settings_local.yaml"
+            main_config = project_root / "config" / "settings.yaml"
+            
+            if local_config.exists():
+                config_path = local_config
+            else:
+                config_path = main_config
         
         self._config_path = Path(config_path)
         
@@ -36,6 +43,10 @@ class Config:
         
         with open(self._config_path, 'r', encoding='utf-8') as f:
             self._config = yaml.safe_load(f)
+        
+        # Ensure log directory exists
+        log_dir = project_root / "logs"
+        log_dir.mkdir(exist_ok=True)
     
     def get(self, key_path: str, default: Any = None) -> Any:
         """

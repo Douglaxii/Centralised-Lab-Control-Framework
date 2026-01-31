@@ -1,6 +1,11 @@
-from ndscan.experiment import Fragment, FloatParam, BoolParam
+from ndscan.experiment import Fragment, FloatParam, IntParam
 from oitg.units import MHz, dB
 from artiq.experiment import *
+
+
+# Constants - Raman laser frequencies (backend adjustable only)
+RAMAN_FREQ_135_MHZ = 215.5  # 135° beam frequency in MHz
+RAMAN_FREQ_225_MHZ = 215.5  # 225° beam frequency in MHz
 
 
 class RamanCooling(Fragment):
@@ -8,6 +13,7 @@ class RamanCooling(Fragment):
     Fragment for controlling Raman cooling beams.
     
     Controls two Urukul channels for 135° and 225° beams.
+    Frequencies are constants (215.5 MHz) and can only be adjusted from backend.
     """
     
     def build_fragment(self) -> None:
@@ -19,19 +25,16 @@ class RamanCooling(Fragment):
         self.u10 = self.urukul1_ch0
         self.u11 = self.urukul1_ch1
 
-        # Parameters
-        self.setattr_param("freq0", FloatParam, "frequency 135°-beam", 
-                          default=212.5*MHz, unit="MHz")
-        self.setattr_param("freq1", FloatParam, "frequency 225°-beam", 
-                          default=212.5*MHz, unit="MHz")
+        # Parameters (frequencies are now constants, not parameters)
         self.setattr_param("amp0", FloatParam, "amplitude 135°-beam", 
                           default=0.05)
         self.setattr_param("amp1", FloatParam, "amplitude 225°-beam", 
                           default=0.05)
-        self.setattr_param("check_135", BoolParam, "135°-beam on", 
-                          default=True)
-        self.setattr_param("check_225", BoolParam, "225°-beam on", 
-                          default=True)
+        # Switches as integers (0=off, 1=on)
+        self.setattr_param("sw0", IntParam, "135°-beam on (0=off, 1=on)", 
+                          default=0, min=0, max=1)
+        self.setattr_param("sw1", IntParam, "225°-beam on (0=off, 1=on)", 
+                          default=0, min=0, max=1)
         
         # Attenuation settings
         self.att0 = 20 * dB
@@ -53,27 +56,28 @@ class RamanCooling(Fragment):
             self.first_run = False
 
     @kernel
-    def set_cooling_params(self, f0, a0, f1, a1, sw0, sw1) -> None:
+    def set_cooling_params(self, a0, a1, sw0, sw1) -> None:
         """
         Directly set cooling parameters from ZMQ arguments.
+        Frequencies are fixed at 215.5 MHz.
         
         Args:
-            f0: Frequency for 135° beam (Hz)
             a0: Amplitude for 135° beam (0-1)
-            f1: Frequency for 225° beam (Hz)
             a1: Amplitude for 225° beam (0-1)
-            sw0: Switch state for 135° beam
-            sw1: Switch state for 225° beam
+            sw0: Switch state for 135° beam (0=off, 1=on)
+            sw1: Switch state for 225° beam (0=off, 1=on)
         """
-        self.u10.set(f0, amplitude=a0)
-        self.u11.set(f1, amplitude=a1)
-        self.u10.cfg_sw(sw0)
-        self.u11.cfg_sw(sw1)
+        # Use constant frequencies (convert MHz to Hz for ARTIQ)
+        self.u10.set(RAMAN_FREQ_135_MHZ * MHz, amplitude=a0)
+        self.u11.set(RAMAN_FREQ_225_MHZ * MHz, amplitude=a1)
+        self.u10.cfg_sw(sw0 != 0)  # Convert int to bool
+        self.u11.cfg_sw(sw1 != 0)  # Convert int to bool
         
     @kernel
     def activate_cooling(self) -> None:
         """Activate cooling with dashboard parameters."""
-        self.u10.set(self.freq0.get(), amplitude=float(self.amp0.get()))  
-        self.u11.set(self.freq1.get(), amplitude=float(self.amp1.get()))  
-        self.u10.cfg_sw(self.check_135.get())
-        self.u11.cfg_sw(self.check_225.get())
+        # Use constant frequencies (215.5 MHz)
+        self.u10.set(RAMAN_FREQ_135_MHZ * MHz, amplitude=float(self.amp0.get()))  
+        self.u11.set(RAMAN_FREQ_225_MHZ * MHz, amplitude=float(self.amp1.get()))  
+        self.u10.cfg_sw(self.sw0.get() != 0)  # Convert int to bool
+        self.u11.cfg_sw(self.sw1.get() != 0)  # Convert int to bool

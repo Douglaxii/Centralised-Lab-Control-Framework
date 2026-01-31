@@ -162,3 +162,308 @@ Traceback (most recent call last):
     os.mkdir(self, mode)
     ~~~~~~~~^^^^^^^^^^^^
 FileNotFoundError: [WinError 3] The system cannot find the path specified: 'E:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data\\logs'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi\\Data'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\Xi'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "d:\MLS\server\cam\camera_server.py", line 206, in <module>
+    main()
+    ~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 161, in main
+    init_logging()
+    ~~~~~~~~~~~~^^
+  File "d:\MLS\server\cam\camera_server.py", line 64, in init_logging
+    setup_logging(component="camera")
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "d:\MLS\core\logger.py", line 106, in setup_logging
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 726, in mkdir
+    self.parent.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\pathlib\_local.py", line 722, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'Y:\\'
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "D:\MLS\server\cam\camera_server.py", line 28, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera
+  File "D:\MLS\server\cam\camera_logic.py", line 1, in <module>
+    from camera_recording import handle_recording_request, stop_recording, handle_infinite_capture_request
+  File "D:\MLS\server\cam\camera_recording.py", line 63, in <module>
+    DEBUG_PATH = _config.get_path('debug_path')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\MLS\core\config.py", line 84, in get_path
+    raise KeyError(f"Path '{key}' not found in configuration")
+KeyError: "Path 'debug_path' not found in configuration"
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "D:\MLS\server\cam\camera_server.py", line 28, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera
+  File "D:\MLS\server\cam\camera_logic.py", line 1, in <module>
+    from camera_recording import handle_recording_request, stop_recording, handle_infinite_capture_request
+  File "D:\MLS\server\cam\camera_recording.py", line 63, in <module>
+    DEBUG_PATH = _config.get_path('debug_path')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\MLS\core\config.py", line 84, in get_path
+    raise KeyError(f"Path '{key}' not found in configuration")
+KeyError: "Path 'debug_path' not found in configuration"
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+Traceback (most recent call last):
+  File "D:\MLS\server\cam\camera_server.py", line 28, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera
+  File "D:\MLS\server\cam\camera_logic.py", line 1, in <module>
+    from camera_recording import handle_recording_request, stop_recording, handle_infinite_capture_request
+  File "D:\MLS\server\cam\camera_recording.py", line 63, in <module>
+    DEBUG_PATH = _config.get_path('debug_path')
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\MLS\core\config.py", line 84, in get_path
+    raise KeyError(f"Path '{key}' not found in configuration")
+KeyError: "Path 'debug_path' not found in configuration"
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK

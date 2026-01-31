@@ -171,11 +171,16 @@ class ServiceManager:
         if self.process.poll() is not None:
             return False
         
-        # Port check
+        # For Camera and Manager, just check process is alive
+        # Camera uses custom TCP protocol, Manager uses ZMQ
+        if self.name in ['Camera', 'Manager']:
+            return True
+        
+        # For Flask (HTTP), check port
         try:
             import socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
+            sock.settimeout(2)
             result = sock.connect_ex(('127.0.0.1', self.port))
             sock.close()
             return result == 0
@@ -235,7 +240,7 @@ class UnifiedLauncher:
             env_vars={'PYTHONPATH': str(project_root), 'FLASK_ENV': 'production'}
         )
     
-    def start_all(self, stagger: float = 1.0):
+    def start_all(self, stagger: float = 2.0):
         """Start all services with staggered startup."""
         logger.info("=" * 60)
         logger.info("Starting all services...")
@@ -250,9 +255,9 @@ class UnifiedLauncher:
                 logger.error(f"Failed to start {name}!")
                 return False
             
-            # Stagger startup to avoid resource conflicts
-            if stagger > 0:
-                time.sleep(stagger)
+            # Wait longer for initialization (especially Camera)
+            logger.info(f"Waiting {stagger}s for {name} to initialize...")
+            time.sleep(stagger)
         
         self.running = True
         logger.info("=" * 60)
@@ -345,14 +350,22 @@ class UnifiedLauncher:
         import threading
         
         def monitor():
+            # Wait longer initially for all services to start
+            initial_delay = 10
+            logger.info(f"Health monitoring starts in {initial_delay}s...")
+            time.sleep(initial_delay)
+            
             while self.running:
                 for name, service in self.services.items():
                     if service.info.status == ServiceStatus.RUNNING:
-                        if not service.check_health():
+                        healthy = service.check_health()
+                        if not healthy:
                             logger.warning(f"[{name}] Health check failed, restarting...")
                             service.restart()
+                        else:
+                            logger.debug(f"[{name}] Health check OK")
                 
-                time.sleep(5)  # Check every 5 seconds
+                time.sleep(10)  # Check every 10 seconds (was 5)
         
         self.monitor_thread = threading.Thread(target=monitor, daemon=True)
         self.monitor_thread.start()

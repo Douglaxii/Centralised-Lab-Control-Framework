@@ -35,7 +35,7 @@ from server.analysis.eigenmodes.trap_sim_asy import (
     OMEGA,
     RF_MHZ
 )
-from core.enums import RF_SCALE_V_PER_MV, smile_mv_to_real_volts
+from core.enums import RF_SCALE_V_PER_MV, u_rf_mv_to_U_RF_V
 
 # Setup logging
 logger = logging.getLogger("secular_comparison")

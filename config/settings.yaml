@@ -77,17 +77,18 @@ labview:
   pressure_check_interval: 0.05      # 20 Hz check rate (seconds)
   
   # Supported devices (must match LabVIEW implementation)
+  # Note: u_rf is in mV (0-1400mV) before amplifier, U_RF is in V (0-200V) after amplifier
+  # Scale: 700mV u_rf = 100V U_RF
   devices:
-    - U_RF                      # RF voltage (0-1000V)
-    - piezo                     # Piezo voltage (-10 to 10V)
-    - be_oven                   # Be+ oven (on/off)
-    - b_field                   # B-field (on/off)
-    - bephi                     # Bephi (on/off)
-    - uv3                       # UV3 laser (on/off)
-    - e_gun                     # Electron gun (on/off)
-    - hd_shutter_1              # HD valve shutter 1
-    - hd_shutter_2              # HD valve shutter 2
-    - dds                       # DDS frequency control
+    - u_rf                      # RF voltage 0-1400mV (before amplifier)
+    - piezo                     # Piezo voltage (0 to 4V)
+    - be_oven                   # Be+ oven (0=off, 1=on)
+    - b_field                   # B-field (0=off, 1=on)
+    - bephi                     # Bephi (0=off, 1=on)
+    - uv3                       # UV3 laser (0=off, 1=on)
+    - e_gun                     # Electron gun (0=off, 1=on)
+    - hd_valve                  # HD valve shutter (0=off, 1=on)
+    - dds                       # DDS frequency control (0-200 MHz)
 
 # Telemetry Data - LabVIEW writes files to shared drive
 # Manager reads files from Y:/Xi/Data/telemetry/ into shared buffers
@@ -121,41 +122,36 @@ hardware:
   # ARTIQ Worker defaults
   worker_defaults:
     # DC Defaults (Safe Mode)
+    # Range: -1V to 50V for all electrodes
     ec1: 0.0
     ec2: 0.0
     comp_h: 0.0
     comp_v: 0.0
     
-    # RF Voltage (real voltage in volts, not SMILE mV)
-    # Calibrated: 700mV on SMILE interface = 100V real
+    # RF Voltage (real voltage U_RF in volts, after amplifier)
+    # Note: LabVIEW sends u_rf in mV (0-1400mV), scale is 700mV = 100V
     u_rf_volts: 200.0
     
     # Piezo voltage for laser frequency tuning (0-4V range)
     piezo: 0.0
     
     # Cooling Parameters
-    # Raman laser frequencies (MHz)
-    freq0: 212.5
-    freq1: 212.5
+    # Raman laser frequencies (MHz) - constants, backend only adjustment
+    freq0: 215.5
+    freq1: 215.5
     # Raman amplitudes (0-1)
     amp0: 0.05
     amp1: 0.05
-    # Cooling shutters
-    sw0: false
-    sw1: false
+    # Cooling shutters (0=off, 1=on)
+    sw0: 0
+    sw1: 0
     
-    # Toggles
-    bephi: false
-    b_field: true
-    be_oven: false
-    uv3: false
-    e_gun: false
-    
-    # DDS profile selection
-    dds_profile: 0
-    
-    # DDS frequency (0-500 kHz)
-    dds_freq_khz: 0
+    # Toggles (0=off, 1=on)
+    bephi: 0
+    b_field: 1
+    be_oven: 0
+    uv3: 0
+    e_gun: 0
     
     # Sweep Defaults
     sweep_target: 307        # kHz

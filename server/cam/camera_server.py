@@ -60,6 +60,10 @@ def init_logging():
     """Initialize logging."""
     log_format = '%(asctime)s - [%(name)s] - %(levelname)s - %(message)s'
     
+    # Ensure log directory exists
+    log_dir = Path('logs/server')
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
     if CORE_AVAILABLE:
         setup_logging(component="camera")
     else:
@@ -68,7 +72,7 @@ def init_logging():
             format=log_format,
             handlers=[
                 logging.StreamHandler(),
-                logging.FileHandler('logs/server/camera.log', mode='a')
+                logging.FileHandler(str(log_dir / 'camera.log'), mode='a')
             ]
         )
 

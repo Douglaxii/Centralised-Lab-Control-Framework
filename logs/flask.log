@@ -257,3 +257,177 @@ UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in posit
 2026-01-30 22:54:21,591 - [flask] - WARNING - Manager request timeout (attempt 2)
 2026-01-30 22:58:26,026 - [flask] - INFO - Cleaning up Flask server resources...
 2026-01-30 22:58:26,027 - [flask] - INFO - Cleanup complete
+2026-01-30 23:54:12,129 - [flask] - INFO - ============================================================
+2026-01-30 23:54:12,129 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 23:54:12,130 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 23:54:12,130 - [flask] - INFO - Camera labelled frames path: Y:\Xi\Data\camera\processed_frames
+2026-01-30 23:54:22,139 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:54:27,145 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 23:54:27,248 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:54:32,261 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 23:55:35,817 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:55:40,827 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 23:55:40,930 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:55:45,942 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 23:55:45,945 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:55:50,950 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 23:55:51,053 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:55:56,060 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 23:55:56,063 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:56:01,069 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 23:56:01,172 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:56:06,179 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 23:56:06,182 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:56:11,188 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 23:56:11,290 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 23:56:11,500 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 23:56:11,501 - [flask] - ERROR - ZMQ error: Context was terminated
+2026-01-30 23:56:11,502 - [flask] - INFO - Cleanup complete
+2026-01-30 23:57:07,717 - [flask] - INFO - ============================================================
+2026-01-30 23:57:07,718 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 23:57:07,718 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 23:57:07,718 - [flask] - INFO - Camera labelled frames path: Y:\Xi\Data\camera\processed_frames
+2026-01-30 23:57:07,718 - [flask] - ERROR - Fatal error: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+Traceback (most recent call last):
+  File "D:\MLS\server\Flask\flask_server.py", line 2377, in <module>
+    print(f"🌍 Dashboard running at http://0.0.0.0:5000")
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 23:57:07,720 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 23:57:07,721 - [flask] - INFO - Cleanup complete
+2026-01-30 23:57:32,210 - [flask] - INFO - ============================================================
+2026-01-30 23:57:32,210 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 23:57:32,210 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 23:57:32,210 - [flask] - INFO - Camera labelled frames path: Y:\Xi\Data\camera\processed_frames
+2026-01-31 00:07:00,340 - [flask] - INFO - ============================================================
+2026-01-31 00:07:00,340 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:07:00,341 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-31 00:07:00,341 - [flask] - INFO - Camera labelled frames path: Y:\Xi\Data\camera\processed_frames
+2026-01-31 00:08:01,837 - [flask] - INFO - ============================================================
+2026-01-31 00:08:01,837 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:08:01,837 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-31 00:08:01,838 - [flask] - INFO - Camera labelled frames path: Y:\Xi\Data\camera\processed_frames
+2026-01-31 00:08:18,164 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-31 00:08:18,165 - [flask] - INFO - Cleanup complete
+2026-01-31 00:12:25,689 - [flask] - INFO - ============================================================
+2026-01-31 00:12:25,689 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:12:25,689 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-31 00:12:25,690 - [flask] - INFO - Camera labelled frames path: Y:\Xi\Data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 134.99.120.40:5557
+Streaming annotated frames from: Y:\Xi\Data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit
+2026-01-31 00:19:59,785 - [flask] - INFO - ============================================================
+2026-01-31 00:19:59,785 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:19:59,786 - [flask] - INFO - Manager: 127.0.0.1:5557
+2026-01-31 00:19:59,786 - [flask] - INFO - Camera labelled frames path: D:\MLS\data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 127.0.0.1:5557
+Streaming annotated frames from: D:\MLS\data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit
+2026-01-31 00:21:22,317 - [flask] - INFO - ============================================================
+2026-01-31 00:21:22,318 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:21:22,318 - [flask] - INFO - Manager: 127.0.0.1:5557
+2026-01-31 00:21:22,318 - [flask] - INFO - Camera labelled frames path: D:\MLS\data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 127.0.0.1:5557
+Streaming annotated frames from: D:\MLS\data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit
+2026-01-31 00:24:31,896 - [flask] - INFO - ============================================================
+2026-01-31 00:24:31,897 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:24:31,897 - [flask] - INFO - Manager: 127.0.0.1:5557
+2026-01-31 00:24:31,897 - [flask] - INFO - Camera labelled frames path: D:\MLS\data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 127.0.0.1:5557
+Streaming annotated frames from: D:\MLS\data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit
+2026-01-31 00:29:09,205 - [flask] - INFO - ============================================================
+2026-01-31 00:29:09,205 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:29:09,205 - [flask] - INFO - Manager: 127.0.0.1:5557
+2026-01-31 00:29:09,206 - [flask] - INFO - Camera labelled frames path: D:\MLS\data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 127.0.0.1:5557
+Streaming annotated frames from: D:\MLS\data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit
+2026-01-31 00:30:50,921 - [flask] - INFO - ============================================================
+2026-01-31 00:30:50,922 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-31 00:30:50,922 - [flask] - INFO - Manager: 127.0.0.1:5557
+2026-01-31 00:30:50,922 - [flask] - INFO - Camera labelled frames path: d:\MLS\data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 127.0.0.1:5557
+Streaming annotated frames from: d:\MLS\data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit
+192.168.0.74 - - [31/Jan/2026 00:31:12] "GET / HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:31:12] "GET /video_feed HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:31:12] "GET /static/js/oscilloscope.js HTTP/1.1" 304 -
+2026-01-31 00:31:12,314 - [flask] - INFO - Connected to manager at 127.0.0.1:5557
+192.168.0.74 - - [31/Jan/2026 00:31:12] "GET /api/telemetry/stream HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:31:12] "GET /api/status HTTP/1.1" 200 -
+2026-01-31 00:31:47,374 - [flask] - WARNING - E-GUN ENABLED (kill switch: 30s max)
+192.168.0.74 - - [31/Jan/2026 00:31:47] "POST /api/control/toggle/e_gun HTTP/1.1" 200 -
+2026-01-31 00:31:48,745 - [flask] - INFO - E-gun disabled
+192.168.0.74 - - [31/Jan/2026 00:31:48] "POST /api/control/toggle/e_gun HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:31:49] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:31:50] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:31:50] "POST /api/set HTTP/1.1" 200 -
+2026-01-31 00:31:53,128 - [flask] - WARNING - PIEZO OUTPUT ENABLED: 0.0V (kill switch: 10s max)
+192.168.0.74 - - [31/Jan/2026 00:31:53] "POST /api/control/piezo/output HTTP/1.1" 200 -
+2026-01-31 00:31:54,621 - [flask] - INFO - Piezo output disabled
+192.168.0.74 - - [31/Jan/2026 00:31:54] "POST /api/control/piezo/output HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:31:55] "POST /api/set HTTP/1.1" 400 -
+192.168.0.74 - - [31/Jan/2026 00:31:56] "POST /api/set HTTP/1.1" 400 -
+192.168.0.74 - - [31/Jan/2026 00:31:56] "POST /api/set HTTP/1.1" 400 -
+192.168.0.74 - - [31/Jan/2026 00:31:56] "POST /api/set HTTP/1.1" 400 -
+192.168.0.74 - - [31/Jan/2026 00:31:57] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:04] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:04] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:04] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:04] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:05] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:05] "POST /api/set HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:15] "POST /api/control/toggle/be_oven HTTP/1.1" 200 -
+192.168.0.74 - - [31/Jan/2026 00:32:18] "POST /api/control/toggle/be_oven HTTP/1.1" 200 -

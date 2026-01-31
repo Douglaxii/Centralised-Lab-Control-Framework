@@ -16,9 +16,7 @@ MLS/
 ├── labview/            # LabVIEW utilities
 ├── logs/               # Runtime logs
 │   └── server/         # Service logs
-├── scripts/            # Utility scripts
-│   ├── service/        # Windows service setup
-│   └── setup/          # Installation scripts
+├── tools/              # Diagnostic tools
 ├── server/             # Server components
 │   ├── cam/            # Camera acquisition
 │   ├── communications/ # ZMQ communication
@@ -110,33 +108,20 @@ logs/
     └── manager.log     # Control manager logs
 ```
 
-### `scripts/` - Utility Scripts
-
-```
-scripts/
-├── service/                    # Windows service
-│   ├── install-windows-service.bat
-│   └── lab-control.service
-└── setup/                      # Installation
-    ├── requirements-server.txt
-    └── setup_server_optimized.bat
-```
-
 ### `server/` - Server Components
 
 ```
 server/
 ├── cam/                        # Camera acquisition
-│   ├── camera_server.py
-│   ├── camera_server_parallel.py
-│   ├── camera_recording.py
-│   ├── image_handler.py
-│   └── image_handler_optimized.py
+│   ├── camera_server.py        # Main camera server
+│   ├── camera_recording.py     # Recording logic
+│   ├── camera_logic.py         # Camera control
+│   ├── image_handler.py        # Image analysis
+│   └── dcamcon.py              # Camera API wrapper
 ├── communications/             # Communication
-│   ├── manager.py
-│   ├── lab_comms.py
-│   ├── labview_interface.py
-│   └── data_server.py
+│   ├── manager.py              # Central coordinator
+│   ├── labview_interface.py    # LabVIEW TCP interface
+│   └── data_server.py          # Shared data storage
 └── Flask/                      # Web dashboard
     └── flask_server.py
 ```
@@ -146,8 +131,7 @@ server/
 ```
 tests/
 ├── test_core.py
-├── test_image_handler.py
-└── benchmark_image_handler.py
+└── test_image_handler.py
 ```
 
 ### `tools/` - Diagnostic Tools

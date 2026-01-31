@@ -854,20 +854,21 @@ class LabVIEWInterface:
     # CONVENIENCE METHODS FOR SPECIFIC HARDWARE
     # ==================================================================
     
-    def set_rf_voltage(self, voltage: float) -> bool:
+    def set_rf_voltage(self, voltage_mv: float) -> bool:
         """
-        Set U_RF voltage.
+        Set u_rf voltage (SMILE interface, before amplifier).
         
         Args:
-            voltage: Voltage in volts (0-1000)
+            voltage_mv: Voltage in millivolts (0-1400mV)
+                        700mV corresponds to 100V U_RF in trap
             
         Returns:
             True if successful
         """
         return self.send_command(
             LabVIEWCommandType.SET_VOLTAGE,
-            "U_RF",
-            round(voltage, 3)
+            "u_rf",
+            round(voltage_mv, 3)
         )
     
     def set_piezo_voltage(self, voltage: float, bypass_kill_switch: bool = False) -> bool:
@@ -897,52 +898,53 @@ class LabVIEWInterface:
             round(voltage, 3)
         )
     
-    def set_be_oven(self, state: bool) -> bool:
-        """Control Be+ oven (True=on, False=off)."""
+    def set_be_oven(self, state: int) -> bool:
+        """Control Be+ oven (1=on, 0=off)."""
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "be_oven",
-            bool(state)
+            int(1 if state else 0)
         )
     
-    def set_b_field(self, state: bool) -> bool:
-        """Control B-field (True=on, False=off)."""
+    def set_b_field(self, state: int) -> bool:
+        """Control B-field (1=on, 0=off)."""
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "b_field",
-            bool(state)
+            int(1 if state else 0)
         )
     
-    def set_bephi(self, state: bool) -> bool:
-        """Control Bephi (True=on, False=off)."""
+    def set_bephi(self, state: int) -> bool:
+        """Control Bephi (1=on, 0=off)."""
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "bephi",
-            bool(state)
+            int(1 if state else 0)
         )
     
-    def set_uv3(self, state: bool) -> bool:
-        """Control UV3 laser (True=on, False=off)."""
+    def set_uv3(self, state: int) -> bool:
+        """Control UV3 laser (1=on, 0=off)."""
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "uv3",
-            bool(state)
+            int(1 if state else 0)
         )
     
-    def set_e_gun(self, state: bool, bypass_kill_switch: bool = False) -> bool:
+    def set_e_gun(self, state: int, bypass_kill_switch: bool = False) -> bool:
         """
         Control electron gun with kill switch protection (30s max).
         
-        When state=True: Arms kill switch
-        When state=False: Disarms kill switch
+        When state=1: Arms kill switch
+        When state=0: Disarms kill switch
         
         Args:
-            state: True to turn on, False to turn off
+            state: 1 to turn on, 0 to turn off
             bypass_kill_switch: If True, bypass kill switch (for callbacks)
         """
+        state_int = int(1 if state else 0)
         # Handle kill switch
         if not bypass_kill_switch:
-            if state:
+            if state_int:
                 self.kill_switch.arm("e_gun", {})
             else:
                 self.kill_switch.disarm("e_gun")
@@ -950,32 +952,31 @@ class LabVIEWInterface:
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "e_gun",
-            bool(state)
+            state_int
         )
     
-    def set_hd_shutter(self, shutter_id: str, state: bool) -> bool:
+    def set_hd_valve(self, state: int) -> bool:
         """
-        Control HD valve shutter.
+        Control HD valve (1=on, 0=off).
         
         Args:
-            shutter_id: Shutter identifier (e.g., "shutter_1", "shutter_2")
-            state: True=open, False=close
+            state: 1=on, 0=off
             
         Returns:
             True if successful
         """
         return self.send_command(
             LabVIEWCommandType.SET_SHUTTER,
-            f"hd_{shutter_id}",
-            bool(state)
+            "hd_valve",
+            int(1 if state else 0)
         )
     
     def set_dds_frequency(self, frequency_mhz: float) -> bool:
         """
-        Set DDS frequency.
+        Set DDS frequency (LabVIEW controlled only).
         
         Args:
-            frequency_mhz: Frequency in MHz
+            frequency_mhz: Frequency in MHz (0-200 MHz)
             
         Returns:
             True if successful
@@ -1045,15 +1046,16 @@ class LabVIEWInterface:
         results = {}
         
         # Voltages to 0
-        results["U_RF"] = self.set_rf_voltage(0.0)
-        results["piezo"] = self.set_piezo_voltage(0.0)
+        results["u_rf"] = self.set_rf_voltage(0.0)  # 0 mV
+        results["piezo"] = self.set_piezo_voltage(0.0)  # 0 V
         
-        # Toggles off
-        results["be_oven"] = self.set_be_oven(False)
-        results["b_field"] = self.set_b_field(False)
-        results["bephi"] = self.set_bephi(False)
-        results["uv3"] = self.set_uv3(False)
-        results["e_gun"] = self.set_e_gun(False)
+        # Toggles off (0=off)
+        results["be_oven"] = self.set_be_oven(0)
+        results["b_field"] = self.set_b_field(0)
+        results["bephi"] = self.set_bephi(0)
+        results["uv3"] = self.set_uv3(0)
+        results["e_gun"] = self.set_e_gun(0)
+        results["hd_valve"] = self.set_hd_valve(0)
         
         self.logger.info(f"Safety defaults applied: {results}")
         return results
@@ -1071,14 +1073,17 @@ class LabVIEWInterface:
         results = {}
         
         # Map internal parameter names to LabVIEW devices
+        # Note: u_rf is in millivolts (0-1400mV), U_RF would be volts (0-200V)
         device_map = {
-            "u_rf": ("U_RF", self.set_rf_voltage),
+            "u_rf_mv": ("u_rf", self.set_rf_voltage),  # SMILE interface mV
             "piezo": ("piezo", self.set_piezo_voltage),
             "be_oven": ("be_oven", self.set_be_oven),
             "b_field": ("b_field", self.set_b_field),
             "bephi": ("bephi", self.set_bephi),
             "uv3": ("uv3", self.set_uv3),
             "e_gun": ("e_gun", self.set_e_gun),
+            "hd_valve": ("hd_valve", self.set_hd_valve),
+            "dds_freq_mhz": ("dds", self.set_dds_frequency),
         }
         
         for param, value in params.items():
@@ -1089,10 +1094,7 @@ class LabVIEWInterface:
                 except Exception as e:
                     self.logger.error(f"Failed to set {param}: {e}")
                     results[param] = False
-            elif param.startswith("hd_shutter_"):
-                shutter_id = param.replace("hd_shutter_", "")
-                results[param] = self.set_hd_shutter(shutter_id, value)
-            elif param == "dds_freq":
+            elif param == "dds_freq_mhz":
                 results[param] = self.set_dds_frequency(value)
         
         return results

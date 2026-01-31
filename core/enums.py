@@ -80,32 +80,35 @@ class MatchQuality(Enum):
 
 
 # Physical Constants for RF Voltage Scaling
+# Naming convention:
+#   - u_rf: LabVIEW SMILE interface value in millivolts (mV), range 0-1400mV
+#   - U_RF: Real RF voltage in trap in volts (V), range 0-200V
 # Based on calibration: 700mV on SMILE interface = 100V real RF
 RF_SCALE_V_PER_MV = 100.0 / 700.0  # ~0.142857 V/mV
 RF_SCALE_MV_PER_V = 700.0 / 100.0  # 7.0 mV/V
 
 
-def smile_mv_to_real_volts(smile_mv: float) -> float:
+def u_rf_mv_to_U_RF_V(u_rf_mv: float) -> float:
     """
-    Convert SMILE interface mV to real RF voltage.
+    Convert LabVIEW SMILE interface u_rf (mV) to real trap U_RF (V).
     
     Args:
-        smile_mv: Voltage in millivolts on SMILE interface
+        u_rf_mv: Voltage in millivolts on SMILE interface (0-1400mV)
         
     Returns:
-        Real RF voltage in volts
+        Real RF voltage in trap in volts (0-200V)
     """
-    return smile_mv * RF_SCALE_V_PER_MV
+    return u_rf_mv * RF_SCALE_V_PER_MV
 
 
-def real_volts_to_smile_mv(real_v: float) -> float:
+def U_RF_V_to_u_rf_mv(U_RF_V: float) -> float:
     """
-    Convert real RF voltage to SMILE interface mV.
+    Convert real trap U_RF (V) to LabVIEW SMILE interface u_rf (mV).
     
     Args:
-        real_v: Real RF voltage in volts
+        U_RF_V: Real RF voltage in trap in volts (0-200V)
         
     Returns:
-        SMILE interface voltage in millivolts
+        SMILE interface voltage in millivolts (0-1400mV)
     """
-    return real_v * RF_SCALE_MV_PER_V
+    return U_RF_V * RF_SCALE_MV_PER_V

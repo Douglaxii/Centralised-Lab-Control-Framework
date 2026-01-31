@@ -256,19 +256,16 @@ class MainWorker(ExpFragment):
     
     def _handle_set_cooling(self, payload: dict):
         """Handle SET_COOLING command."""
-        # Update state
-        self.state["sw0"] = payload.get("sw0", self.state["sw0"])
-        self.state["sw1"] = payload.get("sw1", self.state["sw1"])
-        self.state["freq0"] = payload.get("freq0", self.state["freq0"])
-        self.state["freq1"] = payload.get("freq1", self.state["freq1"])
+        # Update state (sw0, sw1 are integers: 0=off, 1=on)
+        # freq0 and freq1 are constants (215.5 MHz) and not adjustable
+        self.state["sw0"] = int(payload.get("sw0", self.state["sw0"]))
+        self.state["sw1"] = int(payload.get("sw1", self.state["sw1"]))
         
         # Apply to hardware
         self.update_cooling()
         
         # Send acknowledgment
         self._send_status("COOLING_UPDATED", {
-            "freq0": self.state["freq0"],
-            "freq1": self.state["freq1"],
             "sw0": self.state["sw0"],
             "sw1": self.state["sw1"]
         })
@@ -466,12 +463,8 @@ class MainWorker(ExpFragment):
         self.ec.set_ec(0.0 * V, 0.0 * V)
         self.comp.set_compensation(0.0 * V, 0.0 * V)
         
-        # Turn off Cooling Shutters
-        self.raman.set_cooling_params(
-            212.5 * MHz, 0.05, 
-            212.5 * MHz, 0.05, 
-            False, False  # Switches OFF
-        )
+        # Turn off Cooling Shutters (sw0=0, sw1=0)
+        self.raman.set_cooling_params(0.05, 0.05, 0, 0)
         
         # Reset state to defaults
         self.state = self.defaults.copy()
@@ -488,10 +481,11 @@ class MainWorker(ExpFragment):
     def update_cooling(self):
         """Applies current state to Raman hardware."""
         self.core.break_realtime()
+        # Frequencies are constants (215.5 MHz), only amplitudes and switches are adjustable
+        # sw0, sw1 are integers (0=off, 1=on)
         self.raman.set_cooling_params(
-            self.state["freq0"] * MHz, self.state["amp0"], 
-            self.state["freq1"] * MHz, self.state["amp1"], 
-            self.state["sw0"], self.state["sw1"]
+            self.state["amp0"], self.state["amp1"], 
+            int(self.state["sw0"]), int(self.state["sw1"])
         )
 
     @kernel

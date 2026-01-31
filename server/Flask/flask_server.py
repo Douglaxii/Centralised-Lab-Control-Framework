@@ -34,7 +34,6 @@ import time
 import threading
 import cv2
 import numpy as np
-# import pandas as pd  # Not used - uncomment if needed for data analysis
 import logging
 from collections import deque
 from datetime import datetime
@@ -53,27 +52,27 @@ from core.enums import SystemMode, AlgorithmState
 class KillSwitchManager:
     """
     Manages safety kill switches for time-limited hardware outputs.
-    
+
     Devices:
     - piezo: Max 10 seconds ON time
     - e_gun: Max 30 seconds ON time
-    
+
     The kill switch monitors active outputs and automatically turns them off
     when time limits are exceeded. This is enforced at Flask level as a
     secondary protection (primary is in LabVIEW hardware).
     """
-    
+
     TIME_LIMITS = {
         "piezo": 10.0,      # 10 seconds max for piezo output
         "e_gun": 10.0,      # 10 seconds max for e-gun (testing mode)
     }
-    
+
     def __init__(self):
         self._active: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.RLock()
         self._running = True
         self.logger = logging.getLogger("kill_switch")
-        
+
         # Start watchdog thread
         self._watchdog_thread = threading.Thread(
             target=self._watchdog_loop,
@@ -82,11 +81,11 @@ class KillSwitchManager:
         )
         self._watchdog_thread.start()
         self.logger.info("Kill Switch Manager initialized")
-    
+
     def register_on(self, device: str, set_voltage_callback: callable, zero_voltage_callback: callable):
         """
         Register a device as ON with kill switch protection.
-        
+
         Args:
             device: Device name ('piezo' or 'e_gun')
             set_voltage_callback: Function to call with target voltage when ON
@@ -96,7 +95,7 @@ class KillSwitchManager:
             if device not in self.TIME_LIMITS:
                 self.logger.warning(f"Unknown device for kill switch: {device}")
                 return False
-            
+
             self._active[device] = {
                 "start_time": time.time(),
                 "set_voltage_cb": set_voltage_callback,
@@ -105,7 +104,7 @@ class KillSwitchManager:
             }
             self.logger.info(f"Kill switch ARMED for {device} (max {self.TIME_LIMITS[device]}s)")
             return True
-    
+
     def register_off(self, device: str):
         """Unregister a device (turned off safely by user)."""
         with self._lock:
@@ -115,12 +114,12 @@ class KillSwitchManager:
                 del self._active[device]
                 return True
             return False
-    
+
     def is_active(self, device: str) -> bool:
         """Check if a device is currently active under kill switch monitoring."""
         with self._lock:
             return device in self._active
-    
+
     def get_remaining_time(self, device: str) -> float:
         """Get remaining allowed ON time for a device."""
         with self._lock:
@@ -129,11 +128,11 @@ class KillSwitchManager:
             elapsed = time.time() - self._active[device]["start_time"]
             remaining = self.TIME_LIMITS[device] - elapsed
             return max(0.0, remaining)
-    
+
     def trigger_kill(self, device: str, reason: str = "manual"):
         """
         Manually trigger kill switch for a device.
-        
+
         Args:
             device: Device to kill
             reason: Reason for kill (for logging)
@@ -141,30 +140,30 @@ class KillSwitchManager:
         with self._lock:
             if device not in self._active:
                 return False
-            
+
             info = self._active[device]
             if info["killed"]:
                 return False
-            
+
             info["killed"] = True
             elapsed = time.time() - info["start_time"]
-            
+
             self.logger.error(
                 f"KILL SWITCH TRIGGERED for {device}: {reason} "
                 f"(was on for {elapsed:.1f}s, limit was {self.TIME_LIMITS[device]}s)"
             )
-            
+
             # Execute zero voltage callback
             try:
                 info["zero_voltage_cb"]()
                 self.logger.info(f"Kill switch executed for {device}")
             except Exception as e:
                 self.logger.error(f"Kill switch callback failed for {device}: {e}")
-            
+
             # Clean up
             del self._active[device]
             return True
-    
+
     def _watchdog_loop(self):
         """Background thread that monitors active devices and enforces time limits."""
         while self._running:
@@ -172,26 +171,26 @@ class KillSwitchManager:
                 with self._lock:
                     now = time.time()
                     to_kill = []
-                    
+
                     for device, info in self._active.items():
                         elapsed = now - info["start_time"]
                         limit = self.TIME_LIMITS[device]
-                        
+
                         if elapsed > limit and not info["killed"]:
                             to_kill.append(device)
-                    
+
                     # Kill outside of lock to avoid deadlock
                     devices_to_kill = to_kill.copy()
-                
+
                 for device in devices_to_kill:
                     self.trigger_kill(device, f"TIME LIMIT EXCEEDED ({self.TIME_LIMITS[device]}s)")
-                
+
                 time.sleep(0.1)  # 10 Hz check rate
-                
+
             except Exception as e:
                 self.logger.error(f"Kill switch watchdog error: {e}")
                 time.sleep(1)
-    
+
     def get_status(self) -> Dict[str, Any]:
         """Get current kill switch status for all monitored devices."""
         with self._lock:
@@ -216,7 +215,7 @@ class KillSwitchManager:
                         "killed": False
                     }
             return status
-    
+
     def stop(self):
         """Stop the kill switch manager and kill all active devices."""
         self._running = False
@@ -232,7 +231,7 @@ kill_switch = KillSwitchManager()
 # LabVIEW writes data files to E:/Data/, Manager reads them
 try:
     from server.communications.data_server import (
-        get_telemetry_data, 
+        get_telemetry_data,
         get_data_sources
     )
     TELEMETRY_AVAILABLE = True
@@ -277,7 +276,7 @@ class TurboAlgorithmLog:
     message: str
     iteration: Optional[int] = None
     delta: Optional[float] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "timestamp": self.timestamp,
@@ -289,7 +288,7 @@ class TurboAlgorithmLog:
         }
 
 
-@dataclass 
+@dataclass
 class CameraState:
     """Camera feed state with latency tracking and fit parameters."""
     last_frame_time: float = 0.0
@@ -300,7 +299,7 @@ class CameraState:
     high_delay_warning: bool = False
     frame_count: int = 0
     ion_position: Dict[str, Any] = field(default_factory=lambda: {"x": 0, "y": 0, "found": False})
-    
+
     def update_latency(self, frame_timestamp: float):
         """Update latency metrics based on frame timestamp."""
         now = time.time()
@@ -310,7 +309,7 @@ class CameraState:
         self.high_delay_warning = self.latency_ms > 500
         self.frame_count += 1
         self.is_live = True
-    
+
     def update_ion_position(self, x: float, y: float, found: bool, **fit_params):
         """Update ion position and fit parameters."""
         self.ion_position = {"x": x, "y": y, "found": found, **fit_params}
@@ -359,23 +358,24 @@ camera_lock = threading.Lock()
 current_state = {
     "mode": SystemMode.MANUAL.value,
     "params": {
-        # RF Voltage
-        "u_rf": 500.0,
-        # Electrodes
+        # RF Voltage (U_RF in volts, 0-200V)
+        "u_rf_volts": 200.0,
+        # Electrodes (range: -1V to 50V)
         "ec1": 0.0, "ec2": 0.0,
         "comp_h": 0.0, "comp_v": 0.0,
-        # Toggles
-        "bephi": False, "b_field": True, "be_oven": False,
+        # Toggles (0=off, 1=on)
+        "bephi": 0, "b_field": 1, "be_oven": 0,
         # Laser & Electron
-        "uv3": False,
+        "uv3": 0,
         # Piezo: setpoint voltage and output state (kill switch protected)
         "piezo": 2.4,           # Target voltage setpoint (default for HD valve)
-        "piezo_output": False,  # True = apply setpoint, False = 0V output
+        "piezo_output": 0,      # 0=off, 1=on
         # E-gun: kill switch protected (max 10s)
-        "e_gun": False,
-        # DDS: Default 135.0 MHz per protocol
-        "dds_profile": 0,
-        "dds_freq_Mhz": 135.0,
+        "e_gun": 0,
+        # HD Valve (0=off, 1=on)
+        "hd_valve": 0,
+        # DDS: LabVIEW controlled only (0-200 MHz)
+        "dds_freq_mhz": 0.0,
     },
     "worker_alive": False,
     "camera_active": False,
@@ -412,11 +412,11 @@ def get_manager_socket() -> zmq.Socket:
 def send_to_manager(message: Dict[str, Any], timeout_ms: int = 5000) -> Dict[str, Any]:
     """
     Send request to manager and return response with retry logic.
-    
+
     Args:
         message: Request dictionary
         timeout_ms: Timeout in milliseconds
-        
+
     Returns:
         Response dictionary
     """
@@ -457,65 +457,65 @@ def safe_shutdown() -> Dict[str, Any]:
     """
     Emergency shutdown: Stop Turbo algorithm and reset all hardware to safe defaults.
     This is called when the safety switch is engaged.
-    
+
     Also triggers kill switches for time-limited devices.
     """
     logger.warning("SAFETY SHUTDOWN TRIGGERED - Stopping algorithm and resetting hardware")
-    
+
     # Step 0: Trigger kill switches for all time-limited devices
     ks_results = {}
     for device in KILL_SWITCH_LIMITS.keys():
         ks_results[device] = kill_switch.trigger_kill(device, "SAFETY SHUTDOWN")
-    
+
     # Step 1: Send STOP signal to manager
     stop_response = send_to_manager({
         "action": "STOP",
         "source": "FLASK_SAFETY",
         "reason": "Safety switch engaged"
     }, timeout_ms=3000)
-    
+
     # Step 2: Reset all hardware voltages to safe defaults (0V)
     safe_params = {
-        "u_rf": 0.0,
+        "u_rf_volts": 0.0,
         "ec1": 0.0, "ec2": 0.0,
         "comp_h": 0.0, "comp_v": 0.0,
         "piezo": 0.0,
     }
-    
+
     reset_response = send_to_manager({
         "action": "SET",
         "source": "FLASK_SAFETY",
         "params": safe_params,
         "reason": "Safety shutdown"
     }, timeout_ms=5000)
-    
+
     # Step 3: Turn off all toggles and outputs
     toggle_params = {
         "bephi": False,
-        "b_field": False, 
+        "b_field": False,
         "be_oven": False,
         "uv3": False,
         "e_gun": False,
         "piezo_output": False,
     }
-    
+
     toggle_response = send_to_manager({
         "action": "SET",
         "source": "FLASK_SAFETY",
         "params": toggle_params,
         "reason": "Safety shutdown"
     }, timeout_ms=5000)
-    
+
     # Update local state
     with state_lock:
         current_state["params"].update(safe_params)
         current_state["params"].update(toggle_params)
         current_state["mode"] = SystemMode.SAFE.value
-    
+
     with turbo_state_lock:
         turbo_state["status"] = AlgorithmState.STOPPED.value
         turbo_state["safety_engaged"] = True
-    
+
     # Log the safety event
     add_turbo_log(
         level="ERROR",
@@ -523,7 +523,7 @@ def safe_shutdown() -> Dict[str, Any]:
         iteration=None,
         delta=None
     )
-    
+
     return {
         "status": "success" if stop_response.get("status") == "success" else "partial",
         "stop_result": stop_response,
@@ -550,7 +550,7 @@ def add_turbo_log(level: str, message: str, iteration: Optional[int] = None, del
             delta=delta
         )
         turbo_algorithm_logs.append(log_entry)
-    
+
     # Also log to system logger for persistence
     if level == "ERROR":
         logger.error(f"[Turbo] {message}")
@@ -560,7 +560,7 @@ def add_turbo_log(level: str, message: str, iteration: Optional[int] = None, del
         logger.info(f"[Turbo] {message}")
 
 
-def update_turbo_state(status: str, iteration: Optional[int] = None, 
+def update_turbo_state(status: str, iteration: Optional[int] = None,
                        delta: Optional[float] = None, target: Optional[str] = None):
     """Update the Turbo algorithm state."""
     with turbo_state_lock:
@@ -582,49 +582,49 @@ def update_turbo_state(status: str, iteration: Optional[int] = None,
 def read_frame_from_disk() -> Optional[Tuple[np.ndarray, float, Dict[str, Any]]]:
     """
     Read the latest annotated frame from jpg_frames_labelled directory.
-    
+
     Directory structure: E:/Data/jpg_frames_labelled/YYMMDD/*_labelled.jpg
-    
+
     Returns:
         Tuple of (frame, timestamp, fit_params) or None if no frame available
     """
     try:
         from datetime import datetime
-        
+
         # Get today's subdirectory
         current_date_str = datetime.now().strftime("%y%m%d")
         frame_path = Path(LIVE_FRAMES_PATH) / current_date_str
-        
+
         if not frame_path.exists():
             return None
-            
+
         # Find latest annotated frame file (*_labelled.jpg)
         frame_files = list(frame_path.glob("*_labelled.jpg"))
         if not frame_files:
             return None
-            
+
         latest = max(frame_files, key=lambda p: p.stat().st_mtime)
-        
+
         # Check if frame is fresh (within last 5 seconds)
         mtime = latest.stat().st_mtime
         if time.time() - mtime > 5.0:
             return None  # Stale frame
-            
+
         frame = cv2.imread(str(latest))
         if frame is None:
             return None
-        
+
         # Try to extract fit parameters from filename or companion JSON
         fit_params = {}
         try:
             # Look for companion JSON in cam_json folder with matching timestamp
             json_folder = Path(LIVE_FRAMES_PATH).parent / current_date_str / "cam_json"
-            
+
             if json_folder.exists():
                 # Extract timestamp from filename (e.g., "14-32-15_123_labelled.jpg")
                 filename = latest.stem  # "14-32-15_123_labelled"
                 time_prefix = filename.replace("_labelled", "")  # "14-32-15_123"
-                
+
                 # Find JSON with matching timestamp prefix
                 for json_file in json_folder.glob("*_data.json"):
                     if time_prefix in json_file.stem:
@@ -641,9 +641,9 @@ def read_frame_from_disk() -> Optional[Tuple[np.ndarray, float, Dict[str, Any]]]
                         break
         except Exception:
             pass  # No fit params available
-            
+
         return frame, mtime, fit_params
-        
+
     except Exception as e:
         logger.debug(f"Frame read failed: {e}")
         return None
@@ -657,37 +657,37 @@ def update_ion_position_from_file():
     try:
         from datetime import datetime
         current_date_str = datetime.now().strftime("%y%m%d")
-        
+
         # Try new path first (jpg_frames_labelled structure)
         json_folder = Path(LIVE_FRAMES_PATH).parent / current_date_str / "cam_json"
-        
+
         # Fallback to legacy path
         if not json_folder.exists():
             json_folder = Path(f"E:/Data/{current_date_str}/cam_json")
-        
+
         if not json_folder.exists():
             return
-            
+
         json_files = list(json_folder.glob("*_data.json"))
         if not json_files:
             return
-            
+
         # Get most recent JSON
         latest_json = max(json_files, key=lambda p: p.stat().st_mtime)
-        
+
         # Check if fresh (within last 3 seconds)
         if time.time() - latest_json.stat().st_mtime > 3.0:
             return
-            
+
         with open(latest_json, 'r') as f:
             data = json.load(f)
-            
+
         if not data.get("atoms"):
             return
-            
+
         # Use first atom for display
         atom = data["atoms"][0]
-        
+
         with camera_lock:
             camera_state.ion_position = {
                 "x": atom.get("x0", 0),
@@ -697,7 +697,7 @@ def update_ion_position_from_file():
                 "sig_y": atom.get("R_y", 0),       # SHM turning point
                 "amp": atom.get("A_x", 0)          # Amplitude
             }
-            
+
     except Exception:
         pass
 
@@ -706,135 +706,135 @@ def add_overlay_to_frame(frame: np.ndarray, pos: Dict[str, Any], latency_ms: flo
     """
     Add position markers and status overlays to frame.
     Displays only a thin outer circle (no crosshair) and fit parameters.
-    
+
     Args:
         frame: Input image
         pos: Ion position dict with 'x', 'y', 'found', and optional fit params
         latency_ms: Current latency in milliseconds
-        
+
     Returns:
         Frame with overlays
     """
     h, w = frame.shape[:2]
-    
+
     # Add position marker if ion found
     if pos.get("found", False):
         x, y = int(pos["x"]), int(pos["y"])
         # Ensure within bounds
         x = max(0, min(x, w - 1))
         y = max(0, min(y, h - 1))
-        
+
         # SINGLE THIN OUTER CIRCLE ONLY (no crosshair, no center dot)
         marker_color = (0, 255, 0)  # Neon green
         cv2.circle(frame, (x, y), 20, marker_color, 1)  # Thin line (thickness=1)
-        
+
         # DISPLAY FIT PARAMETERS
         params_text = []
-        
+
         # Show sigma values if available
         if "sig_x" in pos and "sig_y" in pos:
             sig_x = pos["sig_x"]
             sig_y = pos["sig_y"]
             params_text.append(f"sx:{sig_x:.1f} sy:{sig_y:.1f}")
-        
+
         # Show theta if available
         if "theta" in pos:
             theta_deg = np.degrees(pos["theta"]) % 180
             params_text.append(f"th:{theta_deg:.0f}")
-        
+
         # Show amplitude if available
         if "amp" in pos:
             amp = pos["amp"]
             params_text.append(f"A:{amp:.1f}")
-        
+
         # Draw parameter text next to ion
         if params_text:
             text = " | ".join(params_text)
             text_x = x + 25  # Offset to right of circle
             text_y = y - 15  # Slightly above
-            
+
             # Ensure text stays within frame
             text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)[0]
             if text_x + text_size[0] > w:
                 text_x = x - 25 - text_size[0]  # Move to left side
             if text_y < text_size[1]:
                 text_y = y + 25  # Move below if too high
-            
+
             # Draw text with dark background for readability
-            cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 
+            cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX,
                        0.35, (0, 0, 0), 2)  # Black outline
-            cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 
+            cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX,
                        0.35, marker_color, 1)  # Green text
-    
+
     # LIVE indicator in corner
     live_color = (0, 255, 0) if latency_ms < 500 else (0, 165, 255)
-    cv2.putText(frame, "● LIVE", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
+    cv2.putText(frame, "LIVE", (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                 0.7, live_color, 2)
-    
+
     # Latency display
     latency_color = (200, 200, 200) if latency_ms < 500 else (0, 0, 255)
-    cv2.putText(frame, f"Latency: {latency_ms:.0f}ms", (10, 60), 
+    cv2.putText(frame, f"Latency: {latency_ms:.0f}ms", (10, 60),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, latency_color, 1)
-    
+
     # High delay warning
     if latency_ms > 500:
-        warning_text = "⚠ HIGH DELAY"
-        cv2.putText(frame, warning_text, (10, h - 20), 
+        warning_text = "! HIGH DELAY"
+        cv2.putText(frame, warning_text, (10, h - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-    
+
     return frame
 
 
 def generate_simulated_frame(t: float) -> np.ndarray:
     """Generate a simulated camera frame for demo/development."""
     frame = np.zeros((600, 800, 3), dtype=np.uint8)
-    
+
     # Gradient background
     for i in range(600):
         frame[i, :] = [245, 248, 250]  # Off-white scientific background
-    
+
     # Add subtle noise
     noise = np.random.randint(0, 5, (600, 800, 3), dtype=np.uint8)
     frame = cv2.add(frame, noise)
-    
+
     # Simulated ion motion
     x = 400 + int(30 * np.sin(t * 0.5))
     y = 300 + int(20 * np.cos(t * 0.7))
-    
+
     # Draw ion spot with glow
     cv2.circle(frame, (x, y), 15, (200, 200, 255), -1)
     cv2.circle(frame, (x, y), 10, (220, 220, 255), -1)
     cv2.circle(frame, (x, y), 5, (255, 255, 255), -1)
-    
+
     return frame
 
 
 def generate_frames():
     """
     Generate MJPEG video stream frames.
-    
+
     Yields:
         MJPEG frame data for HTTP multipart response
     """
     frame_interval = 1.0 / 30.0  # Target 30 FPS
     last_yield_time = 0
     last_json_check = 0
-    
+
     while True:
         try:
             loop_start = time.time()
-            
+
             # Periodically update ion position from JSON files
             if loop_start - last_json_check > 0.5:  # Check every 500ms
                 update_ion_position_from_file()
                 last_json_check = loop_start
-            
+
             # Try to read from disk first
             result = read_frame_from_disk()
-            
+
             if result is not None:
                 frame, timestamp, fit_params = result
-                
+
                 # Update camera state
                 with camera_lock:
                     camera_state.update_latency(timestamp)
@@ -843,39 +843,39 @@ def generate_frames():
                         camera_state.ion_position.update(fit_params)
                     pos = camera_state.ion_position.copy()
                     latency = camera_state.latency_ms
-                    
+
                 # Add overlays
                 frame = add_overlay_to_frame(frame, pos, latency)
-                
+
             else:
                 # Fallback to simulated frame
                 frame = generate_simulated_frame(time.time())
-                
+
                 with camera_lock:
                     camera_state.is_live = False
                     pos = camera_state.ion_position.copy()
                     latency = 999  # Indicate simulation
-                    
+
                 # Add overlays to simulated frame
                 frame = add_overlay_to_frame(frame, pos, latency)
-                
+
                 # Add simulation indicator
                 cv2.putText(frame, "SIMULATED CAMERA FEED", (250, 30),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 100, 100), 1)
-            
+
             # Encode and yield frame
             ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
             if ret:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n'
-                       b'Cache-Control: no-cache\r\n\r\n' + 
+                       b'Cache-Control: no-cache\r\n\r\n' +
                        buffer.tobytes() + b'\r\n')
-            
+
             # Frame rate limiting
             elapsed = time.time() - loop_start
             if elapsed < frame_interval:
                 time.sleep(frame_interval - elapsed)
-                
+
         except Exception as e:
             logger.error(f"Frame generation error: {e}")
             time.sleep(0.1)
@@ -888,24 +888,24 @@ def generate_frames():
 def get_telemetry_for_time_window(window_seconds: float = 300.0) -> Dict[str, List[Dict[str, Any]]]:
     """
     Get telemetry data for specified time window.
-    
+
     Returns data points with timestamps for accurate time-based rendering.
     Merges simulated data with real data from LabVIEW sources.
     """
     now = time.time()
     cutoff = now - window_seconds
     result = {}
-    
+
     # Get simulated/camera data
     with telemetry_lock:
         for key, deque_data in telemetry_data.items():
             points = [
-                {"t": ts, "v": val} 
-                for ts, val in deque_data 
+                {"t": ts, "v": val}
+                for ts, val in deque_data
                 if ts >= cutoff
             ]
             result[key] = points
-    
+
     # Get real data from DataIngestionServer (LabVIEW sources)
     if TELEMETRY_AVAILABLE:
         try:
@@ -930,14 +930,14 @@ def get_telemetry_for_time_window(window_seconds: float = 300.0) -> Dict[str, Li
                         ]
         except Exception as e:
             logger.debug(f"Could not get real telemetry data: {e}")
-    
+
     return result
 
 
 def telemetry_generator():
     """
     Generate Server-Sent Events for real-time telemetry.
-    
+
     Sends 300-second rolling window data at 2Hz.
     Includes data from LabVIEW sources (Wavemeter, SMILE).
     """
@@ -945,7 +945,7 @@ def telemetry_generator():
         try:
             data = get_telemetry_for_time_window(TELEMETRY_WINDOW_SECONDS)
             data["timestamp"] = time.time()
-            
+
             # Add camera state
             with camera_lock:
                 data["camera"] = {
@@ -954,7 +954,7 @@ def telemetry_generator():
                     "high_delay_warning": camera_state.high_delay_warning,
                     "fps": camera_state.fps
                 }
-            
+
             # Add turbo state
             with turbo_state_lock:
                 data["turbo"] = {
@@ -964,17 +964,17 @@ def telemetry_generator():
                     "target": turbo_state["target_parameter"],
                     "safety_engaged": turbo_state["safety_engaged"]
                 }
-            
+
             # Add data source status (LabVIEW connections)
             if TELEMETRY_AVAILABLE:
                 try:
                     data["data_sources"] = get_data_sources()
                 except:
                     data["data_sources"] = {}
-            
+
             yield f"data: {json.dumps(data)}\n\n"
             time.sleep(0.5)  # 2 Hz update rate
-            
+
         except Exception as e:
             logger.error(f"Telemetry generator error: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -984,21 +984,21 @@ def telemetry_generator():
 def turbo_log_generator():
     """
     Generate Server-Sent Events for Turbo algorithm logs.
-    
+
     Streams new log entries as they arrive.
     """
     last_len = 0
     heartbeat_interval = 5.0
     last_heartbeat = time.time()
-    
+
     while True:
         try:
             with turbo_logs_lock:
                 current_len = len(turbo_algorithm_logs)
                 logs_list = [log.to_dict() for log in turbo_algorithm_logs]
-            
+
             now = time.time()
-            
+
             if current_len != last_len:
                 # New entries available
                 data = {
@@ -1009,14 +1009,14 @@ def turbo_log_generator():
                 yield f"data: {json.dumps(data)}\n\n"
                 last_len = current_len
                 last_heartbeat = now
-                
+
             elif now - last_heartbeat >= heartbeat_interval:
                 # Send heartbeat
                 yield f"data: {json.dumps({'heartbeat': True, 'total_count': current_len})}\n\n"
                 last_heartbeat = now
-            
+
             time.sleep(0.1)  # 10 Hz check rate
-            
+
         except Exception as e:
             logger.error(f"Turbo log generator error: {e}")
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
@@ -1033,36 +1033,36 @@ def simulate_telemetry():
     while True:
         try:
             now = time.time()
-            
+
             with telemetry_lock:
                 # Pos x: Micro-motion oscillation
                 telemetry_data["pos_x"].append((now, 320 + 10 * np.sin(t * 0.5) + 2 * np.random.randn()))
-                
+
                 # Pos y: Discrete position steps
                 y_positions = [200, 250, 300, 350]
                 telemetry_data["pos_y"].append((now, y_positions[int(t / 50) % 4] + np.random.randn()))
-                
+
                 # Sig x: Fluorescence peak (Gaussian)
                 sig_x_base = 15 + 5 * np.exp(-((t % 100 - 50) / 20) ** 2)
                 telemetry_data["sig_x"].append((now, sig_x_base + np.random.randn()))
-                
+
                 # Sig y: Fluorescence width/background
                 sig_y_base = 25 + 8 * np.exp(-((t % 100 - 50) / 30) ** 2)
                 telemetry_data["sig_y"].append((now, sig_y_base + np.random.randn()))
-                
+
                 # Pressure: Chamber pressure readout
                 pressure_base = 1.2e-10
                 if 200 < (t % 400) < 300:
                     pressure_base = 5.0e-10
                 telemetry_data["pressure"].append((now, pressure_base + np.random.randn() * 1e-11))
-                
+
                 # Laser Frequency: Lock stability/drift
                 freq_base = 212.5
                 phase = t % 300
                 if 50 < phase < 250:
                     freq_base = 213.2 + np.random.randn() * 0.02
                 telemetry_data["laser_freq"].append((now, freq_base))
-                
+
                 # PMT: Photon counts
                 pmt_base = 100
                 phase = t % 400
@@ -1075,7 +1075,7 @@ def simulate_telemetry():
                 else:
                     pmt_base = 100 + np.random.randn() * 30
                 telemetry_data["pmt"].append((now, max(0, pmt_base)))
-            
+
             # Update simulated ion position with fit parameters
             with camera_lock:
                 camera_state.ion_position = {
@@ -1087,10 +1087,10 @@ def simulate_telemetry():
                     "theta": 0.1 * np.sin(t * 0.1),
                     "amp": 15.0 + 2 * np.random.randn()
                 }
-            
+
             t += 1
             time.sleep(1.0)  # 1 Hz data rate
-            
+
         except Exception as e:
             logger.error(f"Telemetry simulation error: {e}")
             time.sleep(1)
@@ -1101,19 +1101,19 @@ def simulate_turbo_algorithm():
     iteration = 0
     target_params = ["Pos_x", "Pos_y", "Sig_x", "Sig_y", "Pressure", "Laser_Freq"]
     target_idx = 0
-    
+
     while True:
         try:
             with turbo_state_lock:
                 is_running = not turbo_state["safety_engaged"]
-            
+
             if is_running:
                 iteration += 1
                 target = target_params[target_idx % len(target_params)]
-                
+
                 # Simulate convergence
                 delta = max(0.001, 0.1 * np.exp(-iteration / 50) + np.random.randn() * 0.01)
-                
+
                 if iteration % 10 == 0:
                     # Switch optimization target
                     target_idx += 1
@@ -1124,7 +1124,7 @@ def simulate_turbo_algorithm():
                         delta=delta
                     )
                     update_turbo_state(AlgorithmState.OPTIMIZING.value, iteration, delta, target)
-                
+
                 elif iteration % 5 == 0:
                     add_turbo_log(
                         level="ITERATION",
@@ -1132,7 +1132,7 @@ def simulate_turbo_algorithm():
                         iteration=iteration,
                         delta=delta
                     )
-                
+
                 # Random error simulation
                 if np.random.random() < 0.02:  # 2% chance
                     add_turbo_log(
@@ -1142,12 +1142,12 @@ def simulate_turbo_algorithm():
                     )
                     update_turbo_state(AlgorithmState.DIVERGING.value, iteration, delta)
                     iteration = max(0, iteration - 10)  # Roll back
-                
+
                 if delta < 0.01:
                     update_turbo_state(AlgorithmState.CONVERGED.value, iteration, delta, target)
-            
+
             time.sleep(2.0)  # Log every 2 seconds when running
-            
+
         except Exception as e:
             logger.error(f"Turbo simulation error: {e}")
             time.sleep(1)
@@ -1172,18 +1172,18 @@ SERVER_START_TIME = time_module.time()
 def health_check():
     """
     Health check endpoint for monitoring and load balancers.
-    
+
     Returns:
         - HTTP 200 if server is healthy
         - Basic status info (uptime, version, dependencies)
-    
+
     This endpoint should be lightweight and fast - no blocking calls.
     """
     uptime_seconds = time_module.time() - SERVER_START_TIME
-    
+
     # Check if manager socket is connected (non-blocking check)
     manager_connected = manager_socket is not None
-    
+
     health_data = {
         "status": "healthy",
         "timestamp": time_module.time(),
@@ -1198,12 +1198,12 @@ def health_check():
             "camera_path_accessible": Path(LIVE_FRAMES_PATH).exists() if LIVE_FRAMES_PATH else False
         }
     }
-    
+
     # Return 503 if critical components are down
     if not manager_connected:
         health_data["status"] = "degraded"
         return jsonify(health_data), 503
-    
+
     return jsonify(health_data), 200
 
 
@@ -1213,7 +1213,7 @@ def format_uptime(seconds):
     hours = int((seconds % 86400) // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = int(seconds % 60)
-    
+
     if days > 0:
         return f"{days}d {hours}h {minutes}m"
     elif hours > 0:
@@ -1226,20 +1226,20 @@ def format_uptime(seconds):
 def readiness_check():
     """
     Readiness check for Kubernetes/container orchestration.
-    
+
     Returns 200 when the server is ready to accept traffic.
     This checks if all required dependencies are available.
     """
     ready = True
     checks = {}
-    
+
     # Check manager connection
     checks["manager"] = manager_socket is not None
     ready = ready and checks["manager"]
-    
+
     # Check camera path
     checks["camera_path"] = Path(LIVE_FRAMES_PATH).exists() if LIVE_FRAMES_PATH else False
-    
+
     if ready:
         return jsonify({"ready": True, "checks": checks}), 200
     else:
@@ -1328,13 +1328,13 @@ def get_status():
     """Get current system status including data sources and kill switch status."""
     # Query manager for fresh state
     resp = send_to_manager({"action": "STATUS", "source": "FLASK"})
-    
+
     with state_lock:
         if resp.get("status") == "success":
             current_state["mode"] = resp.get("mode", current_state["mode"])
             current_state["params"].update(resp.get("params", {}))
             current_state["worker_alive"] = resp.get("worker_alive", False)
-    
+
     with camera_lock:
         cam_info = {
             "latency_ms": camera_state.latency_ms,
@@ -1343,7 +1343,7 @@ def get_status():
             "fps": camera_state.fps,
             "ion_position": camera_state.ion_position
         }
-    
+
     with turbo_state_lock:
         turbo_info = {
             "status": turbo_state["status"],
@@ -1352,7 +1352,7 @@ def get_status():
             "target_parameter": turbo_state["target_parameter"],
             "safety_engaged": turbo_state["safety_engaged"]
         }
-    
+
     # Get data source status (LabVIEW connections)
     data_sources = {}
     if TELEMETRY_AVAILABLE:
@@ -1360,10 +1360,10 @@ def get_status():
             data_sources = get_data_sources()
         except Exception as e:
             logger.debug(f"Could not get data sources: {e}")
-    
+
     # Get kill switch status
     ks_status = kill_switch.get_status()
-    
+
     return jsonify({
         "mode": current_state["mode"],
         "params": current_state["params"],
@@ -1387,39 +1387,39 @@ def set_electrodes():
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
-        
+
         params = {
             "ec1": float(data.get("ec1", 0)),
             "ec2": float(data.get("ec2", 0)),
             "comp_h": float(data.get("comp_h", 0)),
             "comp_v": float(data.get("comp_v", 0)),
         }
-        
+
         # Validate ranges
         for name, value in params.items():
             if not -100 <= value <= 100:
                 return jsonify({
-                    "status": "error", 
+                    "status": "error",
                     "message": f"{name} value {value} out of range [-100, 100]"
                 }), 400
-        
+
         resp = send_to_manager({
             "action": "SET",
             "source": "USER",
             "params": params
         })
-        
+
         if resp.get("status") == "success":
             with state_lock:
                 current_state["params"].update(params)
             return jsonify({"status": "success", "params": params})
         else:
             return jsonify({
-                "status": "error", 
+                "status": "error",
                 "message": resp.get("message", "Failed"),
                 "code": resp.get("code", "UNKNOWN")
             }), 400
-            
+
     except ValueError as e:
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
@@ -1429,28 +1429,28 @@ def set_electrodes():
 
 @app.route('/api/control/rf', methods=['POST'])
 def set_rf_voltage():
-    """Set RF voltage (U_RF in volts)."""
+    """Set RF voltage (U_RF in volts, 0-200V)."""
     try:
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
-            
+
         # Accept either 'u_rf_volts' (preferred) or 'u_rf' (legacy)
         u_rf_volts = float(data.get("u_rf_volts") or data.get("u_rf", 200))
-        
-        # Validate range (real voltage 0-500V)
-        if not 0 <= u_rf_volts <= 500:
+
+        # Validate range (real voltage U_RF 0-200V)
+        if not 0 <= u_rf_volts <= 200:
             return jsonify({
                 "status": "error",
-                "message": f"RF voltage {u_rf_volts} V out of range [0, 500]"
+                "message": f"RF voltage {u_rf_volts} V out of range [0, 200]"
             }), 400
-        
+
         resp = send_to_manager({
             "action": "SET",
             "source": "USER",
             "params": {"u_rf_volts": u_rf_volts}
         })
-        
+
         if resp.get("status") == "success":
             with state_lock:
                 current_state["params"]["u_rf_volts"] = u_rf_volts
@@ -1460,7 +1460,7 @@ def set_rf_voltage():
                 "status": "error",
                 "message": resp.get("message", "Failed")
             }), 400
-            
+
     except ValueError as e:
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
@@ -1488,7 +1488,7 @@ def _apply_piezo_voltage(voltage: float):
 def set_piezo_setpoint():
     """
     Set piezo voltage setpoint (does NOT enable output).
-    
+
     Request: {"voltage": 2.5}
     Response: {"status": "success", "setpoint": 2.5}
     """
@@ -1496,33 +1496,33 @@ def set_piezo_setpoint():
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
-            
+
         voltage = float(data.get("voltage", 0))
-        
+
         # Validate range (0-4V as per original spec)
         if not 0 <= voltage <= 4:
             return jsonify({
                 "status": "error",
                 "message": f"Piezo setpoint {voltage}V out of range [0, 4]"
             }), 400
-        
+
         with state_lock:
             current_state["params"]["piezo"] = voltage
-        
+
         # If output is currently on, update the voltage immediately
         with state_lock:
             output_on = current_state["params"].get("piezo_output", False)
-        
+
         if output_on:
             _apply_piezo_voltage(voltage)
-        
+
         logger.info(f"Piezo setpoint updated to {voltage}V")
         return jsonify({
-            "status": "success", 
+            "status": "success",
             "setpoint": voltage,
             "output_active": output_on
         })
-            
+
     except ValueError as e:
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
@@ -1534,12 +1534,12 @@ def set_piezo_setpoint():
 def set_piezo_output():
     """
     Enable/disable piezo output with kill switch protection.
-    
+
     When enabled: Applies the setpoint voltage
     When disabled: Sets voltage to 0V
-    
+
     Kill switch: Auto-shutdown after 10 seconds
-    
+
     Request: {"enable": true}
     Response: {"status": "success", "output": true, "kill_switch": {...}}
     """
@@ -1547,12 +1547,12 @@ def set_piezo_output():
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
-            
+
         enable = bool(data.get("enable", False))
-        
+
         with state_lock:
             setpoint = current_state["params"].get("piezo", 0.0)
-        
+
         if enable:
             # Enable output - apply setpoint voltage
             if _apply_piezo_voltage(setpoint):
@@ -1563,14 +1563,14 @@ def set_piezo_output():
                     _apply_piezo_voltage(0.0)
                     with state_lock:
                         current_state["params"]["piezo_output"] = False
-                
+
                 kill_switch.register_on("piezo", set_voltage, zero_voltage)
-                
+
                 with state_lock:
                     current_state["params"]["piezo_output"] = True
-                
+
                 logger.warning(f"PIEZO OUTPUT ENABLED: {setpoint}V (kill switch: 10s max)")
-                
+
                 return jsonify({
                     "status": "success",
                     "output": True,
@@ -1590,17 +1590,17 @@ def set_piezo_output():
             # Disable output - set to 0V
             _apply_piezo_voltage(0.0)
             kill_switch.register_off("piezo")
-            
+
             with state_lock:
                 current_state["params"]["piezo_output"] = False
-            
+
             logger.info("Piezo output disabled")
             return jsonify({
                 "status": "success",
                 "output": False,
                 "voltage": 0.0
             })
-            
+
     except Exception as e:
         logger.error(f"Piezo output control error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1624,13 +1624,13 @@ def _apply_e_gun_state(state: bool):
 def set_toggle(toggle_name):
     """
     Set a toggle state (bephi, b_field, be_oven, uv3, e_gun).
-    
+
     For e_gun: Kill switch protected (max 30 seconds ON time)
     """
     try:
         data = request.get_json()
         state = bool(data.get("state", False))
-        
+
         # Map frontend names to parameter names
         param_map = {
             "bephi": "bephi",
@@ -1639,7 +1639,7 @@ def set_toggle(toggle_name):
             "uv3": "uv3",
             "e_gun": "e_gun"
         }
-        
+
         param_name = param_map.get(toggle_name)
         if not param_name:
             return jsonify({
@@ -1647,7 +1647,7 @@ def set_toggle(toggle_name):
                 "message": f"Unknown toggle: {toggle_name}",
                 "valid_toggles": list(param_map.keys())
             }), 400
-        
+
         # Special handling for e-gun (kill switch protected)
         if toggle_name == "e_gun":
             if state:
@@ -1668,14 +1668,14 @@ def set_toggle(toggle_name):
                         })
                         with state_lock:
                             current_state["params"]["e_gun"] = False
-                    
+
                     kill_switch.register_on("e_gun", set_state, zero_state)
-                    
+
                     with state_lock:
                         current_state["params"]["e_gun"] = True
-                    
+
                     logger.warning("E-GUN ENABLED (kill switch: 30s max)")
-                    
+
                     return jsonify({
                         "status": "success",
                         "toggle": toggle_name,
@@ -1695,24 +1695,24 @@ def set_toggle(toggle_name):
                 # Turn OFF
                 _apply_e_gun_state(False)
                 kill_switch.register_off("e_gun")
-                
+
                 with state_lock:
                     current_state["params"]["e_gun"] = False
-                
+
                 logger.info("E-gun disabled")
                 return jsonify({
                     "status": "success",
                     "toggle": toggle_name,
                     "state": False
                 })
-        
+
         # Standard toggles (no kill switch)
         resp = send_to_manager({
             "action": "SET",
             "source": "USER",
             "params": {param_name: state}
         })
-        
+
         if resp.get("status") == "success":
             with state_lock:
                 current_state["params"][param_name] = state
@@ -1726,7 +1726,7 @@ def set_toggle(toggle_name):
                 "status": "error",
                 "message": resp.get("message", "Failed")
             }), 400
-            
+
     except Exception as e:
         logger.error(f"Toggle control error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1746,22 +1746,22 @@ def get_killswitch_status():
 def trigger_killswitch():
     """
     Manually trigger kill switch for a device.
-    
+
     Request: {"device": "piezo"} or {"device": "e_gun"}
     """
     try:
         data = request.get_json()
         device = data.get("device")
-        
+
         if device not in KILL_SWITCH_LIMITS:
             return jsonify({
                 "status": "error",
                 "message": f"Unknown device: {device}",
                 "valid_devices": list(KILL_SWITCH_LIMITS.keys())
             }), 400
-        
+
         killed = kill_switch.trigger_kill(device, "MANUAL TRIGGER")
-        
+
         if killed:
             return jsonify({
                 "status": "success",
@@ -1774,7 +1774,7 @@ def trigger_killswitch():
                 "message": f"Device {device} was not active",
                 "device": device
             })
-            
+
     except Exception as e:
         logger.error(f"Kill switch trigger error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -1783,74 +1783,56 @@ def trigger_killswitch():
 @app.route('/api/control/dds', methods=['POST'])
 def set_dds():
     """
-    Set DDS profile and/or frequency.
-    
+    Set DDS frequency (LabVIEW controlled only).
+
     Protocol-compliant parameter names:
-    - dds_profile: 0-7 (DDS profile selection)
-    - dds_freq_Mhz: 0-500 (DDS frequency in MHz)
-    
+    - dds_freq_mhz: 0-200 (DDS frequency in MHz, LabVIEW only)
+
     Legacy aliases (for backwards compatibility):
-    - profile -> dds_profile
-    - freq_mhz -> dds_freq_Mhz
+    - freq_mhz -> dds_freq_mhz
     """
     try:
         data = request.get_json()
         params = {}
-        
-        # Handle profile (protocol: dds_profile, legacy: profile)
-        profile = data.get("dds_profile") or data.get("profile")
-        if profile is not None:
-            profile = int(profile)
-            if not 0 <= profile <= 7:
-                return jsonify({
-                    "status": "error",
-                    "message": f"DDS profile {profile} out of range [0, 7]"
-                }), 400
-            params["dds_profile"] = profile
-        
-        # Handle frequency (protocol: dds_freq_Mhz)
-        # Accept dds_freq_Mhz (protocol) or freq_mhz (legacy)
-        freq_mhz = data.get("dds_freq_Mhz") or data.get("freq_mhz") or data.get("freq_mhz_legacy")
-        
+
+        # Handle frequency (protocol: dds_freq_mhz)
+        # Accept dds_freq_mhz (protocol) or freq_mhz (legacy)
+        freq_mhz = data.get("dds_freq_mhz") or data.get("dds_freq_Mhz") or data.get("freq_mhz")
+
         if freq_mhz is not None:
             freq_mhz = float(freq_mhz)
-            if not 0 <= freq_mhz <= 500:  # 0-500 MHz
+            if not 0 <= freq_mhz <= 200:  # 0-200 MHz (LabVIEW range)
                 return jsonify({
                     "status": "error",
-                    "message": f"DDS frequency {freq_mhz} MHz out of range [0, 500]"
+                    "message": f"DDS frequency {freq_mhz} MHz out of range [0, 200]"
                 }), 400
-            params["dds_freq_Mhz"] = freq_mhz
-        
-        if not params:
+            params["dds_freq_mhz"] = freq_mhz
+        else:
             return jsonify({
                 "status": "error",
-                "message": "No valid parameters provided (dds_profile or dds_freq_Mhz)"
+                "message": "No valid parameter provided (dds_freq_mhz)"
             }), 400
-        
+
         resp = send_to_manager({
             "action": "SET",
             "source": "USER",
             "params": params
         })
-        
+
         if resp.get("status") == "success":
             with state_lock:
-                if "dds_profile" in params:
-                    current_state["params"]["dds_profile"] = params["dds_profile"]
-                if "dds_freq_Mhz" in params:
-                    current_state["params"]["dds_freq_Mhz"] = params["dds_freq_Mhz"]
-            
+                current_state["params"]["dds_freq_mhz"] = params["dds_freq_mhz"]
+
             return jsonify({
-                "status": "success", 
-                "dds_profile": params.get("dds_profile"),
-                "dds_freq_Mhz": params.get("dds_freq_Mhz")
+                "status": "success",
+                "dds_freq_mhz": params["dds_freq_mhz"]
             })
         else:
             return jsonify({
                 "status": "error",
                 "message": resp.get("message", "Failed")
             }), 400
-            
+
     except ValueError as e:
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
@@ -1862,25 +1844,24 @@ def set_dds():
 def set_device():
     """
     Simplified unified control endpoint for all devices.
-    
+
     New protocol format: {"device": "<name>", "value": <value>}
-    
+
     Supported devices:
-    - {"device": "u_rf", "value": 700.0}              # RF voltage (0-500V)
+    - {"device": "u_rf", "value": 100.0}              # RF voltage U_RF (0-200V)
     - {"device": "trap", "value": [10, 10, 6, 37]}    # EC1, EC2, Comp_H, Comp_V
     - {"device": "ec1", "value": 10.0}                # Single electrode
     - {"device": "ec2", "value": 10.0}
     - {"device": "comp_h", "value": 6.0}
     - {"device": "comp_v", "value": 37.0}
     - {"device": "piezo", "value": 2.5}               # Piezo voltage (0-4V)
-    - {"device": "dds", "value": 135.0}               # DDS frequency (MHz)
-    - {"device": "dds_profile", "value": 0}           # DDS profile (0-7)
+    - {"device": "dds", "value": 100.0}               # DDS frequency (0-200 MHz, LabVIEW only)
     - {"device": "b_field", "value": 1}               # 1=on, 0=off
     - {"device": "be_oven", "value": 1}               # 1=on, 0=off
     - {"device": "uv3", "value": 1}                   # 1=on, 0=off
     - {"device": "e_gun", "value": 1}                 # 1=on, 0=off
     - {"device": "bephi", "value": 1}                 # 1=on, 0=off
-    
+
     Experiment commands:
     - {"device": "sweep", "value": [start, end, steps, ...]}
     """
@@ -1888,16 +1869,16 @@ def set_device():
         data = request.get_json()
         if not data:
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
-        
+
         device = data.get("device")
         value = data.get("value")
-        
+
         if not device:
             return jsonify({"status": "error", "message": "Missing 'device' field"}), 400
-        
+
         # Build params based on device type
         params = {}
-        
+
         # Single value devices
         single_value_devices = {
             "u_rf": "u_rf_volts",
@@ -1906,31 +1887,31 @@ def set_device():
             "comp_h": "comp_h",
             "comp_v": "comp_v",
             "piezo": "piezo",
-            "dds": "dds_freq_Mhz",
-            "dds_profile": "dds_profile",
+            "dds": "dds_freq_mhz",  # LabVIEW controlled only, 0-200 MHz
         }
-        
-        # Toggle devices (1/0 or true/false)
+
+        # Toggle devices (0=off, 1=on)
         toggle_devices = {
             "b_field": "b_field",
             "be_oven": "be_oven",
             "uv3": "uv3",
             "e_gun": "e_gun",
             "bephi": "bephi",
+            "hd_valve": "hd_valve",
         }
-        
+
         if device in single_value_devices:
             param_name = single_value_devices[device]
             params[param_name] = float(value) if isinstance(value, (int, float, str)) else value
-            
+
         elif device in toggle_devices:
             param_name = toggle_devices[device]
-            # Convert 1/0 to boolean
+            # Convert to integer (0 or 1)
             if isinstance(value, (int, float)):
-                params[param_name] = bool(int(value))
+                params[param_name] = 1 if int(value) else 0
             else:
-                params[param_name] = bool(value)
-                
+                params[param_name] = 1 if value else 0
+
         elif device == "trap":
             # Trap electrodes: [EC1, EC2, Comp_H, Comp_V]
             if isinstance(value, (list, tuple)) and len(value) >= 4:
@@ -1940,10 +1921,10 @@ def set_device():
                 params["comp_v"] = float(value[3])
             else:
                 return jsonify({
-                    "status": "error", 
+                    "status": "error",
                     "message": "trap value must be [EC1, EC2, Comp_H, Comp_V]"
                 }), 400
-        
+
         elif device == "sweep":
             # Sweep command - forward to manager as action
             if isinstance(value, (list, tuple)):
@@ -1961,38 +1942,38 @@ def set_device():
                     sweep_params["off_time_ms"] = float(value[5])
             else:
                 sweep_params = {"target_frequency_khz": float(value)}
-            
+
             resp = send_to_manager({
                 "action": "SWEEP",
                 "source": "USER",
                 "params": sweep_params
             })
-            
+
             return jsonify({
                 "status": resp.get("status", "error"),
                 "exp_id": resp.get("exp_id"),
                 "message": resp.get("message", resp.get("reason"))
             })
-        
+
         else:
             return jsonify({
                 "status": "error",
                 "message": f"Unknown device: {device}",
                 "valid_devices": list(single_value_devices.keys()) + list(toggle_devices.keys()) + ["trap", "sweep"]
             }), 400
-        
+
         # Send to manager
         resp = send_to_manager({
             "action": "SET",
             "source": "USER",
             "params": params
         })
-        
+
         if resp.get("status") == "success":
             # Update local state
             with state_lock:
                 current_state["params"].update(params)
-            
+
             return jsonify({
                 "status": "success",
                 "device": device,
@@ -2005,7 +1986,7 @@ def set_device():
                 "message": resp.get("message", "Failed"),
                 "code": resp.get("code", "UNKNOWN")
             }), 400
-            
+
     except ValueError as e:
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
@@ -2021,30 +2002,30 @@ def set_device():
 def toggle_safety():
     """
     Master Safety Switch toggle.
-    
+
     When engaging safe mode:
     - Sends immediate STOP signal to manager
     - Resets all hardware voltages to safe defaults (0V)
     - Halts Turbo algorithm
-    
+
     When disengaging (algorithm mode):
     - Allows Turbo algorithm to run
     """
     try:
         data = request.get_json()
         engage_safety = bool(data.get("engage", True))
-        
+
         if engage_safety:
             # ENGAGE SAFE MODE
             result = safe_shutdown()
-            
+
             return jsonify({
                 "status": "success",
                 "mode": "SAFE",
                 "message": "Safety mode engaged. Algorithm stopped, hardware reset.",
                 "details": result
             })
-            
+
         else:
             # DISENGAGE SAFE MODE - Allow algorithm to run
             with turbo_state_lock:
@@ -2052,29 +2033,29 @@ def toggle_safety():
                 turbo_state["status"] = AlgorithmState.IDLE.value
                 turbo_state["start_time"] = None
                 turbo_state["current_iteration"] = 0
-            
+
             # Notify manager
             resp = send_to_manager({
                 "action": "MODE",
                 "source": "USER",
                 "mode": "AUTO"
             })
-            
+
             with state_lock:
                 current_state["mode"] = SystemMode.AUTO.value
-            
+
             add_turbo_log(
                 level="INFO",
                 message="ALGORITHM RUNNING: Turbo optimization enabled"
             )
-            
+
             return jsonify({
                 "status": "success",
                 "mode": "AUTO",
                 "message": "Algorithm mode enabled. Turbo optimization is running.",
                 "manager_response": resp
             })
-            
+
     except Exception as e:
         logger.error(f"Safety toggle error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2099,19 +2080,19 @@ def get_turbo_logs():
     try:
         limit = min(int(request.args.get('limit', 100)), 500)
         level_filter = request.args.get('level', None)
-        
+
         with turbo_logs_lock:
             logs = list(turbo_algorithm_logs)
             if level_filter:
                 logs = [log for log in logs if log.level == level_filter.upper()]
             logs = logs[-limit:]
-            
+
         return jsonify({
             "logs": [log.to_dict() for log in logs],
             "count": len(logs),
             "total": len(turbo_algorithm_logs)
         })
-        
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -2126,19 +2107,19 @@ def set_mode():
     try:
         data = request.get_json()
         new_mode = data.get("mode", "MANUAL")
-        
+
         logger.info(f"Mode change request: {new_mode}")
-        
+
         resp = send_to_manager({
             "action": "MODE",
             "source": "USER",
             "mode": new_mode
         })
-        
+
         if resp.get("status") == "success":
             with state_lock:
                 current_state["mode"] = resp.get("mode", new_mode)
-            
+
             # Update safety state based on mode
             with turbo_state_lock:
                 if new_mode == "SAFE":
@@ -2150,14 +2131,14 @@ def set_mode():
                 else:  # MANUAL
                     turbo_state["safety_engaged"] = True
                     turbo_state["status"] = AlgorithmState.IDLE.value
-            
+
             return jsonify({"status": "success", "mode": current_state["mode"]})
         else:
             return jsonify({
                 "status": "error",
                 "message": resp.get("message", "Failed to change mode")
             }), 400
-            
+
     except Exception as e:
         logger.error(f"Mode change error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2169,13 +2150,13 @@ def trigger_sweep():
     try:
         data = request.get_json()
         logger.info(f"Sweep trigger received: {data}")
-        
+
         resp = send_to_manager({
             "action": "SWEEP",
             "source": "USER",
             "params": data.get("params", {})
         })
-        
+
         if resp.get("status") in ("started", "success"):
             return jsonify({
                 "status": "success",
@@ -2186,7 +2167,7 @@ def trigger_sweep():
                 "status": "error",
                 "message": resp.get("reason", "Failed to start sweep")
             }), 400
-            
+
     except Exception as e:
         logger.error(f"Sweep trigger error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2196,7 +2177,7 @@ def trigger_sweep():
 def trigger_secular_compare():
     """
     Trigger secular frequency comparison.
-    
+
     Request body:
     {
         "ec1": 10.0,        # Endcap 1 voltage (V)
@@ -2210,7 +2191,7 @@ def trigger_secular_compare():
     try:
         data = request.get_json()
         logger.info(f"Secular comparison trigger received: {data}")
-        
+
         # Build comparison parameters
         compare_params = {
             "ec1": float(data.get("ec1", 10.0)),
@@ -2220,13 +2201,13 @@ def trigger_secular_compare():
             "u_rf_mV": float(data.get("u_rf_mV", 1400)),
             "mass_numbers": data.get("mass_numbers", [9, 3])
         }
-        
+
         resp = send_to_manager({
             "action": "COMPARE",
             "source": "USER",
             "params": compare_params
         })
-        
+
         if resp.get("status") == "started":
             return jsonify({
                 "status": "success",
@@ -2241,7 +2222,7 @@ def trigger_secular_compare():
                 "message": resp.get("message", "Failed to start comparison"),
                 "code": resp.get("code", "UNKNOWN_ERROR")
             }), 400
-            
+
     except Exception as e:
         logger.error(f"Secular comparison trigger error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2252,15 +2233,15 @@ def get_experiment_status():
     """Get current experiment status."""
     try:
         exp_id = request.args.get('id')
-        
+
         resp = send_to_manager({
             "action": "EXPERIMENT_STATUS",
             "source": "FLASK",
             "exp_id": exp_id
         })
-        
+
         return jsonify(resp)
-        
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -2271,7 +2252,7 @@ def list_experiments():
     try:
         tracker = get_tracker()
         experiments = tracker.list_experiments()
-        
+
         return jsonify({
             "experiments": [
                 {
@@ -2295,7 +2276,7 @@ def get_data_sources_status():
             "status": "unavailable",
             "message": "Data ingestion server not enabled"
         })
-    
+
     try:
         sources = get_data_sources()
         return jsonify({
@@ -2311,25 +2292,25 @@ def get_recent_channel_data(channel):
     """Get recent data for a specific telemetry channel."""
     if not TELEMETRY_AVAILABLE:
         return jsonify({"status": "error", "message": "Data server unavailable"}), 503
-    
+
     try:
         from server.communications.data_server import DataIngestionServer
-        
+
         window = min(float(request.args.get('window', 300)), 3600)  # Max 1 hour
-        
+
         # Get real data
         real_telemetry, real_lock = get_telemetry_data()
         with real_lock:
             if channel not in real_telemetry:
                 return jsonify({"status": "error", "message": f"Unknown channel: {channel}"}), 400
-            
+
             cutoff = time.time() - window
             points = [
                 {"timestamp": ts, "value": val}
                 for ts, val in real_telemetry[channel]
                 if ts >= cutoff
             ]
-        
+
         return jsonify({
             "status": "ok",
             "channel": channel,
@@ -2375,11 +2356,11 @@ if __name__ == '__main__':
         logger.info("Flask Dashboard Server Starting...")
         logger.info(f"Manager: {MANAGER_IP}:{MANAGER_PORT}")
         logger.info(f"Camera labelled frames path: {LIVE_FRAMES_PATH}")
-        print(f"🌍 Dashboard running at http://0.0.0.0:5000")
-        print(f"📊 Connected to manager at {MANAGER_IP}:{MANAGER_PORT}")
-        print(f"📷 Streaming annotated frames from: {LIVE_FRAMES_PATH}")
-        print(f"🔬 Scientific Dashboard - Turbo Algorithm Control")
-        
+        print(f"Dashboard running at http://0.0.0.0:5000")
+        print(f"Connected to manager at {MANAGER_IP}:{MANAGER_PORT}")
+        print(f"Streaming annotated frames from: {LIVE_FRAMES_PATH}")
+        print(f"Scientific Dashboard - Turbo Algorithm Control")
+
         app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
     except KeyboardInterrupt:
         logger.info("Shutdown requested by user")

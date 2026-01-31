@@ -1,0 +1,101 @@
+# Local Development Configuration
+# Uses local paths instead of Y:/Xi/Data
+
+---
+network:
+  master_ip: "127.0.0.1"      # Localhost for testing
+  
+  # ZMQ Ports
+  cmd_port: 5555
+  data_port: 5556
+  client_port: 5557
+  camera_port: 5558
+  
+  # Timeouts
+  connection_timeout: 5.0
+  receive_timeout: 1.0
+  watchdog_timeout: 60.0
+
+paths:
+  # Local data directory (instead of Y:/Xi/Data)
+  output_base: "./data"
+  
+  # Camera paths - local
+  camera_frames: "./data/camera/raw_frames"
+  camera_settings: "./data/camera/settings"
+  camera_dcimg: "./data/camera/dcimg"
+  live_frames: "./data/camera/live_frames"
+  jpg_frames: "./data/camera/raw_frames"
+  jpg_frames_labelled: "./data/camera/processed_frames"
+  
+  # Experiment data
+  experiments: "./data/experiments"
+  analysis_results: "./data/analysis/results"
+  
+  # Settings paths
+  dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
+  debug_path: "./data/debug"
+
+labview:
+  enabled: false              # Disable LabVIEW for local testing
+  host: "127.0.0.1"
+  port: 5559
+
+telemetry:
+  enabled: true
+  path: "./data/telemetry"
+  poll_interval: 1.0
+  max_points: 1000
+  window_seconds: 300
+
+hardware:
+  worker_defaults:
+    ec1: 0.0
+    ec2: 0.0
+    comp_h: 0.0
+    comp_v: 0.0
+    u_rf_volts: 200.0
+    piezo: 0.0
+    freq0: 212.5
+    freq1: 212.5
+    amp0: 0.05
+    amp1: 0.05
+    sw0: false
+    sw1: false
+    bephi: false
+    b_field: true
+    be_oven: false
+    uv3: false
+    e_gun: false
+    dds_profile: 0
+    dds_freq_khz: 0
+    sweep_target: 307
+    sweep_span: 40.0
+    sweep_att: 25.0
+    sweep_on: 300.0
+    sweep_off: 300.0
+    sweep_points: 41
+
+  camera:
+    target_temperature: -20.0
+    cooler_timeout: 300
+    max_frames_default: 100
+    exposure_default: 0.3
+    trigger_mode: "extern"
+
+logging:
+  level: "INFO"
+  files:
+    manager: "./logs/manager.log"
+    worker: "./logs/artiq_worker.log"
+    camera: "./logs/camera.log"
+    analysis: "./logs/analysis.log"
+
+analysis:
+  image_handler:
+    roi:
+      xstart: 0
+      xfinish: 300
+      ystart: 0
+      yfinish: 300
+    radius: 20

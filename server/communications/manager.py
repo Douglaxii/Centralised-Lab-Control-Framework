@@ -43,7 +43,7 @@ from core import (
 from core.exceptions import ConnectionError, SafetyError
 from core.enums import (
     SystemMode, AlgorithmState, CommandType,
-    smile_mv_to_real_volts
+    u_rf_mv_to_U_RF_V
 )
 
 
@@ -613,35 +613,39 @@ class ControlManager:
     
     # Valid parameter names for validation
     VALID_PARAMS: Set[str] = {
-        # RF Voltage (real voltage in volts)
+        # RF Voltage (real voltage U_RF in volts, after amplifier)
         "u_rf_volts",
-        # Electrodes
+        # Electrodes (range: -1V to 50V)
         "ec1", "ec2", "comp_h", "comp_v",
-        # Cooling parameters
-        "freq0", "amp0", "freq1", "amp1", "sw0", "sw1",
-        # Toggles
-        "bephi", "b_field", "be_oven", "uv3", "e_gun",
+        # Cooling parameters (freq0/freq1 are constants 215.5 MHz, backend only)
+        "amp0", "amp1", "sw0", "sw1",
+        # Toggles (0=off, 1=on)
+        "bephi", "b_field", "be_oven", "uv3", "e_gun", "hd_valve",
         # Laser & Piezo
         "piezo",
-        # DDS
-        "dds_profile",
-        "dds_freq_khz"
+        # DDS (LabVIEW controlled only, 0-200 MHz)
+        "dds_freq_mhz",
     }
     
     # Parameter ranges for safety validation
     PARAM_RANGES: Dict[str, tuple] = {
-        "u_rf_volts": (0, 500),   # Real RF voltage 0-500V (500V max for safety)
-        "ec1": (-100, 100),       # Electrode voltages +/-100V
-        "ec2": (-100, 100),
-        "comp_h": (-100, 100),
-        "comp_v": (-100, 100),
-        "freq0": (200, 220),      # Raman frequency range (MHz)
-        "freq1": (200, 220),
+        "u_rf_volts": (0, 200),   # Real RF voltage U_RF 0-200V (1400mV u_rf / 7)
+        "ec1": (-1, 50),          # Electrode voltages -1V to 50V
+        "ec2": (-1, 50),
+        "comp_h": (-1, 50),
+        "comp_v": (-1, 50),
         "amp0": (0, 1),           # Raman amplitude range
         "amp1": (0, 1),
+        "sw0": (0, 1),            # Shutter switches (0=off, 1=on)
+        "sw1": (0, 1),
+        "bephi": (0, 1),          # Toggles (0=off, 1=on)
+        "b_field": (0, 1),
+        "be_oven": (0, 1),
+        "uv3": (0, 1),
+        "e_gun": (0, 1),
+        "hd_valve": (0, 1),       # HD valve (0=off, 1=on)
         "piezo": (0, 4),          # Piezo 0-4V
-        "dds_profile": (0, 7),    # DDS profiles 0-7
-        "dds_freq_khz": (0, 500), # DDS frequency 0-500 kHz
+        "dds_freq_mhz": (0, 200), # DDS frequency 0-200 MHz (LabVIEW only)
     }
     
     def __init__(self):
@@ -675,31 +679,30 @@ class ControlManager:
         # Unified Parameter State
         defaults = self.config.get_all_hardware_defaults()
         self.params = {
-            # RF Voltage (real voltage in volts)
+            # RF Voltage (real voltage U_RF in volts, after amplifier)
             "u_rf_volts": defaults.get("u_rf_volts", 200.0),
-            # DC Electrodes
+            # DC Electrodes (range: -1V to 50V)
             "ec1": defaults.get("ec1", 0.0),
             "ec2": defaults.get("ec2", 0.0),
             "comp_h": defaults.get("comp_h", 0.0),
             "comp_v": defaults.get("comp_v", 0.0),
-            # Cooling parameters
-            "freq0": defaults.get("freq0", 212.5),
+            # Cooling parameters (freq0/freq1 are constants 215.5 MHz, backend only)
             "amp0": defaults.get("amp0", 0.05),
-            "freq1": defaults.get("freq1", 212.5),
             "amp1": defaults.get("amp1", 0.05),
-            "sw0": defaults.get("sw0", False),
-            "sw1": defaults.get("sw1", False),
-            # Toggles
-            "bephi": defaults.get("bephi", False),
-            "b_field": defaults.get("b_field", True),
-            "be_oven": defaults.get("be_oven", False),
-            "uv3": defaults.get("uv3", False),
-            "e_gun": defaults.get("e_gun", False),
+            # Shutter switches (0=off, 1=on)
+            "sw0": defaults.get("sw0", 0),
+            "sw1": defaults.get("sw1", 0),
+            # Toggles (0=off, 1=on)
+            "bephi": defaults.get("bephi", 0),
+            "b_field": defaults.get("b_field", 1),
+            "be_oven": defaults.get("be_oven", 0),
+            "uv3": defaults.get("uv3", 0),
+            "e_gun": defaults.get("e_gun", 0),
+            "hd_valve": defaults.get("hd_valve", 0),
             # Laser & Piezo
             "piezo": defaults.get("piezo", 0.0),
-            # DDS
-            "dds_profile": defaults.get("dds_profile", 0),
-            "dds_freq_khz": defaults.get("dds_freq_khz", 0),
+            # DDS frequency in MHz (LabVIEW controlled, 0-200 MHz)
+            "dds_freq_mhz": defaults.get("dds_freq_mhz", 0.0),
         }
         
         # Experiment tracking
@@ -1070,12 +1073,12 @@ class ControlManager:
         
         # Determine what changed and publish updates
         dc_changed = any(k in new_params for k in ["ec1", "ec2", "comp_h", "comp_v"])
-        cooling_changed = any(k in new_params for k in ["freq0", "amp0", "freq1", "amp1", "sw0", "sw1"])
-        rf_changed = "u_rf" in new_params
+        # Note: freq0 and freq1 are constants (215.5 MHz), not adjustable
+        cooling_changed = any(k in new_params for k in ["amp0", "amp1", "sw0", "sw1"])
+        rf_changed = "u_rf_volts" in new_params
         piezo_changed = "piezo" in new_params
-        toggle_changed = any(k in new_params for k in ["bephi", "b_field", "be_oven", "uv3", "e_gun"])
-        dds_changed = "dds_profile" in new_params
-        dds_freq_changed = "dds_freq_khz" in new_params
+        toggle_changed = any(k in new_params for k in ["bephi", "b_field", "be_oven", "uv3", "e_gun", "hd_valve"])
+        dds_changed = "dds_freq_mhz" in new_params
         
         if dc_changed:
             self._publish_dc_update()
@@ -1089,10 +1092,6 @@ class ControlManager:
             self._publish_toggle_update(new_params)
         if dds_changed:
             self._publish_dds_update()
-        if dds_freq_changed:
-            # Convert kHz to MHz for LabVIEW
-            freq_mhz = new_params["dds_freq_khz"] / 1000.0
-            self._publish_dds_frequency(freq_mhz)
         
         # Update experiment context if exists
         if self.current_exp:
@@ -1240,10 +1239,10 @@ class ControlManager:
             # Step 2: Set RF voltage via SMILE/LabVIEW
             self.logger.info("Step 2: Setting RF voltage...")
             if self.labview:
-                # Convert SMILE mV to real volts using calibrated scale
-                # 700mV on SMILE = 100V real RF
-                u_rf_real = smile_mv_to_real_volts(compare_params['u_rf_mV'])
-                success = self.labview.set_rf_voltage(u_rf_real)
+                # u_rf_mV is the SMILE interface value in millivolts (0-1400mV)
+                # set_rf_voltage() expects mV, so pass it directly
+                u_rf_mv = compare_params['u_rf_mV']
+                success = self.labview.set_rf_voltage(u_rf_mv)
                 if not success:
                     self.logger.warning("Failed to set RF voltage via LabVIEW")
             
@@ -1575,15 +1574,14 @@ class ControlManager:
     
     def _publish_cooling_update(self):
         """Send cooling parameter update to workers."""
+        # Note: freq0 and freq1 are constants (215.5 MHz) and not sent
         msg = {
             "type": "SET_COOLING",
             "values": {
-                "freq0": self.params["freq0"],
                 "amp0": self.params["amp0"],
-                "freq1": self.params["freq1"],
                 "amp1": self.params["amp1"],
-                "sw0": self.params["sw0"],
-                "sw1": self.params["sw1"]
+                "sw0": self.params["sw0"],  # 0=off, 1=on
+                "sw1": self.params["sw1"]   # 0=off, 1=on
             },
             "exp_id": self.current_exp.exp_id if self.current_exp else None
         }
@@ -1606,11 +1604,11 @@ class ControlManager:
         self.pub_socket.send_json(msg)
         self.logger.debug(f"Published RF update: U_RF={u_rf_volts} V")
         
-        # Send to LabVIEW (convert volts to SMILE mV)
+        # Send to LabVIEW (convert U_RF volts to u_rf millivolts)
         if self.labview:
-            from core.enums import real_volts_to_smile_mv
-            smile_mv = real_volts_to_smile_mv(u_rf_volts)
-            success = self.labview.set_rf_voltage(smile_mv)
+            from core.enums import U_RF_V_to_u_rf_mv
+            u_rf_mv = U_RF_V_to_u_rf_mv(u_rf_volts)
+            success = self.labview.set_rf_voltage(u_rf_mv)
             if not success:
                 self.logger.warning("Failed to set RF voltage in LabVIEW")
     
@@ -1636,45 +1634,53 @@ class ControlManager:
     def _publish_toggle_update(self, toggles: Dict[str, Any]):
         """Send toggle state updates to workers and LabVIEW."""
         # Map of parameter names to LabVIEW setter methods
+        # All toggles are integers: 0=off, 1=on
         labview_setters = {
             "be_oven": lambda v: self.labview.set_be_oven(v) if self.labview else False,
             "b_field": lambda v: self.labview.set_b_field(v) if self.labview else False,
             "bephi": lambda v: self.labview.set_bephi(v) if self.labview else False,
             "uv3": lambda v: self.labview.set_uv3(v) if self.labview else False,
             "e_gun": lambda v: self.labview.set_e_gun(v) if self.labview else False,
+            "hd_valve": lambda v: self.labview.set_hd_valve(v) if self.labview else False,
         }
         
         for name, value in toggles.items():
+            # Ensure value is integer (0 or 1)
+            int_value = int(1 if value else 0)
             msg = {
                 "type": f"SET_{name.upper()}",
-                "value": value,
+                "value": int_value,
                 "exp_id": self.current_exp.exp_id if self.current_exp else None
             }
             self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
             self.pub_socket.send_json(msg)
-            self.logger.debug(f"Published toggle update: {name}={value}")
+            self.logger.debug(f"Published toggle update: {name}={int_value}")
             
             # Send to LabVIEW
             if name in labview_setters and self.labview:
-                success = labview_setters[name](value)
+                success = labview_setters[name](int_value)
                 if not success:
                     self.logger.warning(f"Failed to set {name} in LabVIEW")
     
     def _publish_dds_update(self):
-        """Send DDS profile update to workers and LabVIEW."""
+        """Send DDS frequency update to LabVIEW (LabVIEW controlled only, 0-200 MHz)."""
+        dds_freq = self.params.get("dds_freq_mhz", 0.0)
         msg = {
             "type": "SET_DDS",
             "values": {
-                "profile": self.params["dds_profile"]
+                "dds_freq_mhz": dds_freq
             },
             "exp_id": self.current_exp.exp_id if self.current_exp else None
         }
         self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
         self.pub_socket.send_json(msg)
-        self.logger.debug(f"Published DDS update: profile={self.params['dds_profile']}")
+        self.logger.debug(f"Published DDS update: freq={dds_freq} MHz")
         
-        # Note: DDS profile selection is typically handled by ARTIQ
-        # LabVIEW may control DDS frequency directly via _publish_dds_frequency
+        # Send to LabVIEW
+        if self.labview:
+            success = self.labview.set_dds_frequency(dds_freq)
+            if not success:
+                self.logger.warning("Failed to set DDS frequency in LabVIEW")
     
     def _publish_dds_frequency(self, freq_mhz: float):
         """Send DDS frequency update to LabVIEW."""
@@ -1829,6 +1835,7 @@ class ControlManager:
         self.logger.warning("Applying safety defaults!")
         
         # Update params to safe values
+        # All toggles are integers: 0=off, 1=on
         self.params.update({
             "u_rf_volts": 0.0,
             "ec1": 0.0,
@@ -1836,13 +1843,14 @@ class ControlManager:
             "comp_h": 0.0,
             "comp_v": 0.0,
             "piezo": 0.0,
-            "sw0": False,
-            "sw1": False,
-            "bephi": False,
-            "b_field": False,
-            "be_oven": False,
-            "e_gun": False,
-            "uv3": False,
+            "sw0": 0,
+            "sw1": 0,
+            "bephi": 0,
+            "b_field": 0,
+            "be_oven": 0,
+            "e_gun": 0,
+            "uv3": 0,
+            "hd_valve": 0,
         })
         
         if notify:
