@@ -525,34 +525,40 @@
         let reconnectDelay = 1000;
 
         function initCharts() {
-            // PMT Chart - Photon counts
+            // PMT Chart - Photon counts (scatter plot)
             charts.pmt = new OscilloscopeChart(document.getElementById('chart-pmt'), {
                 color: 'var(--pmt-color)',
                 lineWidth: 2,
                 timeWindow: 60, // 60 seconds rolling window
                 label: 'PMT Signal',
                 unit: ' cts',
-                valueDecimals: 0
+                valueDecimals: 0,
+                mode: 'scatter',
+                pointRadius: 3
             });
 
-            // Laser Frequency Chart
+            // Laser Frequency Chart (scatter plot)
             charts.laser = new OscilloscopeChart(document.getElementById('chart-laser'), {
                 color: 'var(--laser-color)',
                 lineWidth: 2,
                 timeWindow: 60,
                 label: 'UV3 Frequency',
                 unit: ' THz',
-                valueDecimals: 3
+                valueDecimals: 3,
+                mode: 'scatter',
+                pointRadius: 3
             });
 
-            // Pressure Chart
+            // Pressure Chart (scatter plot)
             charts.pressure = new OscilloscopeChart(document.getElementById('chart-pressure'), {
                 color: 'var(--pressure-color)',
                 lineWidth: 2,
                 timeWindow: 300, // 5 minutes for pressure
                 label: 'Vacuum Pressure',
                 unit: ' mbar',
-                valueDecimals: 2
+                valueDecimals: 2,
+                mode: 'scatter',
+                pointRadius: 3
             });
 
             // Start all charts rendering at 30fps

@@ -425,11 +425,20 @@ def main():
         if pid_file.exists():
             pid = int(pid_file.read_text())
             try:
-                os.kill(pid, signal.SIGTERM)
+                if os.name == 'nt':
+                    # Windows: use taskkill
+                    subprocess.run(['taskkill', '/PID', str(pid), '/F'], 
+                                 capture_output=True, check=False)
+                else:
+                    # Unix: use SIGTERM
+                    os.kill(pid, signal.SIGTERM)
                 print(f"Sent stop signal to launcher (PID: {pid})")
-            except ProcessLookupError:
+            except (ProcessLookupError, OSError):
                 print("Launcher not running")
-            pid_file.unlink()
+            try:
+                pid_file.unlink()
+            except FileNotFoundError:
+                pass
         launcher.stop_all()
     
     elif args.status:

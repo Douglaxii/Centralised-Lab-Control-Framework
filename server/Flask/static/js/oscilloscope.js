@@ -27,6 +27,8 @@ class OscilloscopeChart {
             unit: options.unit || '',
             label: options.label || '',
             yAxisPadding: options.yAxisPadding || 0.1, // 10% padding for auto-scale
+            mode: options.mode || 'line', // 'line' or 'scatter'
+            pointRadius: options.pointRadius || 3, // radius for scatter mode
             ...options
         };
         
@@ -257,14 +259,8 @@ class OscilloscopeChart {
             this.drawGrid(now);
         }
         
-        // Draw data line - connect consecutive points in data array
-        // Each new point only connects to the previous point (second newest)
-        if (this.data.length >= 2) {
-            this.ctx.strokeStyle = this.options.color;
-            this.ctx.lineWidth = this.options.lineWidth;
-            this.ctx.lineJoin = 'round';
-            this.ctx.lineCap = 'round';
-            
+        // Draw data - either as connected lines or scattered circles
+        if (this.data.length >= 1) {
             // Filter to only visible points (within time window)
             const visiblePoints = [];
             for (const point of this.data) {
@@ -273,42 +269,55 @@ class OscilloscopeChart {
                 }
             }
             
-            if (visiblePoints.length >= 2) {
-                this.ctx.beginPath();
-                
-                // Start at first visible point
-                let prevX = this.getX(visiblePoints[0].t, now);
-                let prevY = this.getY(visiblePoints[0].v);
-                this.ctx.moveTo(prevX, prevY);
-                
-                // Connect each point only to its immediate predecessor
-                // This ensures newest point only connects to second newest
-                for (let i = 1; i < visiblePoints.length; i++) {
-                    const x = this.getX(visiblePoints[i].t, now);
-                    const y = this.getY(visiblePoints[i].v);
-                    this.ctx.lineTo(x, y);
+            if (visiblePoints.length >= 1) {
+                if (this.options.mode === 'scatter') {
+                    // Scatter mode: draw circles at each point
+                    this.ctx.fillStyle = this.options.color;
+                    const radius = this.options.pointRadius;
+                    
+                    for (const point of visiblePoints) {
+                        const x = this.getX(point.t, now);
+                        const y = this.getY(point.v);
+                        
+                        this.ctx.beginPath();
+                        this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                } else {
+                    // Line mode: connect consecutive points
+                    if (visiblePoints.length >= 2) {
+                        this.ctx.strokeStyle = this.options.color;
+                        this.ctx.lineWidth = this.options.lineWidth;
+                        this.ctx.lineJoin = 'round';
+                        this.ctx.lineCap = 'round';
+                        
+                        this.ctx.beginPath();
+                        
+                        // Start at first visible point
+                        let prevX = this.getX(visiblePoints[0].t, now);
+                        let prevY = this.getY(visiblePoints[0].v);
+                        this.ctx.moveTo(prevX, prevY);
+                        
+                        // Connect each point only to its immediate predecessor
+                        for (let i = 1; i < visiblePoints.length; i++) {
+                            const x = this.getX(visiblePoints[i].t, now);
+                            const y = this.getY(visiblePoints[i].v);
+                            this.ctx.lineTo(x, y);
+                        }
+                        
+                        this.ctx.stroke();
+                    }
+                    
+                    // Draw dot at the newest (last) point
+                    const lastPoint = visiblePoints[visiblePoints.length - 1];
+                    const lastX = this.getX(lastPoint.t, now);
+                    const lastY = this.getY(lastPoint.v);
+                    
+                    this.ctx.fillStyle = this.options.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+                    this.ctx.fill();
                 }
-                
-                this.ctx.stroke();
-                
-                // Draw dot at the newest (last) point
-                const lastPoint = visiblePoints[visiblePoints.length - 1];
-                const lastX = this.getX(lastPoint.t, now);
-                const lastY = this.getY(lastPoint.v);
-                
-                this.ctx.fillStyle = this.options.color;
-                this.ctx.beginPath();
-                this.ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
-                this.ctx.fill();
-            } else if (visiblePoints.length === 1) {
-                // Only one point visible - just draw the dot
-                const lastX = this.getX(visiblePoints[0].t, now);
-                const lastY = this.getY(visiblePoints[0].v);
-                
-                this.ctx.fillStyle = this.options.color;
-                this.ctx.beginPath();
-                this.ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
-                this.ctx.fill();
             }
         }
         

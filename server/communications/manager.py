@@ -26,7 +26,7 @@ import json
 import threading
 import logging
 import socket
-from typing import Optional, Dict, Any, Set, Callable
+from typing import Optional, Dict, Any, Set, Callable, Tuple
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -88,7 +88,7 @@ class CameraInterface:
         
         self.logger.info(f"Camera Interface initialized ({self.host}:{self.port})")
     
-    def _send_command(self, command: str) -> tuple[bool, str]:
+    def _send_command(self, command: str) -> Tuple[bool, str]:
         """
         Send command to camera server.
         

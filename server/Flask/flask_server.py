@@ -34,6 +34,7 @@ import time
 import threading
 import cv2
 import numpy as np
+# import pandas as pd  # Not used - uncomment if needed for data analysis
 import logging
 from collections import deque
 from datetime import datetime
@@ -419,6 +420,7 @@ def send_to_manager(message: Dict[str, Any], timeout_ms: int = 5000) -> Dict[str
     Returns:
         Response dictionary
     """
+    global manager_socket
     with zmq_lock:
         for attempt in range(2):  # Retry once
             try:
@@ -428,9 +430,11 @@ def send_to_manager(message: Dict[str, Any], timeout_ms: int = 5000) -> Dict[str
                 return sock.recv_json()
             except zmq.Again:
                 logger.warning(f"Manager request timeout (attempt {attempt + 1})")
-                global manager_socket
                 if manager_socket:
-                    manager_socket.close()
+                    try:
+                        manager_socket.close()
+                    except:
+                        pass
                     manager_socket = None
                 if attempt == 0:
                     time.sleep(0.1)  # Brief delay before retry
@@ -1267,7 +1271,8 @@ def tools_page():
 @app.route('/static/<path:filename>')
 def static_files(filename):
     """Serve static files."""
-    return send_from_directory('static', filename)
+    static_dir = Path(__file__).parent / 'static'
+    return send_from_directory(str(static_dir), filename)
 
 
 # =============================================================================

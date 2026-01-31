@@ -301,7 +301,7 @@ def print_system_info():
     try:
         import numba
         print(f"Numba: {numba.__version__}")
-        print(f"  Threads: {numba.config.NUMBA_NUM_THREADS}
+        print(f"  Threads: {numba.config.NUMBA_NUM_THREADS}")
         print(f"  CPU: {numba.config.NUMBA_CPU_NAME}")
         
         # Check if SVML is available (Intel vector math)

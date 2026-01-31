@@ -247,3 +247,13 @@ Traceback (most recent call last):
     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
            ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f30d' in position 0: character maps to <undefined>
+2026-01-30 22:53:52,928 - [flask] - INFO - ============================================================
+2026-01-30 22:53:52,930 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-01-30 22:53:52,930 - [flask] - INFO - Manager: 134.99.120.40:5557
+2026-01-30 22:53:52,930 - [flask] - INFO - Camera labelled frames path: Y:\Xi\Data\camera\processed_frames
+2026-01-30 22:54:11,446 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 22:54:16,486 - [flask] - WARNING - Manager request timeout (attempt 1)
+2026-01-30 22:54:16,591 - [flask] - INFO - Connected to manager at 134.99.120.40:5557
+2026-01-30 22:54:21,591 - [flask] - WARNING - Manager request timeout (attempt 2)
+2026-01-30 22:58:26,026 - [flask] - INFO - Cleaning up Flask server resources...
+2026-01-30 22:58:26,027 - [flask] - INFO - Cleanup complete
