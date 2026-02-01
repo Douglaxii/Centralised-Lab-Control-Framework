@@ -467,3 +467,7 @@ KeyError: "Path 'debug_path' not found in configuration"
 [WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
 [WARNING] Using MOCK dcamcon module - no actual camera connected!
 [WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK
+[WARNING] Using MOCK dcamcon module - no actual camera connected!
+[WARNING] For real camera operation, install Hamamatsu DCAM-API SDK

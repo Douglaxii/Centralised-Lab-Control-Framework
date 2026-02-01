@@ -292,7 +292,10 @@ class PressureMonitor:
         self.alert_callback = alert_callback
         
         # Get pressure file path from config or use default
-        output_base = config.get_path('output_base') if config else "E:/Data"
+        try:
+            output_base = config.get_path('output_base') if config else "E:/Data"
+        except (KeyError, AttributeError):
+            output_base = "E:/Data"
         self.pressure_dir = Path(pressure_file_path or f"{output_base}/telemetry/smile/pressure")
         
         # State

@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}Parameters - Ion Loading Optimizer{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold text-white">Configuration</h1>
+        <p class="text-gray-400 mt-1">Optimization parameters and settings</p>
+    </div>
+    
+    <!-- Configuration Form -->
+    <div class="glass rounded-xl p-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-white">
+                <i class="fa-solid fa-sliders mr-2 text-blue-500"></i>Optimization Settings
+            </h2>
+            <button id="btn-save-config" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition">
+                <i class="fa-solid fa-save mr-2"></i>Save Changes
+            </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Target Configuration -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Targets</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">
+                        Target Be+ Count
+                    </label>
+                    <input type="number" id="config-target-be" min="0" max="10" value="1"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="config-target-hd" 
+                            class="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-700 rounded">
+                        <span class="text-sm font-medium text-gray-300">Load HD+</span>
+                    </label>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">
+                        Be+ Secular Freq (kHz)
+                    </label>
+                    <input type="number" id="config-be-freq" step="0.1" value="307.0"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">
+                        HD+ Secular Freq (kHz)
+                    </label>
+                    <input type="number" id="config-hd-freq" step="0.1" value="277.0"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+            
+            <!-- Algorithm Settings -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Algorithm</h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">
+                        Max Iterations
+                    </label>
+                    <input type="number" id="config-max-iter" min="1" max="500" value="100"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Maximum iterations per phase</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">
+                        Initial Points
+                    </label>
+                    <input type="number" id="config-init-points" min="1" max="20" value="5"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Random exploration points before BO</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">
+                        Convergence Threshold
+                    </label>
+                    <input type="number" id="config-threshold" step="0.001" min="0.0001" max="1" value="0.01"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">Stop when delta falls below this</p>
+                </div>
+            </div>
+            
+            <!-- Phase Control -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Phases</h3>
+                
+                <div class="space-y-3">
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="config-enable-be-loading" checked
+                            class="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-700 rounded">
+                        <span class="text-sm font-medium text-gray-300">Enable Be+ Loading</span>
+                    </label>
+                    
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="config-enable-be-ejection" checked
+                            class="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-700 rounded">
+                        <span class="text-sm font-medium text-gray-300">Enable Be+ Ejection</span>
+                    </label>
+                    
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="config-enable-hd-loading" checked
+                            class="form-checkbox h-5 w-5 text-blue-600 bg-gray-800 border-gray-700 rounded">
+                        <span class="text-sm font-medium text-gray-300">Enable HD+ Loading</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Parameter Spaces -->
+    <div class="glass rounded-xl p-6">
+        <h2 class="text-xl font-bold text-white mb-4">
+            <i class="fa-solid fa-layer-group mr-2 text-green-500"></i>Parameter Spaces
+        </h2>
+        
+        <div class="space-y-4">
+            <!-- Tabs -->
+            <div class="flex space-x-1 bg-gray-800 rounded-lg p-1">
+                <button onclick="switchTab('be_loading')" id="tab-be_loading" 
+                    class="tab-btn flex-1 py-2 px-4 rounded-md text-sm font-medium transition bg-gray-700 text-white">
+                    Be+ Loading
+                </button>
+                <button onclick="switchTab('be_ejection')" id="tab-be_ejection"
+                    class="tab-btn flex-1 py-2 px-4 rounded-md text-sm font-medium transition text-gray-400 hover:text-white">
+                    Be+ Ejection
+                </button>
+                <button onclick="switchTab('hd_loading')" id="tab-hd_loading"
+                    class="tab-btn flex-1 py-2 px-4 rounded-md text-sm font-medium transition text-gray-400 hover:text-white">
+                    HD+ Loading
+                </button>
+            </div>
+            
+            <!-- Parameter Tables -->
+            <div id="params-container" class="overflow-x-auto">
+                <p class="text-gray-500 text-center py-8">Loading parameter spaces...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Current Best Parameters -->
+    <div class="glass rounded-xl p-6">
+        <h2 class="text-xl font-bold text-white mb-4">
+            <i class="fa-solid fa-star mr-2 text-yellow-500"></i>Current Best Parameters
+        </h2>
+        <div id="current-best-container" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <p class="text-gray-500 col-span-full text-center py-4">No optimization running</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentTab = 'be_loading';
+    let paramSpaces = {};
+    
+    // Load configuration
+    async function loadConfig() {
+        try {
+            const response = await apiRequest('/api/config');
+            const config = response.data;
+            
+            document.getElementById('config-target-be').value = config.target_be_count;
+            document.getElementById('config-target-hd').checked = config.target_hd_present;
+            document.getElementById('config-be-freq').value = config.target_secular_freq_khz;
+            document.getElementById('config-hd-freq').value = config.hd_secular_freq_khz;
+            document.getElementById('config-max-iter').value = config.max_iterations;
+            document.getElementById('config-init-points').value = config.n_initial_points;
+            document.getElementById('config-threshold').value = config.convergence_threshold;
+            document.getElementById('config-enable-be-loading').checked = config.enable_be_loading;
+            document.getElementById('config-enable-be-ejection').checked = config.enable_be_ejection;
+            document.getElementById('config-enable-hd-loading').checked = config.enable_hd_loading;
+        } catch (e) {
+            console.error('Failed to load config:', e);
+        }
+    }
+    
+    // Save configuration
+    async function saveConfig() {
+        const config = {
+            target_be_count: parseInt(document.getElementById('config-target-be').value),
+            target_hd_present: document.getElementById('config-target-hd').checked,
+            target_secular_freq_khz: parseFloat(document.getElementById('config-be-freq').value),
+            hd_secular_freq_khz: parseFloat(document.getElementById('config-hd-freq').value),
+            max_iterations: parseInt(document.getElementById('config-max-iter').value),
+            n_initial_points: parseInt(document.getElementById('config-init-points').value),
+            convergence_threshold: parseFloat(document.getElementById('config-threshold').value),
+            enable_be_loading: document.getElementById('config-enable-be-loading').checked,
+            enable_be_ejection: document.getElementById('config-enable-be-ejection').checked,
+            enable_hd_loading: document.getElementById('config-enable-hd-loading').checked
+        };
+        
+        try {
+            await apiRequest('/api/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+            showToast('Configuration saved', 'success');
+        } catch (e) {
+            showToast('Failed to save configuration', 'error');
+        }
+    }
+    
+    // Load parameter spaces
+    async function loadParameterSpaces() {
+        try {
+            const response = await apiRequest('/api/parameters/spaces');
+            paramSpaces = response.data;
+            renderParameterTable();
+        } catch (e) {
+            console.error('Failed to load parameter spaces:', e);
+            document.getElementById('params-container').innerHTML = 
+                '<p class="text-red-500 text-center py-8">Failed to load parameter spaces</p>';
+        }
+    }
+    
+    // Switch tab
+    function switchTab(tab) {
+        currentTab = tab;
+        
+        // Update button styles
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('bg-gray-700', 'text-white');
+            btn.classList.add('text-gray-400');
+        });
+        document.getElementById(`tab-${tab}`).classList.remove('text-gray-400');
+        document.getElementById(`tab-${tab}`).classList.add('bg-gray-700', 'text-white');
+        
+        renderParameterTable();
+    }
+    
+    // Render parameter table
+    function renderParameterTable() {
+        const container = document.getElementById('params-container');
+        const space = paramSpaces[currentTab];
+        
+        if (!space) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-8">No data available</p>';
+            return;
+        }
+        
+        const params = Object.entries(space.parameters);
+        
+        const html = `
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-gray-400 border-b border-gray-700">
+                        <th class="py-3 px-4">Parameter</th>
+                        <th class="py-3 px-4">Type</th>
+                        <th class="py-3 px-4">Bounds</th>
+                        <th class="py-3 px-4">Default</th>
+                        <th class="py-3 px-4">Unit</th>
+                        <th class="py-3 px-4">Description</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm">
+                    ${params.map(([name, param]) => `
+                        <tr class="border-b border-gray-800 hover:bg-gray-800">
+                            <td class="py-3 px-4 font-mono text-blue-400">${name}</td>
+                            <td class="py-3 px-4">
+                                <span class="px-2 py-1 bg-gray-800 rounded text-xs">${param.type}</span>
+                            </td>
+                            <td class="py-3 px-4 font-mono">[${param.bounds.join(', ')}]</td>
+                            <td class="py-3 px-4 font-mono">${param.default}</td>
+                            <td class="py-3 px-4 text-gray-400">${param.unit || '-'}</td>
+                            <td class="py-3 px-4 text-gray-400">${param.description || '-'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <div class="mt-4 text-gray-500 text-sm">
+                Total dimensions: <span class="text-white font-bold">${space.n_dims}</span>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+    
+    // Load current best
+    async function loadCurrentBest() {
+        try {
+            const response = await apiRequest('/api/best');
+            const params = response.data;
+            
+            if (!params) {
+                document.getElementById('current-best-container').innerHTML = 
+                    '<p class="text-gray-500 col-span-full text-center py-4">No optimization running</p>';
+                return;
+            }
+            
+            const excludeKeys = ['_time_windows', '_metadata'];
+            const paramEntries = Object.entries(params)
+                .filter(([key]) => !excludeKeys.some(ex => key.startsWith(ex)));
+            
+            const html = paramEntries.map(([key, value]) => `
+                <div class="bg-gray-800 rounded-lg p-3">
+                    <p class="text-gray-500 text-xs truncate">${key}</p>
+                    <p class="text-white font-mono text-lg">${typeof value === 'number' ? value.toFixed(3) : value}</p>
+                </div>
+            `).join('');
+            
+            document.getElementById('current-best-container').innerHTML = html;
+        } catch (e) {
+            console.error('Failed to load best params:', e);
+        }
+    }
+    
+    // Event listeners
+    document.getElementById('btn-save-config')?.addEventListener('click', saveConfig);
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        loadConfig();
+        loadParameterSpaces();
+        loadCurrentBest();
+        
+        // Refresh best params periodically
+        setInterval(loadCurrentBest, 5000);
+    });
+</script>
+{% endblock %}

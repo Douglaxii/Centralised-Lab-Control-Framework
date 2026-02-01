@@ -1,30 +1,30 @@
 """
-Core utilities for the Lab Control Framework.
+Core module for the Lab Control Framework.
 
-This module provides shared functionality for:
+This module provides shared functionality used by all components:
 - Configuration management
 - Logging setup
-- ZMQ communication helpers
-- Custom exceptions
 - Experiment tracking
+- ZMQ utilities
+- Enumerations and constants
 """
 
-from .config import Config, get_config
-from .logger import get_logger, setup_logging, log_safety_trigger
-from .exceptions import (
-    LabFrameworkError,
-    ConnectionError,
-    TimeoutError,
-    HardwareError,
-    SafetyError,
+from .config import get_config, Config
+from .logger import setup_logging, log_safety_trigger
+from .experiment import (
+    ExperimentContext,
+    ExperimentTracker,
+    get_tracker,
+    generate_exp_id
 )
 from .zmq_utils import (
-    connect_with_retry,
     create_zmq_socket,
+    connect_with_retry,
     send_with_timeout,
     recv_with_timeout,
+    ZMQConnection,
+    HeartbeatSender
 )
-from .experiment import ExperimentContext, get_tracker
 from .enums import (
     SystemMode,
     AlgorithmState,
@@ -33,29 +33,44 @@ from .enums import (
     DataSource,
     CommandType,
     MatchQuality,
-    RF_SCALE_V_PER_MV,
-    RF_SCALE_MV_PER_V,
     u_rf_mv_to_U_RF_V,
-    U_RF_V_to_u_rf_mv,
+    U_RF_V_to_u_rf_mv
+)
+from .exceptions import (
+    LabFrameworkError,
+    ConnectionError,
+    SafetyError,
+    TimeoutError,
+    HardwareError,
+    ConfigurationError,
+    ExperimentError
 )
 
+__version__ = "2.0.0"
+
 __all__ = [
-    'Config',
+    # Configuration
     'get_config',
-    'get_logger',
+    'Config',
+    
+    # Logging
     'setup_logging',
     'log_safety_trigger',
-    'LabFrameworkError',
-    'ConnectionError',
-    'TimeoutError',
-    'HardwareError',
-    'SafetyError',
-    'connect_with_retry',
+    
+    # Experiment tracking
+    'ExperimentContext',
+    'ExperimentTracker',
+    'get_tracker',
+    'generate_exp_id',
+    
+    # ZMQ utilities
     'create_zmq_socket',
+    'connect_with_retry',
     'send_with_timeout',
     'recv_with_timeout',
-    'ExperimentContext',
-    'get_tracker',
+    'ZMQConnection',
+    'HeartbeatSender',
+    
     # Enums
     'SystemMode',
     'AlgorithmState',
@@ -64,9 +79,15 @@ __all__ = [
     'DataSource',
     'CommandType',
     'MatchQuality',
-    # RF Voltage utilities
-    'RF_SCALE_V_PER_MV',
-    'RF_SCALE_MV_PER_V',
     'u_rf_mv_to_U_RF_V',
     'U_RF_V_to_u_rf_mv',
+    
+    # Exceptions
+    'LabFrameworkError',
+    'ConnectionError',
+    'SafetyError',
+    'TimeoutError',
+    'HardwareError',
+    'ConfigurationError',
+    'ExperimentError',
 ]

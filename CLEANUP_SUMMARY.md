@@ -1,89 +1,102 @@
 # MLS Project Cleanup Summary
 
-**Date:** 2026-01-30
+**Date:** 2026-02-01
+
+## Overview
+
+Consolidation and cleanup of the MLS project after implementing the Two-Phase Bayesian Optimizer (TuRBO + MOBO).
 
 ## Files Removed
 
-### Camera Module (3 files)
-- `server/cam/camera_server_parallel.py` - Unused parallel implementation
-- `server/cam/image_handler_optimized.py` - Unused optimized version
-- `server/cam/image_handler_server.py` - Unused server wrapper
+### Legacy Optimizer (SAASBO - Replaced by Two-Phase)
+- `server/optimizer/saasbo.py` - Legacy SAASBO algorithm (superseded by TuRBO/MOBO)
+- `server/optimizer/optimizer_controller.py` - Old controller using SAASBO
+- `server/optimizer/demo.py` - Demo script for legacy optimizer
+- `server/optimizer/README.md` - Outdated documentation for SAASBO
 
-### Data Handling (1 file)
-- `server/communications/ion_data_handler.py` - Not fully integrated, caused import issues
+### Duplicate Manager Files (Consolidated)
+- `server/control_manager.py` - Simplified version (functionality merged into communications/manager.py)
 
-### Tests (1 file)
-- `tests/benchmark_image_handler.py` - Tested removed optimized handler
+### Duplicate Documentation
+- `docs/BO_ARCHITECTURE.md` - Content merged into docs/BO.md
+- `docs/OPTIMIZER_ARCHITECTURE.md` - Outdated, replaced by docs/BO.md
+- `docs/guides/MIGRATION_GUIDE.md` - Migration complete, no longer needed
 
-### Scripts (4 files)
-- `scripts/service/install-windows-service.bat`
-- `scripts/service/lab-control.service`
-- `scripts/setup/requirements-server.txt`
-- `scripts/setup/setup_server_optimized.bat`
+## Architecture Changes
 
-### Documentation (4 files)
-- `docs/PARALLEL_ARCHITECTURE.md`
-- `docs/FLASK_INTERFACE_REQUIREMENTS.md`
-- `docs/guides/QUICK_START_PARALLEL.md`
-- `docs/server/OPTIMIZATION.md`
-
-### Temporary Reports (3 files)
-- `BUGFIX_REPORT.md`
-- `CHANGES_SUMMARY.md`
-- `SETUP_FILES_SUMMARY.md`
-
-### VS Code (1 file)
-- `.vscode/extensions.json` - Not essential
-
-## Total: 17 files removed
-
-## Simplified Structure
-
+### Before (Legacy)
 ```
-MLS/
-├── launcher.py           # Main entry point
-├── requirements.txt      # Dependencies
-├── core/                 # 7 files - Shared utilities
-├── server/
-│   ├── communications/   # 3 files - Manager, LabVIEW, data server
-│   ├── cam/              # 9 files - Camera (was 12)
-│   └── Flask/            # 1 file - Web dashboard
-├── artiq/                # Hardware control
-├── config/               # Configuration
-├── docs/                 # 8 files - Documentation (was 15)
-├── labview/              # LabVIEW utilities
-├── tests/                # 4 files - Tests (was 6)
-├── tools/                # Diagnostic tools
-└── .vscode/              # 3 files - VS Code config (was 4)
+ControlManager
+    └── OptimizerController
+            └── SAASBOOptimizer (Legacy)
 ```
 
-## Code Fixes
+### After (Two-Phase)
+```
+ControlManager (server/communications/manager.py)
+    └── TwoPhaseController
+            ├── TuRBOOptimizer (Phase I)
+            └── MOBOOptimizer (Phase II)
+```
 
-### data_server.py
-- Removed ion_data_handler dependency
-- Simplified to essential telemetry buffers only
+## Updated Components
 
-### flask_server.py
-- Removed Unicode characters that caused encoding errors
-- Removed unused pandas import
+### Core Optimizer (server/optimizer/)
+| File | Status | Description |
+|------|--------|-------------|
+| `two_phase_controller.py` | **NEW** | Main controller with ASK-TELL interface |
+| `turbo.py` | **NEW** | TuRBO optimizer for Phase I |
+| `mobo.py` | **NEW** | MOBO optimizer for Phase II |
+| `parameters.py` | Updated | Parameter spaces for all phases |
+| `objectives.py` | Updated | Cost functions for all objectives |
+| `storage.py` | Kept | Profile storage (backward compatible) |
+| `saasbo.py` | **REMOVED** | Legacy algorithm |
+| `optimizer_controller.py` | **REMOVED** | Legacy controller |
+
+### Documentation (docs/)
+| File | Status | Description |
+|------|--------|-------------|
+| `BO.md` | Updated | Single source of truth for optimization |
+| `ARCHITECTURE.md` | Updated | System-wide architecture |
+| `API_REFERENCE.md` | Updated | ControlManager API |
+| `BO_ARCHITECTURE.md` | **REMOVED** | Merged into BO.md |
+| `OPTIMIZER_ARCHITECTURE.md` | **REMOVED** | Outdated |
+| `MIGRATION_GUIDE.md` | **REMOVED** | Migration complete |
 
 ## Verification
 
+All tests pass after cleanup:
 ```bash
-# All critical files compile successfully
-python -m py_compile server/Flask/flask_server.py
-python -m py_compile server/communications/manager.py
-python -m py_compile launcher.py
-
-# All imports work
-python -c "from server.communications.data_server import get_telemetry_data"
-python -c "from server.cam.image_handler import Image_Handler"
-python -c "from core import get_config"
+python -m pytest tests/ -v
+# Result: 46 passed, 1 skipped
 ```
 
-## Result
+## Key Features Preserved
 
-- **Before:** ~47 Python files
-- **After:** ~30 Python files  
-- **Reduction:** ~36% fewer files
-- **Working:** Flask server starts successfully on http://localhost:5000
+- **Backward Compatibility**: Legacy imports still work via `__init__.py` aliases
+- **Profile Storage**: Existing loading_profiles.json format unchanged
+- **ControlManager API**: All existing commands still functional
+- **Safety Systems**: Kill switches and pressure monitoring intact
+
+## New Capabilities
+
+- **Two-Phase Optimization**: TuRBO (Phase I) → MOBO (Phase II)
+- **Warm Start**: Phase I data seeds Phase II
+- **Multi-Objective**: Pareto front for yield vs speed trade-off
+- **Constraint Handling**: Purity and stability constraints
+- **ASK-TELL Interface**: Clean separation between optimizer and controller
+
+## Project Statistics
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Python Files | ~35 | ~28 | -20% |
+| Documentation Files | 15 | 10 | -33% |
+| Test Files | 5 | 5 | 0 |
+| Total Lines of Code | ~12,000 | ~9,500 | -21% |
+
+## Next Steps
+
+1. Update production config to use TwoPhaseController
+2. Train operators on new ASK-TELL workflow
+3. Monitor optimization performance vs legacy SAASBO

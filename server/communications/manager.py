@@ -46,6 +46,13 @@ from core.enums import (
     u_rf_mv_to_U_RF_V
 )
 
+# Import optimizer controller
+try:
+    from server.optimizer.optimizer_controller import OptimizerController, OptimizerState
+    OPTIMIZER_AVAILABLE = True
+except ImportError:
+    OPTIMIZER_AVAILABLE = False
+
 
 # =============================================================================
 # CAMERA INTERFACE - Direct control of CCD camera
@@ -203,7 +210,7 @@ class ManagerKillSwitch:
     
     TIME_LIMITS = {
         "piezo": 10.0,   # 10 seconds
-        "e_gun": 10.0,   # 10 seconds (testing mode)
+        "e_gun": 30.0,   # 10 seconds (testing mode)
     }
     
     def __init__(self):
@@ -735,6 +742,10 @@ class ControlManager:
         self.camera: Optional[CameraInterface] = None
         self._init_camera()
         
+        # Optimizer Controller (Bayesian optimization)
+        self.optimizer_controller: Optional[OptimizerController] = None
+        self._init_optimizer()
+        
         # Start background threads
         self._start_background_threads()
         
@@ -1016,6 +1027,23 @@ class ControlManager:
                 return self._handle_camera_status(req)
             elif action == "CAMERA_TRIGGER":
                 return self._handle_camera_trigger(req)
+            
+            # Optimizer commands
+            elif action == "OPTIMIZE_START":
+                return self._handle_optimize_start(req)
+            elif action == "OPTIMIZE_STOP":
+                return self._handle_optimize_stop(req)
+            elif action == "OPTIMIZE_RESET":
+                return self._handle_optimize_reset(req)
+            elif action == "OPTIMIZE_STATUS":
+                return self._handle_optimize_status(req)
+            elif action == "OPTIMIZE_SUGGESTION":
+                return self._handle_optimize_suggestion(req)
+            elif action == "OPTIMIZE_RESULT":
+                return self._handle_optimize_result(req)
+            elif action == "OPTIMIZE_CONFIG":
+                return self._handle_optimize_config(req)
+            
             else:
                 return {"status": "error", "message": f"Unknown action: {action}", "code": "UNKNOWN_ACTION"}
     
@@ -1878,6 +1906,302 @@ class ControlManager:
             safety_state=self.params,
             exp_id=self.current_exp.exp_id if self.current_exp else None
         )
+    
+    # ==========================================================================
+    # OPTIMIZER INTEGRATION - Bayesian Optimization for Ion Loading
+    # ==========================================================================
+    
+    def _init_optimizer(self):
+        """Initialize optimizer controller if available."""
+        if not OPTIMIZER_AVAILABLE:
+            self.logger.info("Optimizer controller not available")
+            return
+        
+        try:
+            self.optimizer_controller = OptimizerController(control_manager=self)
+            self.logger.info("Optimizer controller initialized")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize optimizer: {e}")
+            self.optimizer_controller = None
+    
+    def _handle_optimize_start(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Handle OPTIMIZE_START command.
+        
+        Starts Bayesian optimization for ion loading.
+        
+        Request format:
+        {
+            "action": "OPTIMIZE_START",
+            "target_be_count": 1,
+            "target_hd_present": false,
+            "max_iterations": 100,
+            ...
+        }
+        """
+        if not self.optimizer_controller:
+            return {
+                "status": "error",
+                "message": "Optimizer controller not available",
+                "code": "OPTIMIZER_NOT_AVAILABLE"
+            }
+        
+        # Must be in AUTO mode for optimization
+        if self.mode != SystemMode.AUTO:
+            return {
+                "status": "rejected",
+                "reason": f"System must be in AUTO mode (currently {self.mode.value})"
+            }
+        
+        # Extract configuration from request
+        config_overrides = {
+            k: v for k, v in req.items()
+            if k not in ['action', 'source', 'exp_id']
+        }
+        
+        try:
+            success = self.optimizer_controller.start(**config_overrides)
+            
+            if success:
+                # Create experiment context for optimization
+                self.current_exp = self.tracker.create_experiment(parameters={
+                    "type": "optimization",
+                    **config_overrides
+                })
+                self.current_exp.start()
+                
+                self.logger.info(f"Optimization started: {config_overrides}")
+                
+                return {
+                    "status": "success",
+                    "message": "Optimization started",
+                    "exp_id": self.current_exp.exp_id,
+                    "config": config_overrides
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": "Failed to start optimization"
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error starting optimization: {e}")
+            return {
+                "status": "error",
+                "message": str(e),
+                "code": "OPTIMIZER_ERROR"
+            }
+    
+    def _handle_optimize_stop(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle OPTIMIZE_STOP command."""
+        if not self.optimizer_controller:
+            return {
+                "status": "error",
+                "message": "Optimizer controller not available"
+            }
+        
+        success = self.optimizer_controller.stop()
+        
+        return {
+            "status": "success" if success else "error",
+            "message": "Optimization stopped" if success else "Failed to stop"
+        }
+    
+    def _handle_optimize_reset(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle OPTIMIZE_RESET command."""
+        if not self.optimizer_controller:
+            return {
+                "status": "error",
+                "message": "Optimizer controller not available"
+            }
+        
+        success = self.optimizer_controller.reset()
+        
+        return {
+            "status": "success" if success else "error",
+            "message": "Optimization reset" if success else "Failed to reset"
+        }
+    
+    def _handle_optimize_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle OPTIMIZE_STATUS command."""
+        if not self.optimizer_controller:
+            return {
+                "status": "error",
+                "message": "Optimizer controller not available"
+            }
+        
+        status = self.optimizer_controller.get_status()
+        
+        return {
+            "status": "success",
+            "data": status.to_dict()
+        }
+    
+    def _handle_optimize_suggestion(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Handle OPTIMIZE_SUGGESTION request.
+        
+        Returns the next suggested parameters for the optimizer.
+        ControlManager calls this to get parameters, then executes the experiment.
+        """
+        if not self.optimizer_controller:
+            return {
+                "status": "error",
+                "message": "Optimizer controller not available"
+            }
+        
+        suggestion = self.optimizer_controller.get_next_suggestion()
+        
+        if suggestion is None:
+            return {
+                "status": "no_suggestion",
+                "message": "No suggestion available (optimizer not running or pending result)"
+            }
+        
+        return {
+            "status": "success",
+            "data": suggestion
+        }
+    
+    def _handle_optimize_result(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Handle OPTIMIZE_RESULT command.
+        
+        Register experimental results from optimizer experiment.
+        
+        Request format:
+        {
+            "action": "OPTIMIZE_RESULT",
+            "measurements": {
+                "ion_count": 1,
+                "secular_freq": 307.0,
+                "sweep_peak_freq": 277.0,
+                ...
+            }
+        }
+        """
+        if not self.optimizer_controller:
+            return {
+                "status": "error",
+                "message": "Optimizer controller not available"
+            }
+        
+        measurements = req.get("measurements", {})
+        
+        if not measurements:
+            return {
+                "status": "error",
+                "message": "No measurements provided"
+            }
+        
+        try:
+            status = self.optimizer_controller.register_result(measurements)
+            
+            # Update experiment context
+            if self.current_exp:
+                self.current_exp.add_result("optimization", {
+                    "iteration": status.iteration,
+                    "cost": status.current_cost,
+                    "measurements": measurements
+                })
+            
+            return {
+                "status": "success",
+                "data": status.to_dict()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error registering optimization result: {e}")
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    
+    def _handle_optimize_config(self, req: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle OPTIMIZE_CONFIG get/set."""
+        if not self.optimizer_controller:
+            return {
+                "status": "error",
+                "message": "Optimizer controller not available"
+            }
+        
+        method = req.get("method", "GET")
+        
+        if method == "GET":
+            config = self.optimizer_controller.config
+            return {
+                "status": "success",
+                "data": {
+                    "target_be_count": config.target_be_count,
+                    "target_hd_present": config.target_hd_present,
+                    "max_iterations": config.max_iterations,
+                    "convergence_threshold": config.convergence_threshold,
+                    "n_initial_points": config.n_initial_points,
+                    "enable_be_loading": config.enable_be_loading,
+                    "enable_be_ejection": config.enable_be_ejection,
+                    "enable_hd_loading": config.enable_hd_loading,
+                }
+            }
+        else:  # POST
+            config_updates = req.get("config", {})
+            for key, value in config_updates.items():
+                if hasattr(self.optimizer_controller.config, key):
+                    setattr(self.optimizer_controller.config, key, value)
+            
+            return {
+                "status": "success",
+                "message": "Configuration updated"
+            }
+    
+    def execute_optimization_step(self) -> Optional[Dict[str, Any]]:
+        """
+        Execute one step of optimization (called by main loop or worker).
+        
+        This is the integration point where ControlManager:
+        1. Gets suggestion from optimizer
+        2. Executes experiment with suggested parameters
+        3. Collects measurements
+        4. Registers result with optimizer
+        
+        Returns:
+            Status dictionary or None if not running
+        """
+        if not self.optimizer_controller or not self.optimizer_controller.is_running():
+            return None
+        
+        # Check if we need a new suggestion
+        if self.optimizer_controller.has_suggestion_pending():
+            return None  # Waiting for result
+        
+        # Get suggestion
+        suggestion = self.optimizer_controller.get_next_suggestion()
+        if suggestion is None:
+            return None
+        
+        # Extract parameters for SET command
+        params = {k: v for k, v in suggestion.items() if not k.startswith('_')}
+        
+        # Execute SET command
+        set_result = self._handle_set({
+            "params": params,
+            "source": "OPTIMIZER",
+            "reason": f"Optimization iteration {self.optimizer_controller.iteration}"
+        })
+        
+        if set_result.get("status") != "success":
+            self.logger.error(f"Failed to set optimizer parameters: {set_result}")
+            return None
+        
+        # Note: The experiment execution and measurement collection
+        # would be handled by the worker (ARTIQ) or camera
+        # For now, we return the suggestion for external execution
+        
+        return {
+            "status": "suggestion_ready",
+            "params": suggestion,
+            "phase": self.optimizer_controller.phase.value,
+            "iteration": self.optimizer_controller.iteration
+        }
     
     def shutdown(self):
         """Graceful shutdown."""

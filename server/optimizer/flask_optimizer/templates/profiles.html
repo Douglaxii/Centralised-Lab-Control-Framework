@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block title %}Profiles - Ion Loading Optimizer{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Saved Profiles</h1>
+            <p class="text-gray-400 mt-1">Stored optimal configurations for quick loading</p>
+        </div>
+        <div class="flex space-x-2">
+            <button onclick="loadAllProfiles()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center transition">
+                <i class="fa-solid fa-rotate mr-2"></i>Refresh
+            </button>
+            <button onclick="exportAllProfiles()" class="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center transition">
+                <i class="fa-solid fa-download mr-2"></i>Export All
+            </button>
+        </div>
+    </div>
+    
+    <!-- Profiles Grid -->
+    <div id="profiles-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="col-span-full text-center py-12 text-gray-500">
+            <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i>
+            <p>Loading profiles...</p>
+        </div>
+    </div>
+    
+    <!-- Profile Detail Modal -->
+    <div id="profile-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-700 flex items-center justify-between">
+                <h3 id="modal-title" class="text-xl font-bold text-white">Profile Details</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="modal-content" class="p-6">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div class="p-6 border-t border-gray-700 flex justify-end space-x-3">
+                <button onclick="closeModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition">
+                    Close
+                </button>
+                <button id="modal-load-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+                    Load Profile
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let profilesData = [];
+    let currentProfile = null;
+    
+    // Load all profiles
+    async function loadAllProfiles() {
+        const container = document.getElementById('profiles-container');
+        container.innerHTML = `
+            <div class="col-span-full text-center py-12 text-gray-500">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i>
+                <p>Loading profiles...</p>
+            </div>
+        `;
+        
+        try {
+            const response = await apiRequest('/api/profiles');
+            profilesData = response.data || [];
+            renderProfiles();
+        } catch (e) {
+            console.error('Failed to load profiles:', e);
+            container.innerHTML = `
+                <div class="col-span-full text-center py-12 text-red-500">
+                    <i class="fa-solid fa-exclamation-circle text-4xl mb-4"></i>
+                    <p>Failed to load profiles</p>
+                </div>
+            `;
+        }
+    }
+    
+    // Render profiles grid
+    function renderProfiles() {
+        const container = document.getElementById('profiles-container');
+        
+        if (profilesData.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-12 text-gray-500">
+                    <i class="fa-solid fa-folder-open text-4xl mb-4"></i>
+                    <p>No saved profiles yet</p>
+                    <p class="text-sm mt-2">Run optimization to create profiles</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = profilesData.map(profile => {
+            const key = profile.key;
+            const beCount = profile.target_be_count;
+            const hdPresent = profile.target_hd_present;
+            const hasBeLoading = !!profile.be_loading_params;
+            const hasHdLoading = !!profile.hd_loading_params;
+            
+            // Determine icon and color based on configuration
+            let icon = 'fa-atom';
+            let color = 'blue';
+            let title = `${beCount} Be+`;
+            
+            if (hdPresent) {
+                icon = 'fa-atom';
+                color = 'purple';
+                title = `${beCount} Be+ + HD+`;
+            }
+            
+            // Phase badges
+            const badges = [];
+            if (hasBeLoading) badges.push('<span class="px-2 py-1 bg-blue-900 text-blue-300 rounded text-xs">Be+ Loading</span>');
+            if (profile.be_ejection_params) badges.push('<span class="px-2 py-1 bg-orange-900 text-orange-300 rounded text-xs">Be+ Ejection</span>');
+            if (hasHdLoading) badges.push('<span class="px-2 py-1 bg-purple-900 text-purple-300 rounded text-xs">HD+ Loading</span>');
+            
+            return `
+                <div class="glass rounded-xl p-6 hover:bg-gray-800 transition cursor-pointer" onclick="showProfileDetail('${key}')">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="h-12 w-12 rounded-full bg-${color}-900 flex items-center justify-center">
+                            <i class="fa-solid ${icon} text-${color}-400 text-xl"></i>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="event.stopPropagation(); loadProfile('${key}')" 
+                                class="text-blue-400 hover:text-blue-300 p-1" title="Load Profile">
+                                <i class="fa-solid fa-upload"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); deleteProfile('${key}')" 
+                                class="text-red-400 hover:text-red-300 p-1" title="Delete">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-lg font-bold text-white mb-1">${title}</h3>
+                    <p class="text-gray-500 text-sm mb-3">${key}</p>
+                    
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        ${badges.join('')}
+                    </div>
+                    
+                    ${profile.be_loading_cost !== undefined ? `
+                        <div class="text-sm text-gray-400">
+                            <span class="text-gray-500">Best Cost:</span> 
+                            <span class="text-green-400 font-mono">${profile.be_loading_cost.toFixed(2)}</span>
+                        </div>
+                    ` : ''}
+                    
+                    ${profile.best_pi_duration_ms !== undefined ? `
+                        <div class="text-sm text-gray-400">
+                            <span class="text-gray-500">PI Duration:</span> 
+                            <span class="text-blue-400 font-mono">${profile.best_pi_duration_ms.toFixed(1)} ms</span>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="text-xs text-gray-600 mt-3">
+                        Updated: ${new Date(profile.updated_at).toLocaleString()}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // Show profile detail modal
+    async function showProfileDetail(key) {
+        const profile = profilesData.find(p => p.key === key);
+        if (!profile) return;
+        
+        currentProfile = profile;
+        
+        document.getElementById('modal-title').textContent = `Profile: ${key}`;
+        
+        // Build content
+        let content = `
+            <div class="space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase">Target Be+ Count</label>
+                        <p class="text-lg text-white">${profile.target_be_count}</p>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase">HD+ Present</label>
+                        <p class="text-lg text-white">${profile.target_hd_present ? 'Yes' : 'No'}</p>
+                    </div>
+                </div>
+        `;
+        
+        // Be+ Loading params
+        if (profile.be_loading_params) {
+            content += `
+                <div>
+                    <h4 class="text-sm font-semibold text-blue-400 mb-2">Be+ Loading Parameters</h4>
+                    <div class="bg-gray-900 rounded-lg p-4 space-y-2">
+                        ${Object.entries(profile.be_loading_params)
+                            .filter(([k]) => !k.startsWith('_'))
+                            .map(([k, v]) => `
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400 text-sm">${k}</span>
+                                    <span class="text-white font-mono">${typeof v === 'number' ? v.toFixed(3) : v}</span>
+                                </div>
+                            `).join('')}
+                    </div>
+                    ${profile.be_loading_cost !== undefined ? `
+                        <p class="text-sm text-gray-500 mt-2">Cost: ${profile.be_loading_cost.toFixed(2)}</p>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        // HD+ Loading params
+        if (profile.hd_loading_params) {
+            content += `
+                <div>
+                    <h4 class="text-sm font-semibold text-purple-400 mb-2">HD+ Loading Parameters</h4>
+                    <div class="bg-gray-900 rounded-lg p-4 space-y-2">
+                        ${Object.entries(profile.hd_loading_params)
+                            .filter(([k]) => !k.startsWith('_'))
+                            .map(([k, v]) => `
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400 text-sm">${k}</span>
+                                    <span class="text-white font-mono">${typeof v === 'number' ? v.toFixed(3) : v}</span>
+                                </div>
+                            `).join('')}
+                    </div>
+                    ${profile.hd_loading_cost !== undefined ? `
+                        <p class="text-sm text-gray-500 mt-2">Cost: ${profile.hd_loading_cost.toFixed(2)}</p>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        content += `
+                <div class="text-xs text-gray-600 pt-4 border-t border-gray-700">
+                    <p>Created: ${new Date(profile.created_at).toLocaleString()}</p>
+                    <p>Updated: ${new Date(profile.updated_at).toLocaleString()}</p>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('modal-content').innerHTML = content;
+        
+        // Setup load button
+        document.getElementById('modal-load-btn').onclick = () => {
+            loadProfile(key);
+            closeModal();
+        };
+        
+        // Show modal
+        document.getElementById('profile-modal').classList.remove('hidden');
+    }
+    
+    // Close modal
+    function closeModal() {
+        document.getElementById('profile-modal').classList.add('hidden');
+        currentProfile = null;
+    }
+    
+    // Load profile into config
+    async function loadProfile(key) {
+        const profile = profilesData.find(p => p.key === key);
+        if (!profile) return;
+        
+        // Set configuration based on profile
+        const config = {
+            target_be_count: profile.target_be_count,
+            target_hd_present: profile.target_hd_present
+        };
+        
+        try {
+            await apiRequest('/api/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+            
+            showToast(`Profile ${key} loaded`, 'success');
+        } catch (e) {
+            showToast('Failed to load profile', 'error');
+        }
+    }
+    
+    // Delete profile
+    async function deleteProfile(key) {
+        if (!confirm(`Are you sure you want to delete profile "${key}"?`)) {
+            return;
+        }
+        
+        try {
+            await apiRequest(`/api/profiles/${key}`, { method: 'DELETE' });
+            showToast('Profile deleted', 'success');
+            loadAllProfiles();
+        } catch (e) {
+            showToast('Failed to delete profile', 'error');
+        }
+    }
+    
+    // Export all profiles
+    function exportAllProfiles() {
+        const dataStr = JSON.stringify(profilesData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `optimizer_profiles_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('Profiles exported', 'success');
+    }
+    
+    // Close modal on outside click
+    document.getElementById('profile-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'profile-modal') {
+            closeModal();
+        }
+    });
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAllProfiles();
+    });
+</script>
+{% endblock %}

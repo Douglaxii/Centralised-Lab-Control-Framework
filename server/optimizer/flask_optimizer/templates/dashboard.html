@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Ion Loading Optimizer{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Live Dashboard</h1>
+            <p class="text-gray-400 mt-1">Real-time optimization monitoring</p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="relative flex h-3 w-3">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </span>
+            <span class="text-green-400 text-sm">Live</span>
+        </div>
+    </div>
+    
+    <!-- Main dashboard grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left column: Status and Controls -->
+        <div class="space-y-6">
+            <!-- Current Status Card -->
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-lg font-bold text-white mb-4">
+                    <i class="fa-solid fa-circle-info mr-2 text-blue-500"></i>Current Status
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase">Phase</label>
+                        <p id="dash-phase" class="text-xl font-bold text-white">--</p>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase">Iteration</label>
+                        <p id="dash-iteration" class="text-3xl font-bold text-blue-400">--</p>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase">Convergence Delta</label>
+                        <div class="flex items-center">
+                            <p id="dash-delta" class="text-lg font-mono text-white">--</p>
+                            <div id="delta-indicator" class="ml-2 h-2 w-2 rounded-full bg-gray-500"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500 uppercase">Message</label>
+                        <p id="dash-message" class="text-sm text-gray-300">--</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-lg font-bold text-white mb-4">
+                    <i class="fa-solid fa-chart-simple mr-2 text-green-500"></i>Statistics
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-800 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-white" id="stat-total-iter">--</p>
+                        <p class="text-xs text-gray-500">Total Iterations</p>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-white" id="stat-phase-iter">--</p>
+                        <p class="text-xs text-gray-500">Phase Iterations</p>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-green-400" id="stat-best-cost">--</p>
+                        <p class="text-xs text-gray-500">Best Cost</p>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-blue-400" id="stat-active-dims">--</p>
+                        <p class="text-xs text-gray-500">Active Dims</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Center/Right: Charts -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Real-time Cost Plot -->
+            <div class="glass rounded-xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-white">
+                        <i class="fa-solid fa-chart-line mr-2 text-blue-500"></i>Cost Over Time
+                    </h2>
+                    <div class="flex space-x-2">
+                        <button onclick="setChartRange(20)" class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">Last 20</button>
+                        <button onclick="setChartRange(50)" class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">Last 50</button>
+                        <button onclick="setChartRange(0)" class="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded">All</button>
+                    </div>
+                </div>
+                <div class="h-72">
+                    <canvas id="realtime-chart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Parameter Trends -->
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-lg font-bold text-white mb-4">
+                    <i class="fa-solid fa-sliders mr-2 text-purple-500"></i>Key Parameters
+                </h2>
+                <div class="h-48">
+                    <canvas id="params-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Active Dimensions -->
+    <div class="glass rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4">
+            <i class="fa-solid fa-bullseye mr-2 text-orange-500"></i>Active Dimensions
+        </h2>
+        <p class="text-gray-400 text-sm mb-4">
+            SAASBO automatically identifies the most important parameters. Smaller length scales = more important.
+        </p>
+        <div id="active-dims-container" class="flex flex-wrap gap-2">
+            <span class="text-gray-500">No data available</span>
+        </div>
+    </div>
+    
+    <!-- Recent History Table -->
+    <div class="glass rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-4">
+            <i class="fa-solid fa-list mr-2 text-cyan-500"></i>Recent Iterations
+        </h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-gray-400 border-b border-gray-700">
+                        <th class="py-2 px-4">Iter</th>
+                        <th class="py-2 px-4">Phase</th>
+                        <th class="py-2 px-4">Cost</th>
+                        <th class="py-2 px-4">Key Params</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table-body" class="text-sm">
+                    <tr><td colspan="4" class="py-4 text-center text-gray-500">No data</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let realtimeChart = null;
+    let paramsChart = null;
+    let chartRange = 0;  // 0 = all
+    
+    // Initialize charts
+    function initCharts() {
+        // Real-time cost chart
+        const rtCtx = document.getElementById('realtime-chart').getContext('2d');
+        realtimeChart = new Chart(rtCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Cost',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3
+                }, {
+                    label: 'Best',
+                    data: [],
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        labels: { color: '#9ca3af' }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af' }
+                    },
+                    y: {
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af' }
+                    }
+                }
+            }
+        });
+        
+        // Parameters chart
+        const pCtx = document.getElementById('params-chart').getContext('2d');
+        paramsChart = new Chart(pCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        labels: { color: '#9ca3af', boxWidth: 10 }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af' }
+                    },
+                    y: {
+                        grid: { color: '#374151' },
+                        ticks: { color: '#9ca3af' }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Update dashboard
+    function updateDashboard(status, history) {
+        // Status card
+        document.getElementById('dash-phase').textContent = status.phase || '--';
+        document.getElementById('dash-iteration').textContent = status.iteration !== undefined ? status.iteration : '--';
+        document.getElementById('dash-message').textContent = status.message || '--';
+        
+        // Convergence delta
+        const deltaEl = document.getElementById('dash-delta');
+        const indicatorEl = document.getElementById('delta-indicator');
+        if (status.convergence_delta !== undefined) {
+            deltaEl.textContent = status.convergence_delta.toFixed(4);
+            
+            // Color indicator
+            if (status.convergence_delta < 0.01) {
+                indicatorEl.className = 'ml-2 h-2 w-2 rounded-full bg-green-500';
+            } else if (status.convergence_delta < 0.1) {
+                indicatorEl.className = 'ml-2 h-2 w-2 rounded-full bg-yellow-500';
+            } else {
+                indicatorEl.className = 'ml-2 h-2 w-2 rounded-full bg-red-500';
+            }
+        }
+        
+        // Stats
+        document.getElementById('stat-total-iter').textContent = status.iteration || 0;
+        document.getElementById('stat-best-cost').textContent = status.best_cost !== undefined ? status.best_cost.toFixed(2) : '--';
+        document.getElementById('stat-active-dims').textContent = status.active_dimensions ? status.active_dimensions.length : '--';
+        
+        // Active dimensions badges
+        if (status.active_dimensions && status.active_dimensions.length > 0) {
+            // We'll need to map indices to names - for now just show indices
+            const container = document.getElementById('active-dims-container');
+            container.innerHTML = status.active_dimensions.map((dim, i) => `
+                <span class="px-3 py-1 bg-blue-900 text-blue-300 rounded-full text-sm">
+                    Dim ${dim}
+                </span>
+            `).join('');
+        }
+        
+        // Update charts
+        if (history && history.length > 0) {
+            updateCharts(history);
+            updateHistoryTable(history);
+            
+            // Phase iteration (approximate based on phase changes)
+            const currentPhase = status.phase;
+            let phaseIter = 0;
+            for (let i = history.length - 1; i >= 0; i--) {
+                if (history[i].phase === currentPhase) {
+                    phaseIter++;
+                } else if (phaseIter > 0) {
+                    break;
+                }
+            }
+            document.getElementById('stat-phase-iter').textContent = phaseIter;
+        }
+    }
+    
+    // Update charts with history data
+    function updateCharts(history) {
+        // Apply range filter
+        let data = history;
+        if (chartRange > 0 && history.length > chartRange) {
+            data = history.slice(-chartRange);
+        }
+        
+        const labels = data.map((h, i) => {
+            if (chartRange > 0) {
+                return history.length - data.length + i + 1;
+            }
+            return i + 1;
+        });
+        const costs = data.map(h => h.cost);
+        
+        // Running best
+        let bestSoFar = Infinity;
+        const bestCosts = costs.map(c => {
+            bestSoFar = Math.min(bestSoFar, c);
+            return bestSoFar;
+        });
+        
+        // Update cost chart
+        realtimeChart.data.labels = labels;
+        realtimeChart.data.datasets[0].data = costs;
+        realtimeChart.data.datasets[1].data = bestCosts;
+        realtimeChart.update();
+        
+        // Update params chart - show first 3-4 numeric params
+        const keyParams = ['be_pi_laser_duration_ms', 'piezo', 'cooling_power_mw', 'u_rf_volts'];
+        const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b'];
+        
+        const datasets = keyParams.map((param, idx) => {
+            const values = data.map(h => h.params?.[param]).filter(v => v !== undefined);
+            return {
+                label: param.replace(/_/g, ' '),
+                data: values,
+                borderColor: colors[idx],
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3,
+                pointRadius: 2
+            };
+        }).filter(d => d.data.length > 0);
+        
+        paramsChart.data.labels = labels;
+        paramsChart.data.datasets = datasets;
+        paramsChart.update();
+    }
+    
+    // Update history table
+    function updateHistoryTable(history) {
+        const tbody = document.getElementById('history-table-body');
+        const recent = history.slice(-10).reverse();
+        
+        if (recent.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-gray-500">No data</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = recent.map(h => {
+            // Get key params
+            const keyParams = ['be_pi_laser_duration_ms', 'piezo', 'ion_count'];
+            const paramStr = keyParams
+                .map(k => {
+                    const v = h.params?.[k];
+                    if (v !== undefined) {
+                        return `${k.replace(/_/g, ' ').slice(0, 10)}: ${typeof v === 'number' ? v.toFixed(2) : v}`;
+                    }
+                    return null;
+                })
+                .filter(Boolean)
+                .join(', ');
+            
+            const phaseColors = {
+                'be_loading': 'text-blue-400',
+                'be_ejection': 'text-orange-400',
+                'hd_loading': 'text-purple-400'
+            };
+            
+            return `
+                <tr class="border-b border-gray-800 hover:bg-gray-800">
+                    <td class="py-2 px-4 font-mono">${h.iteration}</td>
+                    <td class="py-2 px-4 ${phaseColors[h.phase] || 'text-gray-400'}">${h.phase}</td>
+                    <td class="py-2 px-4 font-mono">${h.cost.toFixed(2)}</td>
+                    <td class="py-2 px-4 text-gray-400 text-xs">${paramStr}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    // Set chart range
+    function setChartRange(range) {
+        chartRange = range;
+        loadData();
+    }
+    
+    // Load all data
+    async function loadData() {
+        try {
+            const [statusRes, historyRes] = await Promise.all([
+                apiRequest('/api/status'),
+                apiRequest('/api/history')
+            ]);
+            
+            updateDashboard(statusRes.data, historyRes.data);
+        } catch (e) {
+            console.error('Failed to load data:', e);
+        }
+    }
+    
+    // Override status update to also load history
+    function updateStatusUI(status) {
+        // This is called by base template polling
+        // We don't update dashboard here to avoid conflicts
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        initCharts();
+        loadData();
+        
+        // Fast polling for dashboard
+        setInterval(loadData, 1000);
+    });
+</script>
+{% endblock %}

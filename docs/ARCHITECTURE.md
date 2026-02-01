@@ -1,11 +1,15 @@
 # Lab Control Framework Architecture
 
+**Version:** 2.0  
+**Last Updated:** 2026-02-01
+
 ## Overview
 
-This framework provides a distributed control system for lab experiments, coordinating:
+This framework provides a distributed control system for mixed-species ion trap experiments, coordinating:
 - **ARTIQ** - Hardware control (DACs, DDS, TTL)
+- **LabVIEW/SMILE** - High voltage RF, piezo, oven, e-gun control
 - **Camera** - Image acquisition and processing
-- **Analysis** - Data fitting and visualization
+- **Two-Phase Optimizer** - TuRBO + MOBO Bayesian optimization
 - **Web UI** - User interface and monitoring
 
 ## System Architecture
@@ -227,6 +231,29 @@ Y:/Xi/Data/
 - Request routing
 - Health monitoring
 - Experiment tracking
+- Two-Phase optimizer integration
+- LabVIEW interface management
+- Kill switch monitoring
+
+### Two-Phase Optimizer (server/optimizer/)
+Bayesian optimization using TuRBO (Phase I) and MOBO (Phase II):
+
+**Phase I - Component Optimization:**
+- `TwoPhaseController` - Main coordinator with ASK-TELL interface
+- `TuRBOOptimizer` - Trust Region Bayesian Optimization
+- Optimizes individual stages (Be+ loading, ejection, HD+ loading)
+
+**Phase II - Global Optimization:**
+- `MOBOOptimizer` - Multi-Objective Bayesian Optimization
+- Balances yield vs speed trade-offs
+- Enforces purity and stability constraints
+
+**Key Features:**
+- Warm start: Phase I data seeds Phase II
+- Pareto front for trade-off analysis
+- Constraint handling for safe experiments
+
+See [BO.md](BO.md) for detailed optimization architecture.
 
 ### ARTIQ Worker (artiq/experiments/artiq_worker.py)
 - Hardware control

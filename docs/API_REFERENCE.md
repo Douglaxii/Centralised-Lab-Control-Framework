@@ -8,9 +8,11 @@ Complete API documentation for the Multi-Ion Lab System.
 
 1. [Flask REST API](#flask-rest-api)
 2. [Manager ZMQ Protocol](#manager-zmq-protocol)
-3. [LabVIEW TCP Protocol](#labview-tcp-protocol)
-4. [Camera TCP Protocol](#camera-tcp-protocol)
-5. [Python Core API](#python-core-api)
+3. [Optimization API](#optimization-api)
+4. [LabVIEW TCP Protocol](#labview-tcp-protocol)
+5. [Camera TCP Protocol](#camera-tcp-protocol)
+6. [Python Core API](#python-core-api)
+7. [Error Codes](#error-codes)
 
 ---
 
@@ -332,14 +334,118 @@ Change system mode.
 #### CAMERA_START / CAMERA_STOP
 Control camera recording.
 
-#### TURBO_CONTROL
-Control Turbo algorithm.
+#### OPTIMIZE_START
+Start two-phase optimization.
 
 **Request:**
 ```json
 {
-  "action": "TURBO_CONTROL",
-  "command": "start|stop|reset"
+  "action": "OPTIMIZE_START",
+  "target_be_count": 1,
+  "target_hd_present": true,
+  "turbo_max_iterations": 50,
+  "mobo_max_iterations": 30
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Optimization started in Phase I (TuRBO)",
+  "phase": "BE_LOADING_TURBO"
+}
+```
+
+#### OPTIMIZE_STOP
+Stop optimization.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Optimization stopped",
+  "final_phase": "BE_LOADING_TURBO",
+  "iterations": 12
+}
+```
+
+#### OPTIMIZE_SUGGESTION (ASK)
+Get next parameters to evaluate.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "params": {
+    "piezo": 2.3,
+    "be_pi_laser_duration_ms": 350,
+    "cooling_power_mw": 0.8
+  },
+  "metadata": {
+    "phase": "be_loading_turbo",
+    "iteration": 5,
+    "trust_region_length": 0.6
+  }
+}
+```
+
+#### OPTIMIZE_RESULT (TELL)
+Register experimental results.
+
+**Request:**
+```json
+{
+  "action": "OPTIMIZE_RESULT",
+  "measurements": {
+    "total_fluorescence": 125.0,
+    "cycle_time_ms": 5200,
+    "ion_count": 1
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "iteration": 6,
+  "cost": 45.2,
+  "best_cost": 42.1
+}
+```
+
+#### OPTIMIZE_STATUS
+Get optimization status.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "phase": "BE_LOADING_TURBO",
+  "state": "RUNNING",
+  "iteration": 6,
+  "target_be_count": 1,
+  "target_hd_present": true,
+  "turbo_config": {
+    "max_iterations": 50,
+    "n_init": 10
+  },
+  "mobo_config": {
+    "max_iterations": 30,
+    "n_init": 5
+  }
+}
+```
+
+#### OPTIMIZE_RESET
+Reset optimization state.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Optimization state cleared"
 }
 ```
 
@@ -444,30 +550,31 @@ logger = setup_logging(component="my_module")
 logger.info("Message")
 ```
 
-### Multi-Ion Data
+### Two-Phase Optimizer
 
 ```python
-from server.communications.ion_data_handler import (
-    IonParameters, FrameData, IonDataManager
+from server.optimizer import TwoPhaseController, Phase, OptimizationConfig
+
+# Create controller
+config = OptimizationConfig(
+    target_be_count=1,
+    target_hd_present=True
 )
+controller = TwoPhaseController(config)
 
-# Create manager
-manager = IonDataManager("E:/Data/ion_tracking")
+# Start Phase I (TuRBO)
+controller.start_phase(Phase.BE_LOADING_TURBO)
 
-# Store frame
-frame = FrameData(
-    timestamp=time.time(),
-    frame_id="frame_001",
-    ion_count=2,
-    ions=[
-        IonParameters(0, 100.5, 200.3, 2.1, 3.4),
-        IonParameters(1, 150.2, 180.7, 2.3, 3.1)
-    ]
-)
-manager.ingest(frame)
+# ASK-TELL loop
+params, metadata = controller.ask()
+# ... run experiment ...
+controller.tell({
+    "total_fluorescence": measured_value,
+    "cycle_time_ms": elapsed_time
+})
 
-# Query trajectory
-traj = manager.get_ion_trajectory(0, 'pos_x', window_seconds=300)
+# Transition to Phase II (MOBO)
+controller.start_phase(Phase.GLOBAL_MOBO)
 ```
 
 ---

@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}History - Ion Loading Optimizer{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Optimization History</h1>
+            <p class="text-gray-400 mt-1">Complete record of all optimization iterations</p>
+        </div>
+        <div class="flex space-x-2">
+            <button onclick="exportHistory()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center transition">
+                <i class="fa-solid fa-download mr-2"></i>Export JSON
+            </button>
+            <button onclick="clearHistory()" class="bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center transition">
+                <i class="fa-solid fa-trash mr-2"></i>Clear
+            </button>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-blue-400" id="stat-total">--</p>
+            <p class="text-sm text-gray-500">Total Iterations</p>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-green-400" id="stat-best">--</p>
+            <p class="text-sm text-gray-500">Best Cost</p>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-purple-400" id="stat-avg">--</p>
+            <p class="text-sm text-gray-500">Average Cost</p>
+        </div>
+        <div class="glass rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-orange-400" id="stat-phases">--</p>
+            <p class="text-sm text-gray-500">Phases Completed</p>
+        </div>
+    </div>
+    
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass rounded-xl p-6">
+            <h2 class="text-lg font-bold text-white mb-4">
+                <i class="fa-solid fa-chart-line mr-2 text-blue-500"></i>Cost Evolution
+            </h2>
+            <div class="h-64">
+                <canvas id="history-cost-chart"></canvas>
+            </div>
+        </div>
+        
+        <div class="glass rounded-xl p-6">
+            <h2 class="text-lg font-bold text-white mb-4">
+                <i class="fa-solid fa-chart-pie mr-2 text-purple-500"></i>Phase Distribution
+            </h2>
+            <div class="h-64 flex items-center justify-center">
+                <canvas id="history-phase-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detailed History Table -->
+    <div class="glass rounded-xl p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-white">
+                <i class="fa-solid fa-list mr-2 text-green-500"></i>Detailed Log
+            </h2>
+            <div class="flex space-x-2">
+                <select id="filter-phase" onchange="applyFilters()" class="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-1 text-sm">
+                    <option value="">All Phases</option>
+                    <option value="be_loading">Be+ Loading</option>
+                    <option value="be_ejection">Be+ Ejection</option>
+                    <option value="hd_loading">HD+ Loading</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-gray-400 border-b border-gray-700">
+                        <th class="py-3 px-4">Iter</th>
+                        <th class="py-3 px-4">Phase</th>
+                        <th class="py-3 px-4">Cost</th>
+                        <th class="py-3 px-4">Cost Components</th>
+                        <th class="py-3 px-4">Key Parameters</th>
+                        <th class="py-3 px-4">Measurements</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table" class="text-sm">
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-gray-500">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="flex items-center justify-between mt-4">
+            <p class="text-sm text-gray-500" id="pagination-info">Showing 0 of 0 entries</p>
+            <div class="flex space-x-2">
+                <button onclick="changePage(-1)" id="btn-prev" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50" disabled>
+                    Previous
+                </button>
+                <button onclick="changePage(1)" id="btn-next" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm disabled:opacity-50" disabled>
+                    Next
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let historyData = [];
+    let filteredData = [];
+    let currentPage = 0;
+    const pageSize = 20;
+    let costChart = null;
+    let phaseChart = null;
+    
+    // Load history
+    async function loadHistory() {
+        try {
+            const response = await apiRequest('/api/history');
+            historyData = response.data || [];
+            filteredData = [...historyData];
+            
+            updateStats();
+            updateCharts();
+            renderTable();
+        } catch (e) {
+            console.error('Failed to load history:', e);
+            document.getElementById('history-table').innerHTML = 
+                '<tr><td colspan="6" class="py-8 text-center text-red-500">Failed to load history</td></tr>';
+        }
+    }
+    
+    // Update statistics
+    function updateStats() {
+        document.getElementById('stat-total').textContent = historyData.length;
+        
+        if (historyData.length > 0) {
+            const costs = historyData.map(h => h.cost);
+            document.getElementById('stat-best').textContent = Math.min(...costs).toFixed(2);
+            document.getElementById('stat-avg').textContent = (costs.reduce((a, b) => a + b, 0) / costs.length).toFixed(2);
+            
+            // Count unique phases
+            const phases = new Set(historyData.map(h => h.phase));
+            document.getElementById('stat-phases').textContent = phases.size;
+        } else {
+            document.getElementById('stat-best').textContent = '--';
+            document.getElementById('stat-avg').textContent = '--';
+            document.getElementById('stat-phases').textContent = '--';
+        }
+    }
+    
+    // Update charts
+    function updateCharts() {
+        // Cost evolution chart
+        if (costChart) {
+            costChart.destroy();
+        }
+        
+        const ctx1 = document.getElementById('history-cost-chart').getContext('2d');
+        const labels = historyData.map((h, i) => i + 1);
+        const costs = historyData.map(h => h.cost);
+        
+        let bestSoFar = Infinity;
+        const bestCosts = costs.map(c => {
+            bestSoFar = Math.min(bestSoFar, c);
+            return bestSoFar;
+        });
+        
+        costChart = new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cost',
+                    data: costs,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 1,
+                    pointRadius: 2,
+                    fill: false
+                }, {
+                    label: 'Best',
+                    data: bestCosts,
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#9ca3af' } }
+                },
+                scales: {
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                    y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } }
+                }
+            }
+        });
+        
+        // Phase distribution chart
+        if (phaseChart) {
+            phaseChart.destroy();
+        }
+        
+        const phaseCounts = {};
+        historyData.forEach(h => {
+            phaseCounts[h.phase] = (phaseCounts[h.phase] || 0) + 1;
+        });
+        
+        const ctx2 = document.getElementById('history-phase-chart').getContext('2d');
+        phaseChart = new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(phaseCounts),
+                datasets: [{
+                    data: Object.values(phaseCounts),
+                    backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6', '#10b981']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#9ca3af' }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Render table
+    function renderTable() {
+        const tbody = document.getElementById('history-table');
+        const start = currentPage * pageSize;
+        const end = start + pageSize;
+        const pageData = filteredData.slice(start, end);
+        
+        if (pageData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-gray-500">No data</td></tr>';
+        } else {
+            tbody.innerHTML = pageData.map((h, i) => {
+                const globalIndex = start + i + 1;
+                
+                // Format cost components
+                const components = h.components ? 
+                    Object.entries(h.components)
+                        .map(([k, v]) => `${k}: ${v.toFixed(1)}`)
+                        .join(', ') : '-';
+                
+                // Format key params
+                const keyParams = ['be_pi_laser_duration_ms', 'piezo', 'tickle_amplitude']
+                    .map(k => h.params?.[k] !== undefined ? `${k.slice(0, 10)}: ${h.params[k].toFixed(2)}` : null)
+                    .filter(Boolean)
+                    .join(', ');
+                
+                // Format measurements
+                const measurements = h.measurements ?
+                    Object.entries(h.measurements)
+                        .slice(0, 3)
+                        .map(([k, v]) => `${k}: ${typeof v === 'number' ? v.toFixed(1) : v}`)
+                        .join(', ') : '-';
+                
+                const phaseColors = {
+                    'be_loading': 'text-blue-400',
+                    'be_ejection': 'text-orange-400',
+                    'hd_loading': 'text-purple-400'
+                };
+                
+                return `
+                    <tr class="border-b border-gray-800 hover:bg-gray-800">
+                        <td class="py-3 px-4 font-mono">${globalIndex}</td>
+                        <td class="py-3 px-4 ${phaseColors[h.phase] || 'text-gray-400'}">${h.phase}</td>
+                        <td class="py-3 px-4 font-mono font-bold">${h.cost.toFixed(2)}</td>
+                        <td class="py-3 px-4 text-gray-400 text-xs">${components}</td>
+                        <td class="py-3 px-4 text-gray-400 text-xs font-mono">${keyParams}</td>
+                        <td class="py-3 px-4 text-gray-400 text-xs">${measurements}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Update pagination
+        document.getElementById('pagination-info').textContent = 
+            `Showing ${start + 1}-${Math.min(end, filteredData.length)} of ${filteredData.length} entries`;
+        document.getElementById('btn-prev').disabled = currentPage === 0;
+        document.getElementById('btn-next').disabled = end >= filteredData.length;
+    }
+    
+    // Apply filters
+    function applyFilters() {
+        const phaseFilter = document.getElementById('filter-phase').value;
+        
+        filteredData = historyData.filter(h => {
+            if (phaseFilter && h.phase !== phaseFilter) return false;
+            return true;
+        });
+        
+        currentPage = 0;
+        renderTable();
+    }
+    
+    // Change page
+    function changePage(delta) {
+        currentPage += delta;
+        if (currentPage < 0) currentPage = 0;
+        renderTable();
+    }
+    
+    // Export history
+    function exportHistory() {
+        const dataStr = JSON.stringify(historyData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `optimization_history_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast('History exported', 'success');
+    }
+    
+    // Clear history
+    async function clearHistory() {
+        if (!confirm('Are you sure you want to clear the optimization history?')) {
+            return;
+        }
+        
+        // Note: This is a client-side clear for now
+        // In production, you'd want to call an API endpoint
+        historyData = [];
+        filteredData = [];
+        updateStats();
+        updateCharts();
+        renderTable();
+        
+        showToast('History cleared', 'success');
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        loadHistory();
+    });
+</script>
+{% endblock %}
