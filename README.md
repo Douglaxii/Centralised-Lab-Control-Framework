@@ -130,11 +130,15 @@ See [docs/BO.md](docs/BO.md) for complete architecture documentation.
 MLS/
 ├── launcher.py                 # Unified service launcher
 ├── requirements.txt            # Python dependencies
-├── config/
-│   └── settings.yaml          # System configuration
+├── start.bat / start.sh        # Quick start scripts
 │
-├── core/                      # Shared utilities
-│   ├── __init__.py
+├── config/                     # Configuration files
+│   ├── settings.yaml          # Main system configuration
+│   ├── parallel_config.yaml   # Parallel processing config
+│   └── examples/              # Example configurations
+│       └── local_development.yaml
+│
+├── core/                       # Shared utilities
 │   ├── config.py              # Configuration management
 │   ├── enums.py               # Enumerations and constants
 │   ├── exceptions.py          # Custom exceptions
@@ -142,8 +146,8 @@ MLS/
 │   ├── logger.py              # Logging utilities
 │   └── zmq_utils.py           # ZMQ helper functions
 │
-├── server/                    # Server components
-│   ├── communications/
+├── server/                     # Server components
+│   ├── communications/        # Communication layer
 │   │   ├── manager.py         # ControlManager (main coordinator)
 │   │   ├── labview_interface.py
 │   │   └── data_server.py
@@ -151,40 +155,52 @@ MLS/
 │   ├── cam/                   # Camera system
 │   │   ├── camera_server.py
 │   │   ├── camera_logic.py
-│   │   └── image_handler.py
+│   │   ├── camera_recording.py
+│   │   ├── image_handler.py   # Ion detection (Core Ultra 9 + Quadro P400 optimized)
+│   │   └── utils/             # Camera utilities
 │   │
 │   ├── Flask/                 # Main web interface (Port 5000)
 │   │   └── flask_server.py
 │   │
-│   ├── hardware/              # Hardware abstraction layer
-│   │   └── __init__.py
-│   │
 │   └── optimizer/             # Bayesian optimization
-│       ├── two_phase_controller.py  # Main controller
-│       ├── turbo.py                 # TuRBO optimizer (Phase I)
-│       ├── mobo.py                  # MOBO optimizer (Phase II)
-│       ├── parameters.py            # Parameter spaces
-│       ├── objectives.py            # Cost functions
-│       └── storage.py               # Profile storage
+│       ├── two_phase_controller.py
+│       ├── turbo.py           # TuRBO optimizer (Phase I)
+│       ├── mobo.py            # MOBO optimizer (Phase II)
+│       ├── parameters.py
+│       ├── objectives.py
+│       └── storage.py
 │
-├── artiq/                     # ARTIQ hardware control
+├── artiq/                      # ARTIQ hardware control
 │   ├── experiments/
 │   └── fragments/
 │
-├── tests/                     # Test suite
-│   ├── test_core.py
-│   ├── test_optimizer.py
-│   ├── test_two_phase_optimizer.py
-│   └── ...
+├── tests/                      # Test suite
+│   └── output/                # Test outputs (kept minimal)
 │
-├── tools/                     # Diagnostic tools
-│   └── control.ps1           # PowerShell control interface
+├── tools/                      # Diagnostic tools
+├── setup/                      # Setup scripts
+│   ├── setup_conda.bat
+│   ├── setup_conda.py
+│   ├── validate_setup.py
+│   └── environment.yml
 │
-└── docs/                      # Documentation
+├── logs/                       # Log files (rotated)
+├── data/                       # Data storage
+│
+└── docs/                       # Documentation
     ├── ARCHITECTURE.md
     ├── BO.md
     ├── API_REFERENCE.md
-    └── ...
+    ├── guides/                # User guides
+    │   ├── CAMERA_ACTIVATION.md
+    │   ├── CONDA_SETUP.md
+    │   └── SAFETY_KILL_SWITCH.md
+    ├── camera/                # Camera-specific docs
+    │   ├── IMAGE_HANDLER_README.md
+    │   └── UNCERTAINTY_CALCULATION.md
+    ├── server/                # Server docs
+    ├── tests/                 # Testing docs
+    └── summaries/             # Implementation summaries
 ```
 
 ## Features
@@ -280,14 +296,20 @@ python -m pytest tests/ -v
 # Run optimizer tests only
 python -m pytest tests/test_optimizer.py tests/test_two_phase_optimizer.py -v
 
+# Run image handler tests
+python tests/test_image_handler_with_mhi_cam.py --max-images 50
+
 # Run with coverage
 python -m pytest tests/ --cov=. --cov-report=html
 ```
 
+See [Testing Documentation](docs/tests/TESTING.md) for details.
+
 ## Configuration
 
-Edit `config/settings.yaml`:
+Main configuration file: `config/settings.yaml`
 
+### Network Settings
 ```yaml
 network:
   master_ip: "134.99.120.40"
@@ -295,7 +317,10 @@ network:
   data_port: 5556       # Worker feedback
   client_port: 5557     # Flask/Client requests
   camera_port: 5558     # Camera server
+```
 
+### Hardware Settings
+```yaml
 labview:
   host: "172.17.1.217"
   port: 5559
@@ -304,13 +329,22 @@ hardware:
   worker_defaults:
     u_rf_volts: 200.0
     piezo: 0.0
-
-optimization:
-  turbo_max_iterations: 50
-  turbo_n_init: 10
-  mobo_max_iterations: 30
-  mobo_n_init: 5
 ```
+
+### Image Handler Settings
+```yaml
+image_handler:
+  roi: {x_start: 0, x_finish: 500, y_start: 10, y_finish: 300}
+  detection:
+    threshold_percentile: 99.5
+    min_snr: 6.0
+  performance:
+    num_threads: 8
+    use_gpu: true
+```
+
+### Local Development
+For local testing, use `config/examples/local_development.yaml` as a template.
 
 ## Safety ⚠️
 
@@ -323,11 +357,29 @@ optimization:
 
 ## Documentation
 
+### Architecture & Design
 - [Bayesian Optimization Architecture](docs/BO.md)
 - [System Architecture](docs/ARCHITECTURE.md)
-- [API Reference](docs/API_REFERENCE.md)
+- [Communication Protocol](docs/COMMUNICATION_PROTOCOL.md)
 - [Data Integration](docs/DATA_INTEGRATION.md)
+
+### User Guides
+- [Camera Activation Guide](docs/guides/CAMERA_ACTIVATION.md)
+- [Safety & Kill Switches](docs/guides/SAFETY_KILL_SWITCH.md)
+- [Conda Setup](docs/guides/CONDA_SETUP.md)
+
+### API & Reference
+- [API Reference](docs/API_REFERENCE.md)
 - [LabVIEW Integration](docs/LABVIEW_INTEGRATION.md)
+- [Optimization Guide](docs/OPTIMIZATION_GUIDE.md)
+
+### Camera & Image Processing
+- [Image Handler](docs/camera/IMAGE_HANDLER_README.md)
+- [Uncertainty Calculation](docs/camera/UNCERTAINTY_CALCULATION.md)
+
+### Implementation Summaries
+- [Camera Implementation](docs/summaries/CAMERA_IMPLEMENTATION.md)
+- [Image Handler Optimization](docs/summaries/IMAGE_HANDLER_OPTIMIZATION.md)
 
 ## Migration from Legacy SAASBO
 
