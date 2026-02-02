@@ -1,3 +1,12 @@
+---
+
+> ?? **DEPRECATED**: This file has been moved. Please see the new documentation structure.
+> 
+> **New Location**: See README.md for the reorganized documentation.
+> 
+> This file will be removed in version 3.0.
+
+---
 # MLS API Reference
 
 Complete API documentation for the Multi-Ion Lab System.

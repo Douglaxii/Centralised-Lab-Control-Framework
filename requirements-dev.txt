@@ -1,0 +1,16 @@
+# Development dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.20.0
+pytest-cov>=4.0.0
+black>=22.0.0
+ruff>=0.1.0
+mypy>=1.0.0
+pre-commit>=2.20.0
+
+# Documentation
+sphinx>=5.0.0
+sphinx-rtd-theme>=1.0.0
+
+# Jupyter for analysis
+jupyter>=1.0.0
+matplotlib>=3.5.0

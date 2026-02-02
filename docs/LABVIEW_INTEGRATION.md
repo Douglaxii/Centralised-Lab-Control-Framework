@@ -1,3 +1,12 @@
+---
+
+> ?? **DEPRECATED**: This file has been moved. Please see the new documentation structure.
+> 
+> **New Location**: See README.md for the reorganized documentation.
+> 
+> This file will be removed in version 3.0.
+
+---
 # LabVIEW SMILE Integration Guide
 
 This document describes how to integrate the Python Control Manager with your SMILE LabVIEW program for remote hardware control.

@@ -1,3 +1,12 @@
+---
+
+> ?? **DEPRECATED**: This file has been moved. Please see the new documentation structure.
+> 
+> **New Location**: See README.md for the reorganized documentation.
+> 
+> This file will be removed in version 3.0.
+
+---
 # LabVIEW Data Integration Guide (File-Based)
 
 This guide explains how to send data from your LabVIEW programs (Wavemeter.vi and SMILE.vi) to the Flask dashboard's telemetry display using **file-based communication** via the shared network drive `Y:\Xi\Data\`.

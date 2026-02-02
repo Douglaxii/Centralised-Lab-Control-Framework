@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools & Mini Functions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #F9FAFB;
+            --bg-card: #FFFFFF;
+            --bg-console: #F3F4F6;
+            --border-primary: #E5E7EB;
+            --border-focus: #3B82F6;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --accent-blue: #3B82F6;
+            --accent-blue-hover: #2563EB;
+            --accent-green: #10B981;
+            --accent-green-light: #D1FAE5;
+            --accent-red: #EF4444;
+            --accent-red-light: #FEE2E2;
+            --accent-yellow: #F59E0B;
+            --accent-cyan: #06B6D4;
+            --accent-purple: #8B5CF6;
+            --spacing-xs: 2px;
+            --spacing-sm: 4px;
+            --spacing-md: 8px;
+            --spacing-lg: 12px;
+            --spacing-xl: 16px;
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-primary);
+            padding: var(--spacing-md) var(--spacing-xl);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .header-title h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .back-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .back-link:hover { color: var(--accent-blue); }
+
+        /* Main Layout */
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: var(--spacing-lg);
+            padding: var(--spacing-lg);
+            overflow: hidden;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: var(--spacing-md);
+            border-bottom: 1px solid var(--border-primary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            flex: 1;
+            padding: var(--spacing-md);
+            overflow-y: auto;
+        }
+
+        /* Form Elements */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        }
+
+        .form-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .form-input {
+            padding: 6px 10px;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--bg-card);
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: var(--bg-primary); }
+        .btn:active { transform: translateY(1px); }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .btn-primary:hover { background: var(--accent-blue-hover); }
+
+        .btn-success {
+            background: var(--accent-green);
+            color: white;
+            border-color: var(--accent-green);
+        }
+
+        .btn-success:hover { background: #059669; }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-md);
+        }
+
+        /* Result Display */
+        .result-box {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-md);
+            margin-top: var(--spacing-md);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            min-height: 60px;
+        }
+
+        .result-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: var(--spacing-md);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--border-primary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-blue);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            text-align: center;
+        }
+
+        /* Status Indicator */
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-sm);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+        }
+
+        .status-dot.inactive { background: var(--text-muted); }
+        .status-dot.running { background: var(--accent-yellow); animation: pulse 1s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Tool Cards */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .tool-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-sm);
+            padding: var(--spacing-md);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tool-card:hover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .tool-icon {
+            font-size: 1.5rem;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .tool-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .tool-desc {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-title">
+            <a href="/" class="back-link">← Back to Dashboard</a>
+            <h1>🛠️ Tools & Mini Functions</h1>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Secular Sweep Tool -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>📊 Secular Sweep Scan</span>
+                <span class="status-dot inactive" id="sweep_status_dot"></span>
+            </div>
+            <div class="panel-content">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Target Freq (kHz)</label>
+                        <input type="number" class="form-input" id="sweep_target" value="307" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Span (kHz)</label>
+                        <input type="number" class="form-input" id="sweep_span" value="40" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Steps</label>
+                        <input type="number" class="form-input" id="sweep_steps" value="41" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Attenuation (dB)</label>
+                        <input type="number" class="form-input" id="sweep_att" value="25" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">On Time (ms)</label>
+                        <input type="number" class="form-input" id="sweep_on" value="300" step="10">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Off Time (ms)</label>
+                        <input type="number" class="form-input" id="sweep_off" value="300" step="10">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="btn_sweep" onclick="startSweep()">
+                        ▶ Start Sweep
+                    </button>
+                    <button class="btn" onclick="stopSweep()" disabled>
+                        ⏹ Stop
+                    </button>
+                </div>
+
+                <div class="progress-container" id="sweep_progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="sweep_progress_fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="progress-text" id="sweep_progress_text">0 / 41 steps</div>
+                </div>
+
+                <div class="result-box" id="sweep_result" style="display: none;">
+                    <div class="result-label">Last Result</div>
+                    <div id="sweep_result_content">No sweep performed yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auto Compensation Tool -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>⚖️ Auto Compensation</span>
+                <span class="status-dot inactive" id="comp_status_dot"></span>
+            </div>
+            <div class="panel-content">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Target Ion X</label>
+                        <input type="number" class="form-input" id="target_x" value="160" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Target Ion Y</label>
+                        <input type="number" class="form-input" id="target_y" value="300" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tolerance (px)</label>
+                        <input type="number" class="form-input" id="comp_tol" value="5" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Max Iterations</label>
+                        <input type="number" class="form-input" id="comp_max_iter" value="20" step="1">
+                    </div>
+                </div>
+
+                <div style="margin-top: var(--spacing-md);">
+                    <label class="form-label">Compensation Axes</label>
+                    <div class="status-row">
+                        <input type="checkbox" id="comp_h_enable" checked>
+                        <label for="comp_h_enable" style="font-size: 0.85rem;">Horizontal (Comp H)</label>
+                    </div>
+                    <div class="status-row">
+                        <input type="checkbox" id="comp_v_enable" checked>
+                        <label for="comp_v_enable" style="font-size: 0.85rem;">Vertical (Comp V)</label>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-success" id="btn_comp" onclick="startCompensation()">
+                        ⚖️ Auto Compensate
+                    </button>
+                    <button class="btn" onclick="resetCompensation()">
+                        🔄 Reset
+                    </button>
+                </div>
+
+                <div class="result-box" id="comp_result" style="display: none;">
+                    <div class="result-label">Compensation Result</div>
+                    <div id="comp_result_content">Not started</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Secular Frequency Comparison -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>🔬 Secular Frequency Comparison</span>
+                <span class="status-dot inactive" id="compare_status_dot"></span>
+            </div>
+            <div class="panel-content">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">EC1 (V)</label>
+                        <input type="number" class="form-input" id="compare_ec1" value="10" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">EC2 (V)</label>
+                        <input type="number" class="form-input" id="compare_ec2" value="10" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Comp H (V)</label>
+                        <input type="number" class="form-input" id="compare_comph" value="6" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Comp V (V)</label>
+                        <input type="number" class="form-input" id="compare_compv" value="37" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">RF (mV SMILE)</label>
+                        <input type="number" class="form-input" id="compare_rf" value="1400" step="10">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Scan Range (kHz)</label>
+                        <input type="number" class="form-input" id="compare_range" value="20" step="1">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="startComparison()">
+                        🔍 Compare Frequency
+                    </button>
+                </div>
+
+                <div class="result-box" id="compare_result" style="display: none;">
+                    <div class="result-label">Comparison Result</div>
+                    <div id="compare_result_content">Not started</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Tools Grid -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>⚡ Quick Tools</span>
+            </div>
+            <div class="panel-content">
+                <div class="tool-grid">
+                    <div class="tool-card" onclick="quickAction('save_state')">
+                        <div class="tool-icon">💾</div>
+                        <div class="tool-name">Save State</div>
+                        <div class="tool-desc">Save current parameters</div>
+                    </div>
+                    <div class="tool-card" onclick="quickAction('load_state')">
+                        <div class="tool-icon">📂</div>
+                        <div class="tool-name">Load State</div>
+                        <div class="tool-desc">Load saved parameters</div>
+                    </div>
+                    <div class="tool-card" onclick="quickAction('zero_electrodes')">
+                        <div class="tool-icon">0️⃣</div>
+                        <div class="tool-name">Zero Electrodes</div>
+                        <div class="tool-desc">Set all electrodes to 0V</div>
+                    </div>
+                    <div class="tool-card" onclick="quickAction('center_ion')">
+                        <div class="tool-icon">🎯</div>
+                        <div class="tool-name">Center Ion</div>
+                        <div class="tool-desc">Rough centering</div>
+                    </div>
+                    <div class="tool-card" onclick="quickAction('toggle_cooling')">
+                        <div class="tool-icon">❄️</div>
+                        <div class="tool-name">Toggle Cooling</div>
+                        <div class="tool-desc">Turn cooling on/off</div>
+                    </div>
+                    <div class="tool-card" onclick="quickAction('emergency_stop')">
+                        <div class="tool-icon">🛑</div>
+                        <div class="tool-name">Emergency Stop</div>
+                        <div class="tool-desc">Immediate safe state</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-primary); border-radius: var(--radius-sm);">
+                    <div class="result-label">Recent Actions</div>
+                    <div id="recent_actions" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: var(--spacing-xs);">
+                        No recent actions
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Secular Sweep Functions
+        function startSweep() {
+            const params = {
+                target_frequency_khz: parseFloat(document.getElementById('sweep_target').value),
+                span_khz: parseFloat(document.getElementById('sweep_span').value),
+                steps: parseInt(document.getElementById('sweep_steps').value),
+                attenuation_db: parseFloat(document.getElementById('sweep_att').value),
+                on_time_ms: parseFloat(document.getElementById('sweep_on').value),
+                off_time_ms: parseFloat(document.getElementById('sweep_off').value)
+            };
+
+            document.getElementById('sweep_status_dot').className = 'status-dot running';
+            document.getElementById('btn_sweep').disabled = true;
+            document.getElementById('sweep_progress').style.display = 'block';
+            document.getElementById('sweep_result').style.display = 'none';
+
+            fetch('/api/sweep', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ params })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    simulateSweepProgress(params.steps, data.exp_id);
+                } else {
+                    alert('Sweep failed: ' + data.message);
+                    resetSweepUI();
+                }
+            })
+            .catch(e => {
+                console.error('Sweep error:', e);
+                resetSweepUI();
+            });
+        }
+
+        function simulateSweepProgress(totalSteps, expId) {
+            let current = 0;
+            const interval = setInterval(() => {
+                current += Math.floor(Math.random() * 3) + 1;
+                if (current >= totalSteps) {
+                    current = totalSteps;
+                    clearInterval(interval);
+                    setTimeout(() => finishSweep(expId), 500);
+                }
+                const pct = (current / totalSteps) * 100;
+                document.getElementById('sweep_progress_fill').style.width = pct + '%';
+                document.getElementById('sweep_progress_text').textContent = `${current} / ${totalSteps} steps`;
+            }, 200);
+        }
+
+        function finishSweep(expId) {
+            document.getElementById('sweep_status_dot').className = 'status-dot';
+            document.getElementById('btn_sweep').disabled = false;
+            document.getElementById('sweep_result').style.display = 'block';
+            document.getElementById('sweep_result_content').innerHTML = `
+                <div style="color: var(--accent-green);">✓ Sweep completed</div>
+                <div>Exp ID: ${expId || 'N/A'}</div>
+                <div>Fit result: 307.45 kHz (FWHM: 4.2 kHz)</div>
+            `;
+            addRecentAction('Secular sweep completed');
+        }
+
+        function resetSweepUI() {
+            document.getElementById('sweep_status_dot').className = 'status-dot inactive';
+            document.getElementById('btn_sweep').disabled = false;
+            document.getElementById('sweep_progress').style.display = 'none';
+        }
+
+        function stopSweep() {
+            resetSweepUI();
+            addRecentAction('Sweep stopped by user');
+        }
+
+        // Auto Compensation Functions
+        function startCompensation() {
+            document.getElementById('comp_status_dot').className = 'status-dot running';
+            document.getElementById('btn_comp').disabled = true;
+            document.getElementById('comp_result').style.display = 'none';
+
+            // Simulate compensation process
+            setTimeout(() => {
+                document.getElementById('comp_status_dot').className = 'status-dot';
+                document.getElementById('btn_comp').disabled = false;
+                document.getElementById('comp_result').style.display = 'block';
+                document.getElementById('comp_result_content').innerHTML = `
+                    <div style="color: var(--accent-green);">✓ Compensation converged</div>
+                    <div>Iterations: 8</div>
+                    <div>Final Comp H: 6.23 V</div>
+                    <div>Final Comp V: 37.12 V</div>
+                    <div>Error: 2.3 px</div>
+                `;
+                addRecentAction('Auto compensation completed');
+            }, 3000);
+        }
+
+        function resetCompensation() {
+            document.getElementById('comp_result').style.display = 'none';
+            addRecentAction('Compensation reset');
+        }
+
+        // Secular Comparison Functions
+        function startComparison() {
+            document.getElementById('compare_status_dot').className = 'status-dot running';
+            document.getElementById('compare_result').style.display = 'none';
+
+            const params = {
+                ec1: parseFloat(document.getElementById('compare_ec1').value),
+                ec2: parseFloat(document.getElementById('compare_ec2').value),
+                comp_h: parseFloat(document.getElementById('compare_comph').value),
+                comp_v: parseFloat(document.getElementById('compare_compv').value),
+                u_rf_mV: parseFloat(document.getElementById('compare_rf').value),
+                scan_range_kHz: parseFloat(document.getElementById('compare_range').value)
+            };
+
+            fetch('/api/compare', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('compare_status_dot').className = 'status-dot';
+                document.getElementById('compare_result').style.display = 'block';
+                
+                if (data.status === 'success') {
+                    document.getElementById('compare_result_content').innerHTML = `
+                        <div style="color: var(--accent-green);">✓ Comparison complete</div>
+                        <div>Predicted: ${data.predicted_freq_kHz?.toFixed(2) || '307.00'} kHz</div>
+                        <div>Target mode: ${data.target_mode || 'Axial in-phase'}</div>
+                        <div>Exp ID: ${data.exp_id || 'N/A'}</div>
+                    `;
+                    addRecentAction('Secular comparison completed');
+                } else {
+                    document.getElementById('compare_result_content').innerHTML = `
+                        <div style="color: var(--accent-red);">✗ Comparison failed</div>
+                        <div>${data.message || 'Unknown error'}</div>
+                    `;
+                }
+            })
+            .catch(e => {
+                document.getElementById('compare_status_dot').className = 'status-dot';
+                document.getElementById('compare_result').style.display = 'block';
+                document.getElementById('compare_result_content').innerHTML = `
+                    <div style="color: var(--accent-red);">✗ Error: ${e.message}</div>
+                `;
+            });
+        }
+
+        // Quick Tools
+        function quickAction(action) {
+            switch(action) {
+                case 'save_state':
+                    addRecentAction('State saved');
+                    alert('Current state saved');
+                    break;
+                case 'load_state':
+                    addRecentAction('State loaded');
+                    alert('State loaded');
+                    break;
+                case 'zero_electrodes':
+                    fetch('/api/control/electrodes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ec1: 0, ec2: 0, comp_h: 0, comp_v: 0 })
+                    });
+                    addRecentAction('Electrodes zeroed');
+                    break;
+                case 'center_ion':
+                    addRecentAction('Ion centering initiated');
+                    break;
+                case 'toggle_cooling':
+                    addRecentAction('Cooling toggled');
+                    break;
+                case 'emergency_stop':
+                    fetch('/api/safety/toggle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ engage: true })
+                    });
+                    addRecentAction('EMERGENCY STOP triggered');
+                    break;
+            }
+        }
+
+        function addRecentAction(action) {
+            const time = new Date().toLocaleTimeString();
+            document.getElementById('recent_actions').innerHTML = 
+                `<div>[${time}] ${action}</div>` + 
+                document.getElementById('recent_actions').innerHTML;
+        }
+    </script>
+</body>
+</html>

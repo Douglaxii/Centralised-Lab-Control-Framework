@@ -1,0 +1,154 @@
+# Services Configuration
+# Service orchestration settings for camera, manager, and Flask services
+# This file defines how services are configured and interact with each other
+
+---
+# ============================================================================
+# SERVICE CONFIGURATION
+# ============================================================================
+
+services:
+  # Camera Server - Receives frames and processes images
+  camera:
+    enabled: true
+    tcp_port: 5558              # Frame data port
+    cmd_port: 5559              # Command port
+    host: "127.0.0.1"
+    
+    # Processing optimization
+    queue_size: 50              # Smaller queue for same-PC deployment
+    skip_frames: 0              # 0 = process all, N = process every Nth
+    jpeg_quality: 85            # Balance quality vs size
+    
+    # Paths (can be overridden by environment)
+    raw_frames: "E:/Data/camera/raw_frames"
+    labelled_frames: "E:/Data/camera/processed_frames"
+    
+    # Memory optimization
+    max_concurrent_processing: 2
+    use_shared_memory: true
+  
+  # Control Manager - Coordinates hardware and algorithms
+  manager:
+    enabled: true
+    
+    # ZMQ Ports
+    cmd_port: 5555              # Commands to ARTIQ (PUB)
+    data_port: 5556             # Data from ARTIQ (PULL)
+    client_port: 5557           # Flask requests (REP)
+    
+    # Network bindings
+    bind_host: "127.0.0.1"
+    
+    # LabVIEW connection (may be on different PC)
+    labview_host: "192.168.1.100"
+    labview_port: 5559
+    
+    # File reading
+    telemetry_poll_interval: 1.0
+    
+    # Thread pool
+    max_worker_threads: 4
+  
+  # Flask Web Server - Web UI
+  flask:
+    enabled: true
+    http_port: 5000
+    host: "0.0.0.0"            # Allow external connections for viewing
+    
+    # Server settings
+    threaded: true
+    processes: 1                # Single process, use threads instead
+    
+    # Performance
+    max_camera_fps: 30
+    telemetry_update_hz: 2      # SSE update rate
+
+
+# ============================================================================
+# SERVICE DEPENDENCIES
+# ============================================================================
+
+dependencies:
+  # Service startup order and dependencies
+  camera: []                   # No dependencies, starts first
+  manager: ["camera"]          # Manager needs camera
+  flask: ["manager"]           # Flask needs manager
+
+
+# ============================================================================
+# HEALTH MONITORING
+# ============================================================================
+
+health:
+  # Health check intervals
+  check_interval_seconds: 5
+  
+  # Auto-restart settings
+  auto_restart:
+    enabled: true
+    max_restarts: 3
+    restart_window_seconds: 60
+  
+  # Resource limits
+  resource_limits:
+    max_memory_mb: 2048
+    max_cpu_percent: 80.0
+
+
+# ============================================================================
+# PERFORMANCE OPTIMIZATION
+# ============================================================================
+
+optimization:
+  # Same-PC IPC optimizations
+  ipc:
+    use_zeromq_ipc: true       # Use ipc:// transport for same-machine ZMQ
+    file_debounce_ms: 100      # File watching debounce
+    batch_file_reads: true
+    batch_interval_ms: 500
+  
+  # Memory management
+  memory:
+    telemetry_buffer_size: 1000
+    telemetry_window_seconds: 300
+    max_cached_frames: 10
+    cache_cleanup_interval: 30
+    gc_interval_seconds: 60
+  
+  # CPU optimization
+  cpu:
+    # Thread priorities (Windows only)
+    camera_thread_priority: "normal"
+    manager_thread_priority: "above_normal"
+    flask_thread_priority: "normal"
+    
+    # Process affinity (pin to specific cores if needed)
+    # camera_affinity: [0, 1]
+    # manager_affinity: [2, 3]
+
+
+# ============================================================================
+# SERVICE LOGGING
+# ============================================================================
+
+service_logging:
+  level: "INFO"
+  format: "%(asctime)s | %(levelname)-8s | %(name)-15s | %(message)s"
+  
+  # Separate log files per service
+  files:
+    camera: "E:/Data/logs/camera_server.log"
+    manager: "E:/Data/logs/manager.log"
+    flask: "E:/Data/logs/flask_server.log"
+    launcher: "E:/Data/logs/launcher.log"
+  
+  # Log rotation
+  rotation:
+    max_bytes: 10485760         # 10 MB
+    backup_count: 5
+  
+  # Console output
+  console:
+    enabled: true
+    level: "INFO"

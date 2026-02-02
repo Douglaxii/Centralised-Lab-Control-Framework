@@ -1,3 +1,12 @@
+---
+
+> ?? **DEPRECATED**: This file has been moved. Please see the new documentation structure.
+> 
+> **New Location**: See README.md for the reorganized documentation.
+> 
+> This file will be removed in version 3.0.
+
+---
 # Secular Frequency Comparison System
 
 This document describes the automated secular frequency comparison system that validates trap calibration by comparing measured secular frequencies with theoretical predictions.

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applet Server - Experiment Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 24px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .status-badge.running { border-color: var(--success); color: var(--success); }
+        .status-badge.error { border-color: var(--danger); color: var(--danger); }
+        .status-badge.idle { border-color: var(--text-sub); color: var(--text-sub); }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-main);
+        }
+        
+        /* Experiment List */
+        .experiment-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .experiment-info h3 {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .experiment-info p {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+        }
+        
+        button {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover:not(:disabled) { background: #dc2626; }
+        
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text-main);
+        }
+        .btn-secondary:hover:not(:disabled) { background: #475569; }
+        
+        /* Progress */
+        .progress-container {
+            margin-top: 16px;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-body);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            font-size: 0.875rem;
+            color: var(--text-sub);
+        }
+        
+        /* Log Output */
+        .log-output {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.75rem;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+        }
+        
+        .log-time { color: var(--text-sub); }
+        .log-info { color: var(--accent); }
+        .log-success { color: var(--success); }
+        .log-error { color: var(--danger); }
+        .log-warning { color: var(--warning); }
+        
+        /* Data Display */
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .data-item {
+            background: var(--bg-body);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+        
+        .data-label {
+            font-size: 0.7rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .data-value {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        
+        /* Control Buttons */
+        .control-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><i class="fa-solid fa-flask"></i> Applet Server</h1>
+        <div class="status-badge idle" id="status-badge">
+            <i class="fa-solid fa-circle"></i>
+            <span id="status-text">Idle</span>
+        </div>
+    </header>
+    
+    <div class="grid">
+        <!-- Left Column: Experiments & Controls -->
+        <div>
+            <div class="card">
+                <h2>Available Experiments</h2>
+                <div id="experiment-list">
+                    {% for exp in experiments %}
+                    <div class="experiment-item" data-id="{{ exp.id }}">
+                        <div class="experiment-info">
+                            <h3>{{ exp.name.replace('_', ' ').title() }}</h3>
+                            <p>{{ exp.description or 'No description available' }}</p>
+                        </div>
+                        <button class="btn-primary" onclick="startExperiment('{{ exp.id }}')">
+                            <i class="fa-solid fa-play"></i> Run
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top: 24px;">
+                <h2>Progress</h2>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text" id="progress-text">0%</div>
+                </div>
+                
+                <div class="control-group">
+                    <button class="btn-secondary" id="btn-pause" onclick="pauseExperiment()" disabled>
+                        <i class="fa-solid fa-pause"></i> Pause
+                    </button>
+                    <button class="btn-secondary" id="btn-resume" onclick="resumeExperiment()" disabled>
+                        <i class="fa-solid fa-play"></i> Resume
+                    </button>
+                    <button class="btn-danger" id="btn-stop" onclick="stopExperiment()" disabled>
+                        <i class="fa-solid fa-stop"></i> Stop
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Log & Results -->
+        <div>
+            <div class="card">
+                <h2>Experiment Log</h2>
+                <div class="log-output" id="log-output"></div>
+            </div>
+            
+            <div class="card" style="margin-top: 24px;">
+                <h2>Results</h2>
+                <div id="results-container">
+                    <p style="color: var(--text-sub); font-size: 0.875rem;">No results yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let eventSource = null;
+        let currentExperiment = null;
+        
+        // Initialize SSE connection
+        function connectStream() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventSource = new EventSource('/api/experiments/stream');
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleStreamMessage(data);
+                } catch (e) {
+                    console.error('Failed to parse stream data:', e);
+                }
+            };
+            
+            eventSource.onerror = () => {
+                log('Connection lost, reconnecting...', 'warning');
+                setTimeout(connectStream, 3000);
+            };
+        }
+        
+        function handleStreamMessage(data) {
+            if (data.type === 'progress') {
+                updateProgress(data.value);
+            } else if (data.type === 'status') {
+                updateStatus(data.value);
+            } else if (data.type === 'init') {
+                updateStatus(data.data.status);
+                updateProgress(data.data.progress);
+            }
+        }
+        
+        function updateProgress(value) {
+            const fill = document.getElementById('progress-fill');
+            const text = document.getElementById('progress-text');
+            fill.style.width = value + '%';
+            text.textContent = value.toFixed(1) + '%';
+        }
+        
+        function updateStatus(status) {
+            const badge = document.getElementById('status-badge');
+            const text = document.getElementById('status-text');
+            
+            badge.className = 'status-badge ' + status;
+            text.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            
+            // Update button states
+            const isRunning = status === 'running';
+            const isPaused = status === 'paused';
+            
+            document.querySelectorAll('#experiment-list button').forEach(btn => {
+                btn.disabled = isRunning || isPaused;
+            });
+            
+            document.getElementById('btn-stop').disabled = !isRunning && !isPaused;
+            document.getElementById('btn-pause').disabled = !isRunning;
+            document.getElementById('btn-resume').disabled = !isPaused;
+        }
+        
+        function log(message, level = 'info') {
+            const output = document.getElementById('log-output');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${level}">${message}</span>`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function displayResults(data) {
+            const container = document.getElementById('results-container');
+            
+            if (!data || Object.keys(data).length === 0) {
+                container.innerHTML = '<p style="color: var(--text-sub); font-size: 0.875rem;">No results yet</p>';
+                return;
+            }
+            
+            let html = '<div class="data-grid">';
+            
+            // Display key results based on experiment type
+            if (data.optimal_comp_v !== undefined) {
+                // Auto compensation results
+                html += `<div class="data-item">
+                    <div class="data-label">Optimal Comp V</div>
+                    <div class="data-value">${data.optimal_comp_v.toFixed(3)} V</div>
+                </div>`;
+            }
+            
+            if (data.comp_h_final !== undefined) {
+                html += `<div class="data-item">
+                    <div class="data-label">Comp H</div>
+                    <div class="data-value">${data.comp_h_final.toFixed(3)} V</div>
+                </div>`;
+            }
+            
+            if (data.r_squared !== undefined) {
+                html += `<div class="data-item">
+                    <div class="data-label">R² Fit</div>
+                    <div class="data-value">${data.r_squared.toFixed(4)}</div>
+                </div>`;
+            }
+            
+            if (data.reference_y !== undefined) {
+                html += `<div class="data-item">
+                    <div class="data-label">Reference Y</div>
+                    <div class="data-value">${data.reference_y.toFixed(2)} px</div>
+                </div>`;
+            }
+            
+            // Trap eigenmode results
+            if (data.frequencies_khz !== undefined && Array.isArray(data.frequencies_khz)) {
+                html += `<div class="data-item">
+                    <div class="data-label">Axial Mode</div>
+                    <div class="data-value">${data.frequencies_khz[0].toFixed(1)} kHz</div>
+                </div>`;
+                
+                if (data.frequencies_khz.length > 1) {
+                    html += `<div class="data-item">
+                        <div class="data-label">Radial Mode</div>
+                        <div class="data-value">${data.frequencies_khz[data.frequencies_khz.length-1].toFixed(1)} kHz</div>
+                    </div>`;
+                }
+            }
+            
+            if (data.ion_masses !== undefined) {
+                html += `<div class="data-item">
+                    <div class="data-label">Ion Masses</div>
+                    <div class="data-value">${data.ion_masses.join('+')} u</div>
+                </div>`;
+            }
+            
+            if (data.crystal_angle_deg !== undefined && data.crystal_angle_deg !== null) {
+                html += `<div class="data-item">
+                    <div class="data-label">Crystal Angle</div>
+                    <div class="data-value">${data.crystal_angle_deg.toFixed(1)}°</div>
+                </div>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // Control functions
+        async function startExperiment(expId) {
+            currentExperiment = expId;
+            log(`Starting experiment: ${expId}`);
+            
+            try {
+                const response = await fetch('/api/experiments/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        experiment: expId,
+                        config: {}
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    log(data.message, 'success');
+                    updateStatus('running');
+                } else {
+                    log(`Error: ${data.message}`, 'error');
+                }
+            } catch (e) {
+                log(`Request failed: ${e.message}`, 'error');
+            }
+        }
+        
+        async function stopExperiment() {
+            log('Stopping experiment...', 'warning');
+            
+            try {
+                const response = await fetch('/api/experiments/stop', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                log(data.message);
+            } catch (e) {
+                log(`Request failed: ${e.message}`, 'error');
+            }
+        }
+        
+        async function pauseExperiment() {
+            log('Pausing experiment...', 'warning');
+            
+            try {
+                const response = await fetch('/api/experiments/pause', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                log(data.message);
+            } catch (e) {
+                log(`Request failed: ${e.message}`, 'error');
+            }
+        }
+        
+        async function resumeExperiment() {
+            log('Resuming experiment...');
+            
+            try {
+                const response = await fetch('/api/experiments/resume', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                log(data.message);
+            } catch (e) {
+                log(`Request failed: ${e.message}`, 'error');
+            }
+        }
+        
+        // Poll for results when completed
+        async function pollStatus() {
+            try {
+                const response = await fetch('/api/experiments/status');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateStatus(data.status_value || data.status);
+                    updateProgress(data.progress);
+                    
+                    if (data.data) {
+                        displayResults(data.data);
+                    }
+                    
+                    if (data.result) {
+                        if (data.result.success) {
+                            log(`Experiment completed: ${data.result.message}`, 'success');
+                        } else {
+                            log(`Experiment failed: ${data.result.error}`, 'error');
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Status poll failed:', e);
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            connectStream();
+            pollStatus();
+            setInterval(pollStatus, 2000);  // Backup polling
+            
+            log('Applet Server connected');
+            log('Ready to run experiments');
+        });
+    </script>
+</body>
+</html>

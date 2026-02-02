@@ -1,0 +1,831 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Phase BO Visualizer{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Two-Phase BO Visualizer Layout Grid */
+    .bo-visualizer-grid {
+        display: grid;
+        grid-template-columns: 50% 50%;
+        grid-template-rows: 25% 75%;
+        gap: 1rem;
+        height: calc(100vh - 140px);
+        min-height: 600px;
+    }
+    
+    .gantt-panel {
+        grid-row: 1 / 3;
+        grid-column: 1;
+    }
+    
+    .score-panel {
+        grid-row: 1;
+        grid-column: 2;
+    }
+    
+    .control-panel {
+        grid-row: 2;
+        grid-column: 2;
+    }
+    
+    .panel-card {
+        background: rgba(31, 41, 55, 0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(75, 85, 99, 0.4);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(75, 85, 99, 0.3);
+    }
+    
+    .panel-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #f3f4f6;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .panel-content {
+        flex: 1;
+        overflow: auto;
+        position: relative;
+    }
+    
+    /* Phase Badge */
+    .phase-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .phase-idle { background: #6b7280; color: white; }
+    .phase-phase-i { background: #3b82f6; color: white; }
+    .phase-phase-ii { background: #8b5cf6; color: white; }
+    .phase-complete { background: #10b981; color: white; }
+    
+    /* Gantt Chart Styles */
+    .gantt-container {
+        position: relative;
+        height: 100%;
+        overflow-y: auto;
+    }
+    
+    .gantt-row {
+        display: flex;
+        align-items: center;
+        height: 40px;
+        margin-bottom: 8px;
+        position: relative;
+    }
+    
+    .gantt-label {
+        width: 120px;
+        font-size: 0.75rem;
+        color: #9ca3af;
+        flex-shrink: 0;
+    }
+    
+    .gantt-timeline {
+        flex: 1;
+        height: 100%;
+        position: relative;
+        background: rgba(55, 65, 81, 0.3);
+        border-radius: 4px;
+    }
+    
+    .gantt-bar {
+        position: absolute;
+        height: 28px;
+        top: 6px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 4px;
+        transition: all 0.3s ease;
+    }
+    
+    .gantt-bar-oven { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .gantt-bar-pi { background: linear-gradient(90deg, #ef4444, #dc2626); }
+    .gantt-bar-cooling { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+    .gantt-bar-rf { background: linear-gradient(90deg, #10b981, #059669); }
+    .gantt-bar-ejection { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
+    .gantt-bar-hd { background: linear-gradient(90deg, #ec4899, #db2777); }
+    
+    .gantt-time-axis {
+        display: flex;
+        margin-left: 120px;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(75, 85, 99, 0.5);
+    }
+    
+    .gantt-time-tick {
+        flex: 1;
+        text-align: center;
+        font-size: 0.65rem;
+        color: #6b7280;
+    }
+    
+    /* Score Plot Styles */
+    .score-container {
+        height: 100%;
+        position: relative;
+    }
+    
+    /* Control Panel Styles */
+    .control-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .form-label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    
+    .form-input {
+        background: rgba(55, 65, 81, 0.5);
+        border: 1px solid rgba(75, 85, 99, 0.5);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        color: #f3f4f6;
+        font-size: 0.875rem;
+        transition: border-color 0.2s;
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+    }
+    
+    .form-input:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        padding: 0.625rem 1.25rem;
+        border-radius: 6px;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    }
+    
+    .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .iteration-counter {
+        font-family: 'Courier New', monospace;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #3b82f6;
+    }
+    
+    .current-params-display {
+        background: rgba(17, 24, 39, 0.5);
+        border-radius: 6px;
+        padding: 0.75rem;
+        font-size: 0.75rem;
+        font-family: 'Courier New', monospace;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+    
+    .param-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.25rem 0;
+        border-bottom: 1px solid rgba(75, 85, 99, 0.2);
+    }
+    
+    .param-item:last-child {
+        border-bottom: none;
+    }
+    
+    .param-name {
+        color: #9ca3af;
+    }
+    
+    .param-value {
+        color: #3b82f6;
+        font-weight: 600;
+    }
+    
+    /* Convergence indicator */
+    .convergence-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .convergence-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .conv-good { background: #10b981; }
+    .conv-medium { background: #f59e0b; }
+    .conv-poor { background: #ef4444; }
+    
+    /* Loading overlay */
+    .loading-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+    
+    .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(59, 130, 246, 0.3);
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Status Bar -->
+<div class="flex items-center justify-between mb-4 px-2">
+    <div class="flex items-center gap-4">
+        <span id="status-phase" class="phase-badge phase-idle">IDLE</span>
+        <span class="text-gray-400 text-sm">Iteration: <span id="status-iteration" class="iteration-counter">0</span></span>
+    </div>
+    <div class="flex items-center gap-4">
+        <div class="convergence-indicator">
+            <span class="text-gray-400">Convergence:</span>
+            <span id="convergence-dot" class="convergence-dot conv-poor"></span>
+            <span id="convergence-value" class="text-gray-300">--</span>
+        </div>
+        <button id="refresh-btn" class="text-gray-400 hover:text-white transition">
+            <i class="fa-solid fa-rotate"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Main Visualizer Grid -->
+<div class="bo-visualizer-grid">
+    <!-- Left Panel: Pulse Sequence Gantt Chart -->
+    <div class="panel-card gantt-panel">
+        <div class="panel-header">
+            <h2 class="panel-title">
+                <i class="fa-solid fa-timeline text-blue-500"></i>
+                Pulse Sequence Gantt
+            </h2>
+            <span class="text-xs text-gray-500">TuRBO Parameters</span>
+        </div>
+        <div class="panel-content">
+            <div id="gantt-loading" class="loading-overlay" style="display: none;">
+                <div class="loading-spinner"></div>
+            </div>
+            <div id="gantt-container" class="gantt-container">
+                <!-- Gantt chart will be rendered here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Right: Optimization Score Plot -->
+    <div class="panel-card score-panel">
+        <div class="panel-header">
+            <h2 class="panel-title">
+                <i class="fa-solid fa-chart-line text-green-500"></i>
+                Optimization Score
+            </h2>
+            <span id="best-cost-badge" class="text-xs bg-green-900 text-green-300 px-2 py-1 rounded">Best: --</span>
+        </div>
+        <div class="panel-content">
+            <div class="score-container">
+                <canvas id="score-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Right: Configuration Control Panel -->
+    <div class="panel-card control-panel">
+        <div class="panel-header">
+            <h2 class="panel-title">
+                <i class="fa-solid fa-sliders text-purple-500"></i>
+                Configuration Control
+            </h2>
+            <span class="text-xs text-gray-500">OptimizationConfig</span>
+        </div>
+        <div class="panel-content">
+            <form id="config-form" class="control-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Target Be+ Count</label>
+                        <input type="number" id="target-be-count" class="form-input" value="1" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">HD+ Present</label>
+                        <select id="target-hd-present" class="form-input">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">TuRBO Init Points</label>
+                        <input type="number" id="turbo-init" class="form-input" value="10" min="5" max="50">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">MOBO Max Iterations</label>
+                        <input type="number" id="mobo-max-iter" class="form-input" value="30" min="10" max="100">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Exploration Weight (ξ)</label>
+                    <input type="range" id="exploration-weight" class="form-input" value="0.1" min="0.01" max="1" step="0.01">
+                    <div class="flex justify-between text-xs text-gray-500">
+                        <span>Exploit</span>
+                        <span id="xi-value">0.10</span>
+                        <span>Explore</span>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-primary" id="update-config-btn">
+                    <i class="fa-solid fa-check mr-2"></i>Update Configuration
+                </button>
+            </form>
+            
+            <!-- Current Parameters Display -->
+            <div class="mt-4">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase mb-2">Current Parameters</h3>
+                <div id="current-params" class="current-params-display">
+                    <span class="text-gray-600">No active parameters</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/gantt_chart.js') }}"></script>
+<script>
+    // Global state
+    let scoreChart = null;
+    let optimizationHistory = [];
+    let currentPhase = 'idle';
+    let currentParams = null;
+    
+    // Phase name mapping
+    const phaseNames = {
+        'idle': 'IDLE',
+        'be_loading_turbo': 'PHASE_I_BE_LOADING',
+        'be_ejection_turbo': 'PHASE_I_BE_EJECTION', 
+        'hd_loading_turbo': 'PHASE_I_HD_LOADING',
+        'global_mobo': 'PHASE_II_MOBO',
+        'complete': 'COMPLETE'
+    };
+    
+    const phaseClasses = {
+        'idle': 'phase-idle',
+        'be_loading_turbo': 'phase-phase-i',
+        'be_ejection_turbo': 'phase-phase-i',
+        'hd_loading_turbo': 'phase-phase-i',
+        'global_mobo': 'phase-phase-ii',
+        'complete': 'phase-complete'
+    };
+    
+    // Initialize score chart
+    function initScoreChart() {
+        const ctx = document.getElementById('score-chart').getContext('2d');
+        scoreChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Cost',
+                    data: [],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#10b981'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 500 },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Cost: ${context.parsed.y.toFixed(4)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Iteration',
+                            color: '#9ca3af',
+                            font: { size: 10 }
+                        },
+                        grid: { color: 'rgba(75, 85, 99, 0.3)' },
+                        ticks: { 
+                            color: '#9ca3af',
+                            font: { size: 9 }
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Cost (Lower is Better)',
+                            color: '#9ca3af',
+                            font: { size: 10 }
+                        },
+                        grid: { color: 'rgba(75, 85, 99, 0.3)' },
+                        ticks: { 
+                            color: '#9ca3af',
+                            font: { size: 9 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Update score chart with history
+    function updateScoreChart(history) {
+        if (!scoreChart || !history || history.length === 0) return;
+        
+        const labels = history.map((h, i) => i + 1);
+        const costs = history.map(h => h.cost);
+        
+        scoreChart.data.labels = labels;
+        scoreChart.data.datasets[0].data = costs;
+        scoreChart.update();
+        
+        // Update best cost badge
+        const bestCost = Math.min(...costs);
+        document.getElementById('best-cost-badge').textContent = `Best: ${bestCost.toFixed(3)}`;
+        
+        // Update convergence indicator
+        updateConvergenceIndicator(history);
+    }
+    
+    // Update convergence indicator
+    function updateConvergenceIndicator(history) {
+        if (history.length < 5) return;
+        
+        const recent = history.slice(-5);
+        const costs = recent.map(h => h.cost);
+        const variance = calculateVariance(costs);
+        
+        const dot = document.getElementById('convergence-dot');
+        const value = document.getElementById('convergence-value');
+        
+        dot.className = 'convergence-dot';
+        if (variance < 0.01) {
+            dot.classList.add('conv-good');
+            value.textContent = 'Converged';
+        } else if (variance < 0.1) {
+            dot.classList.add('conv-medium');
+            value.textContent = 'Stabilizing';
+        } else {
+            dot.classList.add('conv-poor');
+            value.textContent = 'Exploring';
+        }
+    }
+    
+    function calculateVariance(arr) {
+        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+        const squaredDiffs = arr.map(x => Math.pow(x - mean, 2));
+        return squaredDiffs.reduce((a, b) => a + b, 0) / arr.length;
+    }
+    
+    // Update Gantt chart with current parameters
+    function updateGanttChart(params, phase) {
+        if (!params) {
+            document.getElementById('gantt-container').innerHTML = 
+                '<div class="flex items-center justify-center h-full text-gray-500">No parameters available</div>';
+            return;
+        }
+        
+        const ganttData = convertParamsToGanttData(params, phase);
+        renderGanttChart('gantt-container', ganttData);
+    }
+    
+    // Convert parameters to Gantt data format
+    function convertParamsToGanttData(params, phase) {
+        const data = {
+            rows: [],
+            maxTime: 1000
+        };
+        
+        // Extract timing parameters from various possible formats
+        const ovenStart = params.oven_start_ms || params.oven_start || 0;
+        const ovenDuration = params.oven_duration_ms || params.oven_duration || 500;
+        const piStart = params.pi_laser_start_ms || params.pi_start_ms || params.pi_laser_start || params.pi_start || 100;
+        const piDuration = params.pi_laser_duration_ms || params.pi_duration_ms || params.pi_laser_duration || params.pi_duration || 200;
+        const coolingStart = params.cooling_start_ms || params.cooling_start || 0;
+        const coolingDuration = params.cooling_duration_ms || params.cooling_duration || 1000;
+        const rfStart = params.rf_start_ms || params.rf_start || 0;
+        const rfDuration = params.rf_duration_ms || params.rf_duration || 1000;
+        
+        // Calculate cycle end time
+        const cycleEnd = Math.max(
+            ovenStart + ovenDuration,
+            piStart + piDuration,
+            coolingStart + coolingDuration,
+            rfStart + rfDuration
+        );
+        data.maxTime = Math.ceil(cycleEnd * 1.1 / 100) * 100; // Round up to nearest 100ms
+        
+        // Add rows based on phase
+        data.rows.push({
+            label: 'Oven',
+            bars: [{
+                start: ovenStart,
+                duration: ovenDuration,
+                type: 'oven',
+                label: `${ovenDuration.toFixed(0)}ms`
+            }]
+        });
+        
+        data.rows.push({
+            label: 'PI Laser',
+            bars: [{
+                start: piStart,
+                duration: piDuration,
+                type: 'pi',
+                label: `${piDuration.toFixed(0)}ms`
+            }]
+        });
+        
+        data.rows.push({
+            label: 'Cooling',
+            bars: [{
+                start: coolingStart,
+                duration: coolingDuration,
+                type: 'cooling',
+                label: coolingDuration === cycleEnd ? 'Cont.' : `${coolingDuration.toFixed(0)}ms`
+            }]
+        });
+        
+        data.rows.push({
+            label: 'RF Drive',
+            bars: [{
+                start: rfStart,
+                duration: rfDuration,
+                type: 'rf',
+                label: rfDuration === cycleEnd ? 'Cont.' : `${rfDuration.toFixed(0)}ms`
+            }]
+        });
+        
+        // Phase-specific additional rows
+        if (phase && phase.includes('ejection')) {
+            const tickleStart = params.tickle_start_ms || params.tickle_start || ovenStart + ovenDuration;
+            const tickleDuration = params.tickle_duration_ms || params.tickle_duration || 50;
+            data.rows.push({
+                label: 'Be+ Ejection',
+                bars: [{
+                    start: tickleStart,
+                    duration: tickleDuration,
+                    type: 'ejection',
+                    label: 'Tickle'
+                }]
+            });
+        }
+        
+        if (phase && phase.includes('hd')) {
+            const hdValveStart = params.hd_valve_start_ms || params.hd_valve_start || ovenStart + ovenDuration;
+            const hdValveDuration = params.hd_valve_duration_ms || params.hd_valve_duration || 100;
+            data.rows.push({
+                label: 'HD Loading',
+                bars: [{
+                    start: hdValveStart,
+                    duration: hdValveDuration,
+                    type: 'hd',
+                    label: 'Valve'
+                }]
+            });
+        }
+        
+        return data;
+    }
+    
+    // Update current parameters display
+    function updateCurrentParamsDisplay(params) {
+        const container = document.getElementById('current-params');
+        if (!params || Object.keys(params).length === 0) {
+            container.innerHTML = '<span class="text-gray-600">No active parameters</span>';
+            return;
+        }
+        
+        const html = Object.entries(params).map(([key, value]) => {
+            const displayValue = typeof value === 'number' ? value.toFixed(2) : value;
+            return `
+                <div class="param-item">
+                    <span class="param-name">${key}</span>
+                    <span class="param-value">${displayValue}</span>
+                </div>
+            `;
+        }).join('');
+        
+        container.innerHTML = html;
+    }
+    
+    // Update status UI
+    function updateStatusUI(status) {
+        if (!status) return;
+        
+        currentPhase = status.phase || 'idle';
+        
+        // Update phase badge
+        const phaseBadge = document.getElementById('status-phase');
+        phaseBadge.textContent = phaseNames[currentPhase] || currentPhase.toUpperCase();
+        phaseBadge.className = `phase-badge ${phaseClasses[currentPhase] || 'phase-idle'}`;
+        
+        // Update iteration
+        document.getElementById('status-iteration').textContent = status.iteration || 0;
+        
+        // Update current params if available
+        if (status.current_params) {
+            currentParams = status.current_params;
+            updateCurrentParamsDisplay(currentParams);
+            updateGanttChart(currentParams, currentPhase);
+        }
+        
+        // Update config form if config is available
+        if (status.config) {
+            updateConfigForm(status.config);
+        }
+    }
+    
+    // Update config form with values
+    function updateConfigForm(config) {
+        if (config.target_be_count !== undefined) {
+            document.getElementById('target-be-count').value = config.target_be_count;
+        }
+        if (config.target_hd_present !== undefined) {
+            document.getElementById('target-hd-present').value = config.target_hd_present.toString();
+        }
+        if (config.turbo_n_init !== undefined) {
+            document.getElementById('turbo-init').value = config.turbo_n_init;
+        }
+        if (config.mobo_max_iterations !== undefined) {
+            document.getElementById('mobo-max-iter').value = config.mobo_max_iterations;
+        }
+    }
+    
+    // Load optimization history
+    async function loadHistory() {
+        try {
+            const response = await apiRequest('/api/history');
+            const history = response.data || [];
+            
+            if (history.length > optimizationHistory.length) {
+                optimizationHistory = history;
+                updateScoreChart(optimizationHistory);
+            }
+        } catch (e) {
+            console.error('Failed to load history:', e);
+        }
+    }
+    
+    // Load status
+    async function loadStatus() {
+        try {
+            const response = await apiRequest('/api/status');
+            const status = response.data || response;
+            updateStatusUI(status);
+        } catch (e) {
+            console.error('Failed to load status:', e);
+        }
+    }
+    
+    // Handle config form submission
+    document.getElementById('config-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const btn = document.getElementById('update-config-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Updating...';
+        
+        const config = {
+            target_be_count: parseInt(document.getElementById('target-be-count').value),
+            target_hd_present: document.getElementById('target-hd-present').value === 'true',
+            turbo_n_init: parseInt(document.getElementById('turbo-init').value),
+            mobo_max_iterations: parseInt(document.getElementById('mobo-max-iter').value),
+            exploration_weight: parseFloat(document.getElementById('exploration-weight').value)
+        };
+        
+        try {
+            const response = await apiRequest('/api/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+            
+            if (response.status === 'success') {
+                showToast('Configuration updated successfully', 'success');
+            } else {
+                showToast(response.message || 'Failed to update configuration', 'error');
+            }
+        } catch (e) {
+            showToast('Failed to update configuration', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i>Update Configuration';
+        }
+    });
+    
+    // Handle exploration weight slider
+    document.getElementById('exploration-weight')?.addEventListener('input', (e) => {
+        document.getElementById('xi-value').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        initScoreChart();
+        loadStatus();
+        loadHistory();
+        
+        // Fast polling for real-time updates
+        setInterval(() => {
+            loadStatus();
+            loadHistory();
+        }, 2000);
+    });
+</script>
+{% endblock %}

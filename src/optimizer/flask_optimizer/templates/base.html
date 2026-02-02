@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Two-Phase BO Visualizer{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        /* Animations */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.2); opacity: 0; }
+        }
+        .animate-pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Glass effect */
+        .glass {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(75, 85, 99, 0.3);
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fa-solid fa-atom text-blue-500 text-2xl mr-3"></i>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="flex items-baseline space-x-1">
+                            <span class="text-white font-semibold text-lg">Two-Phase BO Visualizer</span>
+                            <span class="text-gray-500 text-xs ml-2 px-2 py-1 bg-gray-700 rounded">v1.0</span>
+                        </div>
+                    </div>
+                    <div class="ml-8 hidden md:block">
+                        <div class="flex items-baseline space-x-4">
+                            <a href="/" class="{% if request.path == '/' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} px-3 py-2 rounded-md text-sm font-medium transition">
+                                <i class="fa-solid fa-gauge-high mr-2"></i>Overview
+                            </a>
+                            <a href="/dashboard" class="{% if request.path == '/dashboard' %}bg-blue-600 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} px-3 py-2 rounded-md text-sm font-medium transition">
+                                <i class="fa-solid fa-chart-line mr-2"></i>Visualizer
+                            </a>
+                            <a href="/parameters" class="{% if request.path == '/parameters' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} px-3 py-2 rounded-md text-sm font-medium transition">
+                                <i class="fa-solid fa-sliders mr-2"></i>Parameters
+                            </a>
+                            <a href="/profiles" class="{% if request.path == '/profiles' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} px-3 py-2 rounded-md text-sm font-medium transition">
+                                <i class="fa-solid fa-floppy-disk mr-2"></i>Profiles
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status indicator -->
+                <div class="flex items-center space-x-4">
+                    <div id="connection-status" class="flex items-center">
+                        <span class="h-3 w-3 rounded-full bg-green-500 mr-2"></span>
+                        <span class="text-sm text-gray-400">Connected</span>
+                    </div>
+                    
+                    <button id="refresh-btn" class="text-gray-400 hover:text-white transition" title="Refresh page">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Toast notifications -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+    
+    <!-- Base JavaScript -->
+    <script>
+        // Utility functions
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                warning: 'bg-yellow-600',
+                info: 'bg-blue-600'
+            };
+            
+            const icons = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+            
+            toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 transform transition-all duration-300 translate-y-0 opacity-100`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icons[type]}"></i>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // API helper
+        async function apiRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                showToast(`Error: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        // Refresh button - only attach if element exists
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                location.reload();
+            });
+        }
+        
+        // Status polling - can be disabled by pages that handle their own polling
+        let statusPollingEnabled = true;
+        let statusPollingInterval = null;
+        
+        function startStatusPolling(intervalMs = 2000) {
+            if (!statusPollingEnabled || statusPollingInterval) return;
+            
+            statusPollingInterval = setInterval(async () => {
+                if (!statusPollingEnabled) return;
+                
+                try {
+                    const data = await apiRequest('/api/status');
+                    // Handle both {status: 'success', data: {...}} and direct response formats
+                    const statusData = data.data || data;
+                    
+                    // Only update if page hasn't overridden updateStatusUI
+                    if (typeof updateStatusUI === 'function' && updateStatusUI !== window._defaultUpdateStatusUI) {
+                        updateStatusUI(statusData);
+                    }
+                    
+                    // Update connection status indicator
+                    const connStatus = document.getElementById('connection-status');
+                    if (connStatus) {
+                        connStatus.innerHTML = `
+                            <span class="h-3 w-3 rounded-full bg-green-500 mr-2"></span>
+                            <span class="text-sm text-gray-400">Connected</span>
+                        `;
+                    }
+                } catch (e) {
+                    const connStatus = document.getElementById('connection-status');
+                    if (connStatus) {
+                        connStatus.innerHTML = `
+                            <span class="h-3 w-3 rounded-full bg-red-500 mr-2"></span>
+                            <span class="text-sm text-red-400">Disconnected</span>
+                        `;
+                    }
+                }
+            }, intervalMs);
+        }
+        
+        function stopStatusPolling() {
+            if (statusPollingInterval) {
+                clearInterval(statusPollingInterval);
+                statusPollingInterval = null;
+            }
+        }
+        
+        // Default no-op status update handler
+        window._defaultUpdateStatusUI = function(status) {
+            // Override in specific pages
+        };
+        
+        function updateStatusUI(status) {
+            window._defaultUpdateStatusUI(status);
+        }
+        
+        // Start polling on page load (can be disabled by setting window.disableStatusPolling = true)
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.disableStatusPolling) {
+                startStatusPolling();
+            }
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
