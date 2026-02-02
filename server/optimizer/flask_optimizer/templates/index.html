@@ -250,10 +250,14 @@
             costEl.textContent = status.best_cost !== undefined ? status.best_cost.toFixed(2) : '--';
         }
         
-        // Active dimensions
+        // Active dimensions / Phase info
         const dimsEl = document.getElementById('config-active-dims');
-        if (dimsEl && status.active_dimensions) {
-            dimsEl.textContent = status.active_dimensions.length;
+        if (dimsEl) {
+            if (status.active_dimensions) {
+                dimsEl.textContent = status.active_dimensions.length;
+            } else if (status.current_phase) {
+                dimsEl.textContent = status.current_phase;
+            }
         }
     }
     
@@ -261,12 +265,19 @@
     async function loadConfig() {
         try {
             const response = await apiRequest('/api/config');
-            const config = response.data;
+            const config = response.data || response;
             
-            document.getElementById('config-be-count').textContent = config.target_be_count;
-            document.getElementById('config-hd-present').textContent = config.target_hd_present ? 'Yes' : 'No';
-            document.getElementById('config-max-iter').textContent = config.max_iterations;
-            document.getElementById('config-threshold').textContent = config.convergence_threshold;
+            // Handle both TwoPhaseController config and legacy config formats
+            document.getElementById('config-be-count').textContent = 
+                config.target_be_count !== undefined ? config.target_be_count : '--';
+            document.getElementById('config-hd-present').textContent = 
+                config.target_hd_present ? 'Yes' : (config.target_hd_present === false ? 'No' : '--');
+            document.getElementById('config-max-iter').textContent = 
+                config.turbo_max_iterations !== undefined ? config.turbo_max_iterations : 
+                (config.max_iterations !== undefined ? config.max_iterations : '--');
+            document.getElementById('config-threshold').textContent = 
+                config.turbo_success_threshold !== undefined ? config.turbo_success_threshold : 
+                (config.convergence_threshold !== undefined ? config.convergence_threshold : '--');
         } catch (e) {
             console.error('Failed to load config:', e);
         }

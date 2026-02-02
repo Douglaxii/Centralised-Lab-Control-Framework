@@ -262,15 +262,22 @@
         document.getElementById('stat-best-cost').textContent = status.best_cost !== undefined ? status.best_cost.toFixed(2) : '--';
         document.getElementById('stat-active-dims').textContent = status.active_dimensions ? status.active_dimensions.length : '--';
         
-        // Active dimensions badges
+        // Active dimensions badges (from TuRBO trust regions if available)
         if (status.active_dimensions && status.active_dimensions.length > 0) {
-            // We'll need to map indices to names - for now just show indices
             const container = document.getElementById('active-dims-container');
             container.innerHTML = status.active_dimensions.map((dim, i) => `
                 <span class="px-3 py-1 bg-blue-900 text-blue-300 rounded-full text-sm">
                     Dim ${dim}
                 </span>
             `).join('');
+        } else if (status.current_phase && status.current_phase.includes('turbo')) {
+            // Show trust region info for TuRBO phases
+            const container = document.getElementById('active-dims-container');
+            container.innerHTML = `
+                <span class="px-3 py-1 bg-blue-900 text-blue-300 rounded-full text-sm">
+                    TuRBO: Trust Region Active
+                </span>
+            `;
         }
         
         // Update charts
@@ -398,7 +405,11 @@
                 apiRequest('/api/history')
             ]);
             
-            updateDashboard(statusRes.data, historyRes.data);
+            // Handle both {status: 'success', data: {...}} and direct response formats
+            const statusData = statusRes.data || statusRes;
+            const historyData = historyRes.data || historyRes || [];
+            
+            updateDashboard(statusData, historyData);
         } catch (e) {
             console.error('Failed to load data:', e);
         }

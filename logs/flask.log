@@ -485,3 +485,46 @@ Press CTRL+C to quit
 2026-02-01 18:49:51,462 - [flask] - INFO - Connected to manager at 127.0.0.1:5557
 192.168.0.74 - - [01/Feb/2026 18:49:51] "GET /api/telemetry/stream HTTP/1.1" 200 -
 192.168.0.74 - - [01/Feb/2026 18:49:51] "GET /api/status HTTP/1.1" 200 -
+2026-02-01 21:09:44,122 - [flask] - INFO - ============================================================
+2026-02-01 21:09:44,122 - [flask] - INFO - Flask Dashboard Server Starting...
+2026-02-01 21:09:44,123 - [flask] - INFO - Manager: 127.0.0.1:5557
+2026-02-01 21:09:44,123 - [flask] - INFO - Camera labelled frames path: d:\MLS\data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 127.0.0.1:5557
+Streaming annotated frames from: d:\MLS\data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit
+192.168.0.74 - - [01/Feb/2026 21:10:14] "GET / HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:10:14] "GET /video_feed HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:10:14] "GET /static/js/oscilloscope.js HTTP/1.1" 304 -
+2026-02-01 21:10:14,967 - [flask] - INFO - Connected to manager at 127.0.0.1:5557
+192.168.0.74 - - [01/Feb/2026 21:10:14] "GET /api/status HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:10:14] "GET /api/telemetry/stream HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:22:36] "GET / HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:22:36] "GET /static/js/oscilloscope.js HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:22:36] "GET /video_feed HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:22:37] "GET /api/status HTTP/1.1" 200 -
+192.168.0.74 - - [01/Feb/2026 21:22:37] "GET /api/telemetry/stream HTTP/1.1" 200 -
+192.168.0.74 - - [02/Feb/2026 09:05:30] "GET / HTTP/1.1" 200 -
+192.168.0.74 - - [02/Feb/2026 09:05:30] "GET /static/js/oscilloscope.js HTTP/1.1" 304 -
+192.168.0.74 - - [02/Feb/2026 09:05:30] "GET /video_feed HTTP/1.1" 200 -
+192.168.0.74 - - [02/Feb/2026 09:05:30] "GET /api/telemetry/stream HTTP/1.1" 200 -
+192.168.0.74 - - [02/Feb/2026 09:05:30] "GET /api/status HTTP/1.1" 200 -
+flask] - INFO - Camera labelled frames path: d:\MLS\data\camera\processed_frames
+Dashboard running at http://0.0.0.0:5000
+Connected to manager at 127.0.0.1:5557
+Streaming annotated frames from: d:\MLS\data\camera\processed_frames
+Scientific Dashboard - Turbo Algorithm Control
+ * Serving Flask app 'flask_server'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.0.74:5000
+Press CTRL+C to quit

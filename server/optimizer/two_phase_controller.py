@@ -23,6 +23,13 @@ from .turbo import TuRBOOptimizer
 from .mobo import MOBOOptimizer, Objective, Constraint, ConstraintType
 from .parameters import create_be_loading_space, create_be_ejection_space, create_hd_loading_space
 from .storage import ProfileStorage
+from .objectives import (
+    create_objective, 
+    PhaseIIMultiObjective,
+    ObjectiveRegistry,
+    ObjectiveConfig,
+    ConstraintConfig
+)
 
 logger = logging.getLogger("optimizer.two_phase")
 
@@ -42,6 +49,7 @@ class OptimizationConfig:
     """Configuration for two-phase optimization."""
     # Targets
     target_be_count: int = 1
+    target_hd_count: int = 1
     target_hd_present: bool = False
     
     # Phase I: TuRBO settings
@@ -55,13 +63,25 @@ class OptimizationConfig:
     # Warm start
     warm_start_top_k: int = 5  # Number of top Phase I points to seed Phase II
     
-    # Constraints
-    be_residual_threshold: float = 0.1  # Max residual Be+ fluorescence
-    max_cycle_time_ms: float = 30000.0   # Max total cycle time
+    # Constraints (from BO.md Section 3.2)
+    be_residual_threshold: float = 0.1  # Constraint 1: Max residual Be+ 
+    pressure_threshold_mbar: float = 5e-10  # Constraint 2: Pressure limit
+    laser_time_threshold_ms: float = 1000.0  # Constraint 3: Laser high power time limit
     
     # Stopping criteria
     turbo_success_threshold: float = 0.9
     mobo_hypervolume_improvement_threshold: float = 0.01
+    
+    # Scalable objectives/constraints lists (for dynamic addition)
+    custom_objectives: List[ObjectiveConfig] = None
+    custom_constraints: List[ConstraintConfig] = None
+    
+    def __post_init__(self):
+        """Initialize default lists."""
+        if self.custom_objectives is None:
+            self.custom_objectives = []
+        if self.custom_constraints is None:
+            self.custom_constraints = []
 
 
 class TwoPhaseController:
@@ -185,7 +205,7 @@ class TwoPhaseController:
         )
     
     def _init_global_mobo(self):
-        """Initialize MOBO for global optimization."""
+        """Initialize MOBO for global optimization with scalable objectives/constraints."""
         # Combined parameter space from all phases
         be_space = create_be_loading_space()
         hd_space = create_hd_loading_space()
@@ -194,36 +214,31 @@ class TwoPhaseController:
         bounds = self._compute_tightened_bounds()
         n_dims = len(bounds)
         
-        # Define objectives
-        objectives = [
-            Objective(
-                name="yield",
-                evaluator=lambda x, m: -m.get("hd_yield", 0),  # Maximize
-                minimize=False
-            ),
-            Objective(
-                name="speed",
-                evaluator=lambda x, m: m.get("total_cycle_time_ms", 30000),  # Minimize
-                minimize=True
-            )
-        ]
+        # Create Phase II multi-objective handler
+        phase_ii_obj = PhaseIIMultiObjective(
+            target_be_count=self.config.target_be_count,
+            target_hd_count=self.config.target_hd_count,
+            be_secular_freq=307.0,
+            hd_secular_freq=277.0,
+            freq_tolerance=5.0,
+            # Constraint thresholds from BO.md Section 3.2
+            be_residual_threshold=self.config.be_residual_threshold,
+            pressure_threshold=self.config.pressure_threshold_mbar,
+            laser_time_threshold=self.config.laser_time_threshold_ms
+        )
         
-        # Define constraints
-        # Note: MOBO passes measurements dict as second argument, not ndarray
-        constraints = [
-            Constraint(
-                name="purity",
-                constraint_type=ConstraintType.INEQUALITY,
-                evaluator=lambda x, measurements: measurements.get("be_residual", 0) - self.config.be_residual_threshold,
-                threshold=0
-            ),
-            Constraint(
-                name="stability",
-                constraint_type=ConstraintType.INEQUALITY,
-                evaluator=lambda x, measurements: measurements.get("trap_heating", 0) - 0.1,
-                threshold=0
-            )
-        ]
+        # Get objectives and constraints from PhaseIIMultiObjective
+        objectives = phase_ii_obj.get_objectives()
+        constraints = phase_ii_obj.get_constraints()
+        
+        # Add any custom objectives/constraints from config (scalable)
+        objectives.extend(self.config.custom_objectives)
+        constraints.extend(self.config.custom_constraints)
+        
+        logger.info(
+            f"Initializing MOBO with {len(objectives)} objectives and "
+            f"{len(constraints)} constraints"
+        )
         
         self.mobo_optimizer = MOBOOptimizer(
             n_dims=n_dims,
@@ -234,8 +249,51 @@ class TwoPhaseController:
             max_iterations=self.config.mobo_max_iterations
         )
         
+        # Store reference to objective handler for later use
+        self._phase_ii_objective = phase_ii_obj
+        
         # Warm start: Seed MOBO with top Phase I results
         self._warm_start_mobo()
+    
+    def add_objective(self, objective: ObjectiveConfig):
+        """
+        Add a custom objective dynamically (scalable architecture).
+        
+        Args:
+            objective: ObjectiveConfig with name, evaluator, etc.
+        """
+        if self.mobo_optimizer is not None:
+            self.mobo_optimizer.add_objective(objective)
+            logger.info(f"Added dynamic objective: {objective.name}")
+        else:
+            # Store for later
+            self.config.custom_objectives.append(objective)
+    
+    def add_constraint(self, constraint: ConstraintConfig):
+        """
+        Add a custom constraint dynamically (scalable architecture).
+        
+        Args:
+            constraint: ConstraintConfig with name, evaluator, threshold, etc.
+        """
+        if self.mobo_optimizer is not None:
+            self.mobo_optimizer.add_constraint(constraint)
+            logger.info(f"Added dynamic constraint: {constraint.name}")
+        else:
+            # Store for later
+            self.config.custom_constraints.append(constraint)
+    
+    def list_objectives(self) -> List[str]:
+        """List all active objective names."""
+        if self.mobo_optimizer:
+            return self.mobo_optimizer.list_objectives()
+        return []
+    
+    def list_constraints(self) -> List[str]:
+        """List all active constraint names."""
+        if self.mobo_optimizer:
+            return self.mobo_optimizer.list_constraints()
+        return []
     
     def _compute_tightened_bounds(self) -> List[Tuple[float, float]]:
         """

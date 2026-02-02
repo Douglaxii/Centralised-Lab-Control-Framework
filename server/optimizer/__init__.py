@@ -51,7 +51,13 @@ from .objectives import (
     BeLoadingObjective,
     BeEjectionObjective,
     HdLoadingObjective,
-    ObjectiveFunction
+    PhaseIIMultiObjective,
+    ObjectiveFunction,
+    ObjectiveConfig,
+    ConstraintConfig,
+    ObjectiveType,
+    ObjectiveRegistry,
+    create_objective
 )
 
 # Storage
@@ -91,6 +97,12 @@ __all__ = [
     'BeLoadingObjective',
     'BeEjectionObjective',
     'HdLoadingObjective',
+    'PhaseIIMultiObjective',
+    'ObjectiveConfig',
+    'ConstraintConfig',
+    'ObjectiveType',
+    'ObjectiveRegistry',
+    'create_objective',
     
     # Storage
     'ProfileStorage',

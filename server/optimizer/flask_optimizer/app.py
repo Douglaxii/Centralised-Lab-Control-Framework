@@ -55,23 +55,34 @@ class ControlManagerClient:
         self.zmq_enabled = True
         self._zmq_context = None
         self._zmq_socket = None
+        self._zmq_lock = threading.Lock()
         
         logger.info(f"ControlManager client initialized: {host}:{port}")
     
+    def _get_zmq_socket(self):
+        """Get or create ZMQ socket with connection pooling."""
+        import zmq
+        
+        with self._zmq_lock:
+            if self._zmq_socket is None:
+                self._zmq_context = zmq.Context()
+                self._zmq_socket = self._zmq_context.socket(zmq.REQ)
+                self._zmq_socket.connect(f"tcp://{self.host}:{self.port}")
+                self._zmq_socket.setsockopt(zmq.RCVTIMEO, 5000)  # 5 second timeout
+                self._zmq_socket.setsockopt(zmq.LINGER, 0)
+                logger.info(f"ZMQ socket connected to {self.host}:{self.port}")
+            return self._zmq_socket
+    
     def _send_request(self, action: str, data: dict = None) -> dict:
         """
-        Send request to ControlManager.
+        Send request to ControlManager via ZMQ.
         
-        In production, this uses ZMQ to communicate with ControlManager.
-        For now, we simulate or use HTTP if available.
+        Uses connection pooling for efficiency.
         """
         import zmq
         
         try:
-            context = zmq.Context()
-            socket = context.socket(zmq.REQ)
-            socket.connect(f"tcp://{self.host}:{self.port}")
-            socket.setsockopt(zmq.RCVTIMEO, 5000)  # 5 second timeout
+            socket = self._get_zmq_socket()
             
             request_data = {
                 "action": action,
@@ -84,17 +95,52 @@ class ControlManagerClient:
             socket.send_json(request_data)
             response = socket.recv_json()
             
-            socket.close()
-            context.term()
-            
             return response
             
+        except zmq.Again:
+            # Timeout - recreate socket for next request
+            logger.warning("ZMQ request timeout, recreating socket")
+            with self._zmq_lock:
+                if self._zmq_socket:
+                    try:
+                        self._zmq_socket.close()
+                    except:
+                        pass
+                    self._zmq_socket = None
+            return {
+                "status": "error",
+                "message": "Request timeout - ControlManager not responding"
+            }
         except Exception as e:
             logger.error(f"ZMQ request failed: {e}")
+            # Reset socket on error
+            with self._zmq_lock:
+                if self._zmq_socket:
+                    try:
+                        self._zmq_socket.close()
+                    except:
+                        pass
+                    self._zmq_socket = None
             return {
                 "status": "error",
                 "message": f"Failed to communicate with ControlManager: {e}"
             }
+    
+    def close(self):
+        """Close ZMQ socket and context."""
+        with self._zmq_lock:
+            if self._zmq_socket:
+                try:
+                    self._zmq_socket.close()
+                except:
+                    pass
+                self._zmq_socket = None
+            if self._zmq_context:
+                try:
+                    self._zmq_context.term()
+                except:
+                    pass
+                self._zmq_context = None
     
     # Optimizer commands
     def optimize_start(self, **config) -> dict:
@@ -294,7 +340,7 @@ def register_routes(app: Flask):
     def api_profiles():
         """Get all saved profiles."""
         try:
-            from server.optimizer import ProfileStorage
+            from server.optimizer.storage import ProfileStorage
             storage = ProfileStorage()
             profiles = storage.list_profiles()
             return jsonify({
@@ -303,6 +349,7 @@ def register_routes(app: Flask):
                 "count": len(profiles)
             })
         except Exception as e:
+            logger.error(f"Error listing profiles: {e}")
             return jsonify({
                 "status": "error",
                 "message": str(e)
@@ -312,17 +359,25 @@ def register_routes(app: Flask):
     def api_profile_detail(key: str):
         """Get specific profile."""
         try:
-            from server.optimizer import ProfileStorage
+            from server.optimizer.storage import ProfileStorage
             storage = ProfileStorage()
             
+            # Parse key like "be_1" or "be_1_hd"
             parts = key.split("_")
             if len(parts) < 2:
                 return jsonify({
                     "status": "error",
-                    "message": "Invalid profile key"
+                    "message": "Invalid profile key format"
                 }), 400
             
-            be_count = int(parts[1])
+            try:
+                be_count = int(parts[1])
+            except (IndexError, ValueError):
+                return jsonify({
+                    "status": "error",
+                    "message": "Invalid Be+ count in profile key"
+                }), 400
+            
             hd_present = "hd" in parts
             
             profile = storage.get_profile(be_count, hd_present)
@@ -338,6 +393,7 @@ def register_routes(app: Flask):
                 "data": profile
             })
         except Exception as e:
+            logger.error(f"Error loading profile: {e}")
             return jsonify({
                 "status": "error",
                 "message": str(e)
@@ -351,7 +407,7 @@ def register_routes(app: Flask):
     def api_parameter_spaces():
         """Get parameter space definitions."""
         try:
-            from server.optimizer import (
+            from server.optimizer.parameters import (
                 create_be_loading_space,
                 create_be_ejection_space,
                 create_hd_loading_space
@@ -387,6 +443,7 @@ def register_routes(app: Flask):
                 "data": spaces
             })
         except Exception as e:
+            logger.error(f"Error loading parameter spaces: {e}")
             return jsonify({
                 "status": "error",
                 "message": str(e)
@@ -485,7 +542,9 @@ class OptimizerWebServer:
     def stop(self):
         """Stop the server."""
         self._running = False
-        logger.info("Optimizer Flask server stop requested")
+        # Close ZMQ connections
+        control_manager_client.close()
+        logger.info("Optimizer Flask server stopped")
     
     def is_running(self) -> bool:
         """Check if server is running."""

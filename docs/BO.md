@@ -20,15 +20,15 @@ The primary challenge in tuning individual stages (Loading/Ejection) is the high
 
 ### 2.1 Module A: Be+ Loading Optimizer
 
-- **Goal:** Maximize saturation of the Beryllium ion cloud
+- **Goal:** find optimal parameters for each ion_count [1,8]
 - **Algorithm:** TuRBO-1 (Single Trust Region)
 - **Input Vectors:** 
   - RF voltage (u_rf_volts)
   - DC electrodes (ec1, ec2, comp_h, comp_v)
   - Laser parameters (amp0, amp1, cooling detuning)
   - Timing parameters (oven_start, oven_duration, pi_start, pi_duration)
-- **Metric:** Total fluorescence counts (PMT/Camera)
-- **Stopping Criterion:** Fluorescence plateau or max iterations reached
+- **Metric:** ion_counts
+- **Stopping Criterion:** prefered ion number has been reached
 
 ### 2.2 Module B: Be+ Ejection Optimizer
 
@@ -36,21 +36,26 @@ The primary challenge in tuning individual stages (Loading/Ejection) is the high
 - **Algorithm:** TuRBO-1
 - **Input Vectors:** 
   - Tickle amplitude and frequency
-  - DC electrode configuration
+  - RF voltage (u_rf_volts)
+  - DC electrodes (ec1, ec2, comp_h, comp_v)
+  - Laser parameters (amp0, amp1, cooling detuning)
   - Ejection timing parameters
-- **Metric:** Inverse of residual Be+ fluorescence (post-ejection)
-- **Stopping Criterion:** Residual counts ≤ Background noise level
+- **Metric:** ion_counts
+- **Stopping Criterion:** ion_count = 1 (can only measure after the process)
 
 ### 2.3 Module C: HD+ Loading Optimizer
 
-- **Goal:** Maximize Sympathetic Cooling efficiency / HD+ yield
+- **Goal:** Maximize Sympathetic Cooling efficiency / HD+ yield /minimise crystalisation time
 - **Algorithm:** TuRBO-1
 - **Input Vectors:** 
-  - Neutral gas pressure
-  - Electron beam energy/timing
+  - piezo
+  - RF voltage (u_rf_volts)
+  - DC electrodes (ec1, ec2, comp_h, comp_v)
+  - Laser parameters (amp0, amp1, cooling detuning)
+  - HD loading timing parameters
   - Reaction delays
-- **Metric:** Dark ion dip detection (secular motion excitation response)
-- **Stopping Criterion:** Maximized dip depth/width
+- **Metric:** ion_counts, ion pos, PMT
+- **Stopping Criterion:** 
 
 ---
 
@@ -64,16 +69,19 @@ Once the individual stages are roughly optimized, the system enters the Global C
 
 The system no longer seeks a single "best" point. It seeks a **Pareto Front**—a set of optimal configurations representing different trade-offs.
 
-- **Objective 1 (Yield):** Maximize HD+ (HD+ Ion Count)
-- **Objective 2 (Speed):** Minimize Cycle Time (Total experiment duration)
+- **Objective 1 (Yield):** load prefered number of Be+. exact number determined by optimizing the entire experiment
+- **Objective 2 (Yield):** load exactly one MHI
+- **Objective 3 (Yield):** after ejection, only one visible ion remains
+- **Objective 4 (Speed):** Minimize Cycle Time (Total experiment duration)
+- **Objective 5 (success):** final secular frequency matches prediction
 
 ### 3.2 The Constraint Layer
 
 Unlike Phase I, Phase II imposes strict "Pass/Fail" criteria on the experimental outcomes. The optimizer learns the boundary between "Valid" and "Invalid" experiments.
 
 - **Constraint 1 (Purity):** `Be_Residual <= Threshold`. If an experiment yields high HD+ but fails to eject all Be+, it is marked as a violation.
-- **Constraint 2 (Stability):** `Trap_Heating <= Limit`. Configurations that cause excessive electrode heating (altering secular frequencies) are penalized.
-
+- **Constraint 2 (Stability):** pressure exceeds a threshold
+- **Constraint 3 (Stability):** laser high power output time must < a threshold
 ---
 
 ## 4. The "Warm Start" Data Handover

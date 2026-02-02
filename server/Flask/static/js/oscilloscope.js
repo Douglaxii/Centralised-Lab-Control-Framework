@@ -174,6 +174,8 @@ class OscilloscopeChart {
     
     /**
      * Draw grid lines and axis labels
+     * Time axis is anchored to absolute time boundaries (e.g., every 15 seconds)
+     * rather than floating with the current time, preventing label drift.
      */
     drawGrid(now) {
         this.ctx.strokeStyle = this.options.gridColor;
@@ -200,14 +202,37 @@ class OscilloscopeChart {
             this.ctx.fillText(label, this.padding.left - 6, y);
         }
         
-        // Vertical grid lines (time markers) - exactly at the edge of time window
+        // Vertical grid lines (time markers) - anchored to absolute time boundaries
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'top';
         
-        // Draw time labels at specific intervals
-        const timeSteps = 5; // Number of vertical lines
-        for (let i = 0; i < timeSteps; i++) {
-            const x = this.padding.left + (this.chartWidth * i / (timeSteps - 1));
+        // Determine appropriate time interval based on time window
+        // For 60s window: 15s intervals
+        // For 300s window: 60s intervals
+        let timeInterval;
+        if (this.options.timeWindow <= 60) {
+            timeInterval = 15; // 15 second intervals for 1-minute window
+        } else if (this.options.timeWindow <= 300) {
+            timeInterval = 60; // 1 minute intervals for 5-minute window
+        } else {
+            timeInterval = 300; // 5 minute intervals for longer windows
+        }
+        
+        // Find the first grid line time (rounded down to nearest interval)
+        const earliestTime = now - this.options.timeWindow;
+        const firstGridTime = Math.ceil(earliestTime / timeInterval) * timeInterval;
+        
+        // Draw grid lines at absolute time boundaries
+        for (let gridTime = firstGridTime; gridTime <= now; gridTime += timeInterval) {
+            // Calculate X position for this absolute time
+            const age = now - gridTime;
+            const normalized = age / this.options.timeWindow;
+            const x = this.padding.left + this.chartWidth * (1 - normalized);
+            
+            // Only draw if within chart bounds
+            if (x < this.padding.left || x > this.padding.left + this.chartWidth) {
+                continue;
+            }
             
             // Grid line
             this.ctx.beginPath();
@@ -215,12 +240,17 @@ class OscilloscopeChart {
             this.ctx.lineTo(x, this.padding.top + this.chartHeight);
             this.ctx.stroke();
             
-            // Time label - calculate actual time for this position
-            const timeOffset = this.options.timeWindow * (1 - i / (timeSteps - 1));
-            const labelTime = now - timeOffset;
-            const timeLabel = this.formatTime(labelTime);
+            // Time label - show only minutes:seconds for clarity
+            const timeLabel = this.formatTime(gridTime);
+            // Shorten to MM:SS for 60s window, HH:MM for longer windows
+            let displayLabel;
+            if (this.options.timeWindow <= 60) {
+                displayLabel = timeLabel.substring(3); // Remove HH: -> MM:SS
+            } else {
+                displayLabel = timeLabel.substring(0, 5); // HH:MM
+            }
             
-            this.ctx.fillText(timeLabel, x, this.padding.top + this.chartHeight + 4);
+            this.ctx.fillText(displayLabel, x, this.padding.top + this.chartHeight + 4);
         }
         
         // Draw axes

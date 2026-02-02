@@ -10,6 +10,7 @@ Features:
 - Heartbeat to manager for health monitoring
 - Graceful degradation to safe state on errors
 - Experiment ID propagation
+- Camera control and TTL triggering
 """
 
 import sys
@@ -44,7 +45,7 @@ from compensation import Compensation
 from endcaps import EndCaps
 from Raman_board import RamanCooling
 from secularsweep import SecularSweep
-from cam import Camera
+from cam import Camera, AutoCamera
 
 
 class MainWorker(ExpFragment):
@@ -77,6 +78,9 @@ class MainWorker(ExpFragment):
         # State management
         self.defaults = defaults
         self.state = self.defaults.copy()
+        
+        # Camera state
+        self.camera_inf_active = False
         
         # Safety tracking
         self.safety_triggered = False
@@ -215,6 +219,12 @@ class MainWorker(ExpFragment):
                     self._handle_run_sweep(payload, exp_id)
                 elif cmd_type == "CAMERA_TRIGGER":
                     self._handle_camera_trigger(exp_id)
+                elif cmd_type == "START_CAMERA_INF":
+                    self._handle_start_camera_inf(exp_id)
+                elif cmd_type == "STOP_CAMERA":
+                    self._handle_stop_camera(exp_id)
+                elif cmd_type == "CAMERA_SETTINGS":
+                    self._handle_camera_settings(payload, exp_id)
                 else:
                     self.logger.warning(f"Unknown command type: {cmd_type}")
                     
@@ -341,6 +351,77 @@ class MainWorker(ExpFragment):
                 "error": str(e)
             }, category="ERROR")
     
+    def _handle_start_camera_inf(self, exp_id: str):
+        """
+        Handle START_CAMERA_INF command from manager.
+        
+        The camera is actually started by the manager via the camera server.
+        This command serves as an acknowledgment that the worker is aware
+        that camera infinite mode should be active.
+        """
+        self.logger.info(f"Received START_CAMERA_INF (exp: {exp_id})")
+        
+        try:
+            self.camera_inf_active = True
+            
+            # Acknowledge to manager
+            self._send_status("CAMERA_INF_ACK", {
+                "exp_id": exp_id,
+                "status": "ready_for_ttl",
+                "timestamp": time.time()
+            })
+            
+            self.logger.info("Camera infinite mode acknowledged")
+            
+        except Exception as e:
+            self.logger.error(f"Camera INF start handling failed: {e}")
+            self._send_data({
+                "status": "CAMERA_INF_FAILED",
+                "exp_id": exp_id,
+                "error": str(e)
+            }, category="ERROR")
+    
+    def _handle_stop_camera(self, exp_id: str):
+        """
+        Handle STOP_CAMERA command from manager.
+        """
+        self.logger.info(f"Received STOP_CAMERA (exp: {exp_id})")
+        
+        try:
+            self.camera_inf_active = False
+            
+            self._send_status("CAMERA_STOP_ACK", {
+                "exp_id": exp_id,
+                "timestamp": time.time()
+            })
+            
+            self.logger.info("Camera stop acknowledged")
+            
+        except Exception as e:
+            self.logger.error(f"Camera stop handling failed: {e}")
+    
+    def _handle_camera_settings(self, payload: dict, exp_id: str):
+        """
+        Handle CAMERA_SETTINGS command.
+        
+        Updates camera configuration parameters.
+        """
+        self.logger.info(f"Received CAMERA_SETTINGS (exp: {exp_id})")
+        
+        try:
+            # Store settings in state
+            self.state["camera_n_frames"] = payload.get("n_frames", 100)
+            self.state["camera_exposure_ms"] = payload.get("exposure_ms", 300)
+            self.state["camera_trigger_mode"] = payload.get("trigger_mode", "extern")
+            
+            self._send_status("CAMERA_SETTINGS_UPDATED", {
+                "exp_id": exp_id,
+                "settings": payload
+            })
+            
+        except Exception as e:
+            self.logger.error(f"Camera settings handling failed: {e}")
+    
     @kernel
     def trigger_camera_ttl(self):
         """Send TTL pulse to trigger camera (executed on ARTIQ hardware)."""
@@ -353,7 +434,8 @@ class MainWorker(ExpFragment):
             self._send_data({
                 "status": "alive",
                 "state": self.state,
-                "safety_triggered": self.safety_triggered
+                "safety_triggered": self.safety_triggered,
+                "camera_inf_active": self.camera_inf_active
             }, category="HEARTBEAT")
             self.last_heartbeat = now
     

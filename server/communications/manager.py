@@ -797,12 +797,86 @@ class ControlManager:
             status = self.camera.get_status()
             if status["connected"]:
                 self.logger.info("Camera server connection verified")
+                
+                # Auto-start camera if configured
+                self._auto_start_camera()
             else:
                 self.logger.warning("Camera server not available (will retry on demand)")
                 
         except Exception as e:
             self.logger.error(f"Failed to initialize camera interface: {e}")
             self.camera = None
+    
+    def _auto_start_camera(self):
+        """
+        Auto-start camera recording if configured.
+        
+        This method is called during manager initialization if:
+        1. Camera interface is successfully initialized
+        2. Camera server connection is verified
+        3. camera.auto_start is True in configuration
+        
+        Flow:
+        1. Start camera in infinite mode (via TCP to camera server)
+        2. Send START_CAMERA_INF command to ARTIQ worker
+        3. ARTIQ worker acknowledges and is ready for TTL triggers
+        """
+        try:
+            config = get_config()
+            auto_start = config.get('camera.auto_start', True)
+            
+            if not auto_start:
+                self.logger.info("Camera auto-start disabled in config")
+                return
+            
+            if not self.camera:
+                self.logger.warning("Cannot auto-start camera: interface not available")
+                return
+            
+            self.logger.info("Auto-starting camera recording...")
+            
+            # Step 1: Start camera infinite mode
+            mode = config.get('camera.mode', 'inf')  # 'inf' or 'single'
+            exp_id = f"auto_start_{int(time.time())}"
+            
+            success = self.camera.start_recording(mode=mode, exp_id=exp_id)
+            if not success:
+                self.logger.error("Failed to auto-start camera recording")
+                return
+            
+            self.logger.info(f"Camera recording started in {mode} mode")
+            
+            # Step 2: Signal ARTIQ worker to prepare for camera triggers
+            self._publish_camera_inf_start(exp_id)
+            
+            # Step 3: Optionally send initial TTL trigger
+            send_trigger = config.get('camera.send_initial_trigger', True)
+            if send_trigger:
+                time.sleep(1)  # Brief delay for camera to stabilize
+                self._publish_camera_trigger(exp_id)
+                self.logger.info("Initial camera TTL trigger sent")
+            
+            self.logger.info("Camera auto-start completed successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Camera auto-start failed: {e}")
+    
+    def _publish_camera_inf_start(self, exp_id: Optional[str] = None):
+        """
+        Publish START_CAMERA_INF command to ARTIQ worker.
+        
+        This notifies the ARTIQ worker that camera infinite mode is active,
+        so it can prepare for TTL trigger commands.
+        """
+        msg = {
+            "type": "START_CAMERA_INF",
+            "values": {},
+            "exp_id": exp_id,
+            "timestamp": time.time()
+        }
+        self.pub_socket.send_string("ARTIQ", flags=zmq.SNDMORE)
+        self.pub_socket.send_json(msg)
+        self.logger.debug(f"Published START_CAMERA_INF for exp {exp_id}")
     
     def _on_pressure_alert(self, pressure: float, threshold: float, timestamp: float, action: str):
         """

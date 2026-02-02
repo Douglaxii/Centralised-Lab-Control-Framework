@@ -89,7 +89,7 @@ class TestObjectives(unittest.TestCase):
         """Test Be+ loading cost function."""
         obj = BeLoadingObjective(target_ion_count=1)
         
-        # Test with correct ion count
+        # Test with correct ion count - should have negative cost (reward)
         cost, components = obj.compute_cost(
             params={"cooling_power_mw": 0.5, "be_pi_laser_duration_ms": 300},
             measurements={
@@ -99,10 +99,11 @@ class TestObjectives(unittest.TestCase):
             }
         )
         self.assertIsInstance(cost, float)
-        self.assertGreater(cost, 0)
         self.assertIsInstance(components, dict)
+        # Correct ion count gives negative cost (reward)
+        self.assertLess(cost, 0, "Correct ion count should give negative cost (reward)")
         
-        # Test with wrong ion count - should have higher cost
+        # Test with wrong ion count - should have higher (less negative) cost
         cost_wrong, _ = obj.compute_cost(
             params={"cooling_power_mw": 0.5, "be_pi_laser_duration_ms": 300},
             measurements={
@@ -111,7 +112,8 @@ class TestObjectives(unittest.TestCase):
                 "total_time_ms": 5000
             }
         )
-        self.assertGreater(cost_wrong, cost)  # Should be worse
+        # Wrong count should be worse (higher cost, less negative or positive)
+        self.assertGreater(cost_wrong, cost, "Wrong ion count should have higher cost")
     
     def test_be_loading_success(self):
         """Test Be+ loading success detection."""

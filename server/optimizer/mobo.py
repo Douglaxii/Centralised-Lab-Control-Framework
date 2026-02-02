@@ -3,13 +3,22 @@ MOBO (Multi-Objective Bayesian Optimization) for Phase II.
 
 Uses qNEHVI (Noisy Expected Hypervolume Improvement) with constraints
 to optimize the full experimental cycle while enforcing purity and stability.
+
+Supports dynamic objectives and constraints from ObjectiveConfig/ConstraintConfig.
 """
 
 import numpy as np
 import logging
-from typing import Dict, List, Optional, Tuple, Callable, Any
+from typing import Dict, List, Optional, Tuple, Callable, Any, Union
 from dataclasses import dataclass
 from enum import Enum
+
+# Import from objectives module for dynamic config support
+try:
+    from .objectives import ObjectiveConfig, ConstraintConfig, ObjectiveType
+    DYNAMIC_OBJECTIVES_AVAILABLE = True
+except ImportError:
+    DYNAMIC_OBJECTIVES_AVAILABLE = False
 
 logger = logging.getLogger("optimizer.mobo")
 
@@ -114,6 +123,9 @@ class MOBOOptimizer:
     Optimizes multiple conflicting objectives (e.g., yield vs speed)
     while enforcing hard constraints (e.g., purity, stability).
     
+    Supports both legacy Objective/Constraint classes and dynamic
+    ObjectiveConfig/ConstraintConfig from the objectives module.
+    
     Uses:
     - Gaussian Process for each objective
     - Probability of feasibility for constraints
@@ -124,8 +136,8 @@ class MOBOOptimizer:
         self,
         n_dims: int,
         bounds: List[Tuple[float, float]],
-        objectives: List[Objective],
-        constraints: List[Constraint],
+        objectives: List[Union[Objective, 'ObjectiveConfig']],
+        constraints: List[Union[Constraint, 'ConstraintConfig']],
         n_initial_points: int = 10,
         max_iterations: int = 50,
         noise_variance: float = 1e-5
@@ -136,22 +148,24 @@ class MOBOOptimizer:
         Args:
             n_dims: Number of dimensions
             bounds: Parameter bounds
-            objectives: List of objective functions
-            constraints: List of constraints
+            objectives: List of objective functions or ObjectiveConfig
+            constraints: List of constraints or ConstraintConfig
             n_initial_points: Random initial samples
             max_iterations: Max iterations
             noise_variance: GP noise
         """
         self.n_dims = n_dims
         self.bounds = np.array(bounds)
-        self.objectives = objectives
-        self.constraints = constraints
         self.n_initial_points = n_initial_points
         self.max_iterations = max_iterations
         self.noise_variance = noise_variance
         
+        # Convert objectives/constraints to standardized format
+        self.objectives = self._normalize_objectives(objectives)
+        self.constraints = self._normalize_constraints(constraints)
+        
         # Pareto front
-        self.pareto_front = ParetoFront(n_objectives=len(objectives))
+        self.pareto_front = ParetoFront(n_objectives=len(self.objectives))
         
         # Observations
         self.X_observed: List[np.ndarray] = []
@@ -164,13 +178,100 @@ class MOBOOptimizer:
         # GP hyperparameters (one per objective)
         self.gp_params: List[Dict] = [
             {"length_scales": np.ones(n_dims) * 0.5, "signal_variance": 1.0}
-            for _ in objectives
+            for _ in self.objectives
         ]
         
         logger.info(
             f"MOBO initialized: {n_dims} dims, "
-            f"{len(objectives)} objectives, {len(constraints)} constraints"
+            f"{len(self.objectives)} objectives, {len(self.constraints)} constraints"
         )
+    
+    def _normalize_objectives(self, objectives):
+        """Convert various objective formats to standard Objective class."""
+        normalized = []
+        for obj in objectives:
+            if isinstance(obj, Objective):
+                normalized.append(obj)
+            elif DYNAMIC_OBJECTIVES_AVAILABLE and isinstance(obj, ObjectiveConfig):
+                # Convert ObjectiveConfig to Objective
+                normalized.append(Objective(
+                    name=obj.name,
+                    evaluator=obj.evaluator,
+                    minimize=(obj.objective_type == ObjectiveType.MINIMIZE)
+                ))
+            else:
+                raise ValueError(f"Unknown objective type: {type(obj)}")
+        return normalized
+    
+    def _normalize_constraints(self, constraints):
+        """Convert various constraint formats to standard Constraint class."""
+        normalized = []
+        for cons in constraints:
+            if isinstance(cons, Constraint):
+                normalized.append(cons)
+            elif DYNAMIC_OBJECTIVES_AVAILABLE and isinstance(cons, ConstraintConfig):
+                # Convert ConstraintConfig to Constraint
+                normalized.append(Constraint(
+                    name=cons.name,
+                    constraint_type=ConstraintType(cons.constraint_type),
+                    evaluator=cons.evaluator,
+                    threshold=cons.threshold
+                ))
+            else:
+                raise ValueError(f"Unknown constraint type: {type(cons)}")
+        return normalized
+    
+    def add_objective(self, objective: Union[Objective, 'ObjectiveConfig']):
+        """Add an objective dynamically (for scalable architecture)."""
+        if isinstance(objective, Objective):
+            self.objectives.append(objective)
+        elif DYNAMIC_OBJECTIVES_AVAILABLE and isinstance(objective, ObjectiveConfig):
+            self.objectives.append(Objective(
+                name=objective.name,
+                evaluator=objective.evaluator,
+                minimize=(objective.objective_type == ObjectiveType.MINIMIZE)
+            ))
+        else:
+            raise ValueError(f"Unknown objective type: {type(objective)}")
+        
+        # Reset Pareto front with new dimensions
+        self.pareto_front = ParetoFront(n_objectives=len(self.objectives))
+        logger.info(f"Added objective '{objective.name}', total: {len(self.objectives)}")
+    
+    def add_constraint(self, constraint: Union[Constraint, 'ConstraintConfig']):
+        """Add a constraint dynamically (for scalable architecture)."""
+        if isinstance(constraint, Constraint):
+            self.constraints.append(constraint)
+        elif DYNAMIC_OBJECTIVES_AVAILABLE and isinstance(constraint, ConstraintConfig):
+            self.constraints.append(Constraint(
+                name=constraint.name,
+                constraint_type=ConstraintType(constraint.constraint_type),
+                evaluator=constraint.evaluator,
+                threshold=constraint.threshold
+            ))
+        else:
+            raise ValueError(f"Unknown constraint type: {type(constraint)}")
+        
+        logger.info(f"Added constraint '{constraint.name}', total: {len(self.constraints)}")
+    
+    def remove_objective(self, name: str):
+        """Remove an objective by name."""
+        self.objectives = [obj for obj in self.objectives if obj.name != name]
+        self.pareto_front = ParetoFront(n_objectives=len(self.objectives))
+        logger.info(f"Removed objective '{name}', remaining: {len(self.objectives)}")
+    
+    def remove_constraint(self, name: str):
+        """Remove a constraint by name."""
+        self.constraints = [cons for cons in self.constraints if cons.name != name]
+        logger.info(f"Removed constraint '{name}', remaining: {len(self.constraints)}")
+    
+    def list_objectives(self) -> List[str]:
+        """List all objective names."""
+        return [obj.name for obj in self.objectives]
+    
+    def list_constraints(self) -> List[str]:
+        """List all constraint names."""
+        return [cons.name for cons in self.constraints]
     
     def _normalize(self, x: np.ndarray) -> np.ndarray:
         """Normalize to [0, 1]."""

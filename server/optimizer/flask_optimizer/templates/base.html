@@ -171,7 +171,15 @@
             setInterval(async () => {
                 try {
                     const data = await apiRequest('/api/status');
-                    updateStatusUI(data.data);
+                    // Handle both {status: 'success', data: {...}} and direct response formats
+                    const statusData = data.data || data;
+                    updateStatusUI(statusData);
+                    
+                    // Update connection status indicator
+                    document.getElementById('connection-status').innerHTML = `
+                        <span class="h-3 w-3 rounded-full bg-green-500 mr-2"></span>
+                        <span class="text-sm text-gray-400">Connected</span>
+                    `;
                 } catch (e) {
                     document.getElementById('connection-status').innerHTML = `
                         <span class="h-3 w-3 rounded-full bg-red-500 mr-2"></span>

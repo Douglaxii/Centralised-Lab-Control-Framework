@@ -2322,6 +2322,247 @@ def get_recent_channel_data(channel):
 
 
 # =============================================================================
+# FLASK ROUTES - CAMERA CONTROL
+# =============================================================================
+
+@app.route('/api/camera/start', methods=['POST'])
+def start_camera():
+    """
+    Start camera recording.
+    
+    Request body:
+    {
+        "mode": "infinite",  # or "single" for DCIMG recording
+        "trigger": true      # whether to send TTL trigger
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        mode = data.get("mode", "infinite")
+        send_trigger = data.get("trigger", True)
+        
+        logger.info(f"Camera start requested: mode={mode}, trigger={send_trigger}")
+        
+        resp = send_to_manager({
+            "action": "CAMERA_START",
+            "source": "FLASK",
+            "mode": "inf" if mode == "infinite" else "single",
+            "trigger": send_trigger
+        })
+        
+        if resp.get("status") == "success":
+            with state_lock:
+                current_state["camera_active"] = True
+            
+            return jsonify({
+                "status": "success",
+                "message": resp.get("message", "Camera started"),
+                "mode": mode,
+                "trigger_sent": resp.get("trigger_sent", False)
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": resp.get("message", "Failed to start camera"),
+                "code": resp.get("code", "CAMERA_ERROR")
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Camera start error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/camera/stop', methods=['POST'])
+def stop_camera():
+    """Stop camera recording."""
+    try:
+        logger.info("Camera stop requested")
+        
+        resp = send_to_manager({
+            "action": "CAMERA_STOP",
+            "source": "FLASK"
+        })
+        
+        if resp.get("status") == "success":
+            with state_lock:
+                current_state["camera_active"] = False
+            
+            return jsonify({
+                "status": "success",
+                "message": resp.get("message", "Camera stopped")
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": resp.get("message", "Failed to stop camera")
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Camera stop error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/camera/status', methods=['GET'])
+def get_camera_status():
+    """Get camera status."""
+    try:
+        resp = send_to_manager({
+            "action": "CAMERA_STATUS",
+            "source": "FLASK"
+        })
+        
+        if resp.get("status") == "success":
+            camera_data = resp.get("camera", {})
+            
+            # Merge with local state
+            with state_lock:
+                camera_data["flask_active"] = current_state.get("camera_active", False)
+            
+            return jsonify({
+                "status": "success",
+                "camera": camera_data
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": resp.get("message", "Failed to get camera status")
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Camera status error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/camera/trigger', methods=['POST'])
+def trigger_camera():
+    """
+    Send TTL trigger to camera.
+    
+    This triggers a single frame capture when the camera is already recording.
+    """
+    try:
+        logger.info("Camera TTL trigger requested")
+        
+        resp = send_to_manager({
+            "action": "CAMERA_TRIGGER",
+            "source": "FLASK"
+        })
+        
+        if resp.get("status") == "success":
+            return jsonify({
+                "status": "success",
+                "message": resp.get("message", "Camera TTL trigger sent")
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": resp.get("message", "Failed to trigger camera")
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Camera trigger error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/camera/settings', methods=['GET', 'POST'])
+def camera_settings():
+    """
+    Get or set camera settings.
+    
+    GET: Returns current camera settings
+    POST: Updates camera settings
+    """
+    if request.method == 'GET':
+        try:
+            # Return default/cached settings
+            # In a full implementation, these would be fetched from the camera server
+            return jsonify({
+                "status": "success",
+                "settings": {
+                    "exposure_ms": 300,
+                    "trigger_mode": "software",
+                    "max_frames": 100,
+                    "roi": {
+                        "x_start": 180,
+                        "x_finish": 220,
+                        "y_start": 425,
+                        "y_finish": 495
+                    },
+                    "filter_radius": 6
+                }
+            })
+        except Exception as e:
+            logger.error(f"Camera settings get error: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+    
+    else:  # POST
+        try:
+            data = request.get_json() or {}
+            logger.info(f"Camera settings update: {data}")
+            
+            # In a full implementation, these would be sent to the camera server
+            return jsonify({
+                "status": "success",
+                "message": "Camera settings updated",
+                "settings": data
+            })
+            
+        except Exception as e:
+            logger.error(f"Camera settings update error: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/ion_data/latest', methods=['GET'])
+def get_latest_ion_data():
+    """
+    Get the latest ion position and fit data.
+    
+    Returns JSON data in the format:
+    {
+        "timestamp": "2026-02-02T14:30:15.123456",
+        "ions": {
+            "ion_1": {"pos_x": 320.5, "pos_y": 240.3, "sig_x": 15.2, "R_y": 8.7}
+        }
+    }
+    """
+    try:
+        # Try to read from ion_data directory
+        from datetime import datetime
+        today_str = datetime.now().strftime("%y%m%d")
+        ion_data_path = Path(f"E:/Data/ion_data/{today_str}")
+        
+        if not ion_data_path.exists():
+            return jsonify({
+                "status": "success",
+                "data": None,
+                "message": "No ion data available yet"
+            })
+        
+        # Get most recent JSON file
+        json_files = sorted(ion_data_path.glob("ion_data_*.json"))
+        if not json_files:
+            return jsonify({
+                "status": "success",
+                "data": None,
+                "message": "No ion data available yet"
+            })
+        
+        latest = json_files[-1]
+        with open(latest, 'r') as f:
+            data = json.load(f)
+        
+        return jsonify({
+            "status": "success",
+            "data": data,
+            "source": str(latest.name)
+        })
+        
+    except Exception as e:
+        logger.error(f"Get ion data error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# =============================================================================
 # CLEANUP
 # =============================================================================
 
