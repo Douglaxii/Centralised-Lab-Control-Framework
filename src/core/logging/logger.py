@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from .config import get_config
+from ..config import get_config
 
 
 class StructuredLogFormatter(logging.Formatter):

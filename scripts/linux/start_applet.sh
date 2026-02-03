@@ -1,6 +1,5 @@
 #!/bin/bash
-# Start the Applet Flask Server
-# Usage: ./start_applet_server.sh [options]
+# Start only the Applet Flask Server
 
-cd "$(dirname "$0")"
-python3 server/applet/launcher.py "$@"
+cd "$(dirname "$0")/../.."
+python3 -m src.launcher --service applet

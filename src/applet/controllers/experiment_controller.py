@@ -10,10 +10,11 @@ import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import asdict
 
-from experiments.base_experiment import ExperimentStatus
-from experiments.auto_compensation import AutoCompensationExperiment
-from experiments.cam_sweep import CamSweepExperiment
-from experiments.sim_calibration import SimCalibrationExperiment
+from ..base import ExperimentStatus
+from ..auto_compensation import AutoCompensationExperiment
+from ..cam_sweep import CamSweepExperiment
+from ..sim_calibration import SimCalibrationExperiment
+from ..trap_eigenmode import TrapEigenmodeExperiment
 
 
 class ExperimentController:

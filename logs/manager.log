@@ -1,1 +1,402 @@
 
+2026-02-02 21:50:38,373 - [manager] - INFO - ============================================================
+2026-02-02 21:50:38,374 - [manager] - INFO - Control Manager Starting...
+2026-02-02 21:50:38,382 - [manager] - INFO - Client socket bound to port 5557
+2026-02-02 21:50:38,385 - [manager] - INFO - Command socket bound to port 5555
+2026-02-02 21:50:38,387 - [manager] - INFO - Data socket bound to port 5556 (PULL)
+2026-02-02 21:50:38,388 - [manager] - INFO - LabVIEW interface not available (module not found)
+2026-02-02 21:50:38,388 - [manager] - INFO - Kill switch callbacks registered
+2026-02-02 21:50:38,388 - [manager] - INFO - Camera interface initialized
+2026-02-02 21:50:40,416 - [manager] - WARNING - Camera server not available (will retry on demand)
+2026-02-02 21:50:40,416 - [manager] - INFO - Optimizer controller not available
+2026-02-02 21:50:40,417 - [manager] - INFO - Worker data listener started
+2026-02-02 21:50:40,418 - [manager] - INFO - Turbo coordinator started
+2026-02-02 21:50:40,418 - [manager] - INFO - Manager Online. Ready for ARTIQ & Turbo Algorithm.
+2026-02-02 21:50:40,419 - [manager] - INFO - Entering main request loop...
+2026-02-02 21:59:06,734 - [manager] - INFO - ============================================================
+2026-02-02 21:59:06,734 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 21:59:32,411 - [manager] - INFO - ============================================================
+2026-02-02 21:59:32,411 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 21:59:39,460 - [manager] - INFO - ============================================================
+2026-02-02 21:59:39,460 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 21:59:46,474 - [manager] - INFO - ============================================================
+2026-02-02 21:59:46,475 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 21:59:53,481 - [manager] - INFO - ============================================================
+2026-02-02 21:59:53,481 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 22:00:00,494 - [manager] - INFO - ============================================================
+2026-02-02 22:00:00,495 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 22:00:07,554 - [manager] - INFO - ============================================================
+2026-02-02 22:00:07,554 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 22:00:14,529 - [manager] - INFO - ============================================================
+2026-02-02 22:00:14,530 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+2026-02-02 22:00:21,560 - [manager] - INFO - ============================================================
+2026-02-02 22:00:21,561 - [manager] - INFO - Control Manager Starting...
+ERROR:root:Fatal error: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "D:\MLS\src\server\manager\manager.py", line 2710, in <module>
+    mgr = ControlManager()
+  File "D:\MLS\src\server\manager\manager.py", line 676, in __init__
+    self._setup_sockets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "D:\MLS\src\server\manager\manager.py", line 975, in _setup_sockets
+    self.client_socket.bind(f"tcp://*:{self.client_port}")
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Dougl\AppData\Local\Programs\Python\Python313\Lib\site-packages\zmq\sugar\socket.py", line 320, in bind
+    super().bind(addr)
+    ~~~~~~~~~~~~^^^^^^
+  File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+    _check_rc(rc)
+    
+  File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+    raise ZMQError(errno)
+    
+zmq.error.ZMQError: Address in use (addr='tcp://*:5557')

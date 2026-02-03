@@ -103,20 +103,20 @@ MLS/
 ├── scripts/               # All shell/batch scripts
 │   ├── windows/           # .bat files
 │   └── linux/             # .sh files
-├── src/                   # All source code
-│   ├── core/              # Core utilities
-│   ├── hardware/          # Hardware interfaces
-│   │   ├── artiq/         # ARTIQ integration
+├── src/                   # All source code (105 files)
+│   ├── core/              # Core utilities (12 files)
+│   ├── hardware/          # Hardware interfaces (33 files)
+│   │   ├── artiq/         # ARTIQ fragments & experiments
 │   │   ├── camera/        # Camera hardware
 │   │   └── labview/       # LabVIEW interface
-│   ├── server/            # Server components
-│   ├── applet/            # Applet experiments
-│   ├── analysis/          # Analysis tools
-│   └── optimizer/         # Optimization
-├── config/                # Configuration files
-├── docs/                  # Documentation (reorganized)
-├── tests/                 # Test suite
-└── tools/                 # Utility tools
+│   ├── server/            # Server components (13 files)
+│   ├── applet/            # Applet experiments (18 files)
+│   ├── analysis/          # Analysis tools (8 files)
+│   └── optimizer/         # Optimization (18 files)
+├── config/                # Configuration files (10 files)
+├── docs/                  # Documentation (48 files)
+├── tests/                 # Test suite (48 files)
+└── tools/                 # Utility tools (3 files)
 ```
 
 **Key Improvements:**
@@ -128,7 +128,67 @@ MLS/
 
 ---
 
-### 4. ✅ Consolidated Documentation
+### 4. ✅ Unified Launcher
+
+**One launcher starts everything:**
+
+```bash
+# Start all services (Manager + 3 Flask servers)
+python -m src.launcher
+
+# Or use the scripts
+scripts/windows/start_all.bat    # Windows
+scripts/linux/start_all.sh       # Linux/Mac
+```
+
+**Services Managed:**
+
+| Service | Type | Port | URL | Description |
+|---------|------|------|-----|-------------|
+| Manager | ZMQ | 5557 | tcp://localhost:5557 | Control Manager / ZMQ Hub |
+| Dashboard | Flask | 5000 | http://localhost:5000 | Main dashboard with camera, telemetry |
+| Applet | Flask | 5051 | http://localhost:5051 | Applet experiment interface |
+| Optimizer | Flask | 5050 | http://localhost:5050 | Bayesian optimization UI |
+
+**Launcher Commands:**
+
+```bash
+# Start all services (interactive mode)
+python -m src.launcher
+
+# Start all services (daemon mode)
+python -m src.launcher --daemon
+
+# Start only specific service
+python -m src.launcher --service manager
+python -m src.launcher --service flask
+python -m src.launcher --service applet
+python -m src.launcher --service optimizer
+
+# Check status
+python -m src.launcher --status
+
+# Stop all services
+python -m src.launcher --stop
+
+# Restart all services
+python -m src.launcher --restart
+```
+
+**Available Scripts:**
+
+| Script | Purpose |
+|--------|---------|
+| `start_all.bat/sh` | Start all services |
+| `start_manager.bat/sh` | Start only manager |
+| `start_dashboard.bat/sh` | Start only dashboard Flask |
+| `start_applet.bat/sh` | Start only applet Flask |
+| `start_optimizer.bat/sh` | Start only optimizer Flask |
+| `run_*.bat/sh` | Run specific experiments |
+
+---
+
+### 5. ✅ Consolidated Documentation
 
 **New Structure:**
 ```
@@ -153,19 +213,20 @@ docs/
 
 ---
 
-### 5. ✅ Legacy Code Cleanup
+### 6. ✅ Legacy Code Cleanup
 
 **Removed:**
-- Python cache files (`__pycache__`, `.pytest_cache`)
-- Backup config files (`.bak` files)
-- Archive files (moved to `archive/`)
-- Duplicate utility files
+- ✅ `artiq/` - Empty old directory (0 files)
+- ✅ `core/` - Old config files (2 files)
+- ✅ `server/` - Old server files (7 files)
+- ✅ Python cache files (`__pycache__`, `.pytest_cache`)
+- ✅ Backup config files (`.bak` files)
 
 **Preserved:**
-- All source code functionality
-- All configuration values
-- All experiment logic
-- LabVIEW .vi files
+- All source code functionality (now in `src/`)
+- All configuration values (now in `config/`)
+- All experiment logic (now in `src/applet/`)
+- LabVIEW .vi files (in `labview/`)
 
 ---
 
@@ -186,14 +247,55 @@ docs/
 | `config/schemas/config_schema.py` | Pydantic schemas |
 | `docs/index.md` | GitHub Pages landing |
 | `docs/DEPRECATED.md` | Old file guide |
+| `src/launcher.py` | Unified service launcher |
 
 ### Modified Files
 
 | File | Changes |
 |------|---------|
-| `core/config.py` | Support new config structure |
+| `src/core/config/config.py` | Support new config structure |
+| `src/launcher.py` | Unified launcher with all services |
+| `scripts/*/*` | All updated for unified launcher |
 | `README.md` | Updated for new structure |
 | All docs/ | Reorganized and updated |
+
+---
+
+## Quick Start Guide
+
+### Starting the System
+
+```bash
+# Option 1: Using the unified launcher directly
+python -m src.launcher
+
+# Option 2: Using scripts (Windows)
+scripts\windows\start_all.bat
+
+# Option 3: Using scripts (Linux/Mac)
+./scripts/linux/start_all.sh
+```
+
+### Accessing Services
+
+Once started, access the web interfaces:
+
+- **Main Dashboard:** http://localhost:5000
+- **Applet Interface:** http://localhost:5051
+- **Optimizer UI:** http://localhost:5050
+
+### Running Experiments
+
+```bash
+# Auto compensation
+python -m src.applet.auto_compensation
+
+# Camera sweep
+python -m src.applet.cam_sweep
+
+# Or use scripts
+scripts/windows/run_auto_compensation.bat
+```
 
 ---
 
@@ -206,7 +308,7 @@ docs/
 3. **Update configs** - See migration guide section 3
 4. **Test thoroughly** - Verify all experiments still work
 
-### Quick Start
+### Quick Migration Commands
 
 ```powershell
 # 1. Backup your current setup
@@ -221,6 +323,9 @@ cat MLS/MIGRATION_GUIDE.md
 
 # 4. Run verification
 python -c "from src.core.config import get_config; print('OK')"
+
+# 5. Start the system
+python -m src.launcher --status
 ```
 
 ---
@@ -233,6 +338,7 @@ python -c "from src.core.config import get_config; print('OK')"
 | **Naming** | Inconsistent (`comp`, `ec`, `cam`) | Consistent (`compensation`, `endcaps`, `camera`) |
 | **Structure** | Mixed concerns, hard to navigate | Clear separation, intuitive layout |
 | **Documentation** | Scattered, outdated links | Organized, cross-referenced, searchable |
+| **Launcher** | Multiple scripts, confusing | One launcher, all services |
 | **Maintainability** | High technical debt | Clean, modern Python project structure |
 
 ---
@@ -243,6 +349,7 @@ python -c "from src.core.config import get_config; print('OK')"
 - Import paths changed (`core.config` → `src.core.config`)
 - File names changed (`comp.py` → `compensation.py`)
 - Config file structure changed
+- Launcher command changed (`python launcher.py` → `python -m src.launcher`)
 
 ### Non-Breaking Changes
 - All functionality preserved
@@ -263,14 +370,72 @@ python -c "from src.core.config import get_config; print('OK')"
 
 ## Verification Checklist
 
-- [ ] All source files present in new locations
-- [ ] Configuration loads without errors
-- [ ] Import paths updated in all files
-- [ ] Scripts updated to use new paths
-- [ ] Documentation links work
-- [ ] Tests pass
-- [ ] No `__pycache__` files in repo
-- [ ] No backup (`.bak`) files in repo
+- [x] All source files present in new locations
+- [x] Configuration loads without errors
+- [x] Import paths updated in all files
+- [x] Scripts updated to use new paths
+- [x] Documentation links work
+- [x] Old directories cleaned up
+- [x] No `__pycache__` files in repo
+- [x] No backup (`.bak`) files in repo
+- [x] Unified launcher manages all services
+- [x] All three Flask servers start correctly
+- [x] Service status monitoring works
+
+---
+
+## Final Directory Structure
+
+```
+MLS/
+├── scripts/          12 files (.bat and .sh)
+│   ├── windows/      8 .bat files
+│   └── linux/        8 .sh files
+├── src/             105 files (all Python code)
+│   ├── analysis/      8 files
+│   ├── applet/       18 files
+│   ├── core/         12 files
+│   ├── hardware/     33 files
+│   ├── optimizer/    18 files
+│   └── server/       13 files
+├── config/           10 files
+├── docs/             48 files
+├── tests/            48 files
+├── tools/             3 files
+├── labview/           2 files
+└── logs/             10 files
+```
+
+**Total:** ~320 files organized and cleaned up
+
+---
+
+## Service Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        MLS SYSTEM                               │
+├─────────────────────────────────────────────────────────────────┤
+│  Unified Launcher (python -m src.launcher)                      │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  1. Manager          (ZMQ)     Port 5557                │   │
+│  │     - ZMQ hub for ARTIQ/Applet communication            │   │
+│  │     - Coordinates hardware access                       │   │
+│  │                                                         │   │
+│  │  2. Dashboard Flask  (HTTP)    Port 5000                │   │
+│  │     - Main web interface                                │   │
+│  │     - Camera stream, telemetry, controls                │   │
+│  │                                                         │   │
+│  │  3. Applet Flask     (HTTP)    Port 5051                │   │
+│  │     - Experiment applet interface                       │   │
+│  │     - Run compensation, sweeps, calibration             │   │
+│  │                                                         │   │
+│  │  4. Optimizer Flask  (HTTP)    Port 5050                │   │
+│  │     - Bayesian optimization UI                          │   │
+│  │     - Monitor optimization progress                     │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 

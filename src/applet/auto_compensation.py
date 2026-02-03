@@ -34,7 +34,7 @@ from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from .base_experiment import BaseExperiment, ExperimentStatus, ExperimentResult
+from .base import BaseExperiment, ExperimentStatus, ExperimentResult
 
 
 @dataclass

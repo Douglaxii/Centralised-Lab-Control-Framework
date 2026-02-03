@@ -1,4 +1,5 @@
 @echo off
-echo Starting MLS Control Manager...
+REM Start only the Control Manager
+
 cd /d "%~dp0\..\.."
-python -m src.server.manager.manager
+python -m src.launcher --service manager

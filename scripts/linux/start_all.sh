@@ -1,42 +1,25 @@
 #!/bin/bash
-# Start Lab Control System (Linux/Mac)
-# Usage: ./start.sh [interactive|daemon|status|stop|restart]
+# MLS Unified Launcher - Start all services
+# Usage: ./start_all.sh [options]
 
-set -e
-
-MODE="${1:-interactive}"
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 echo "=========================================="
-echo "Lab Control System - Starting in $MODE mode"
+echo "MLS Lab Control System"
 echo "=========================================="
 
-case "$MODE" in
-    interactive)
-        python3 launcher.py --interactive
-        ;;
-    daemon)
-        nohup python3 launcher.py --daemon > /dev/null 2>&1 &
-        echo "Started in background (PID: $!)"
-        echo "Check logs/launcher.log for status"
-        ;;
-    status)
-        python3 launcher.py --status
-        ;;
-    stop)
-        python3 launcher.py --stop
-        ;;
-    restart)
-        python3 launcher.py --restart
-        ;;
-    *)
-        echo "Usage: $0 [interactive|daemon|status|stop|restart]"
-        echo ""
-        echo "  interactive  - Start with interactive console (default)"
-        echo "  daemon       - Start in background"
-        echo "  status       - Show service status"
-        echo "  stop         - Stop all services"
-        echo "  restart      - Restart all services"
-        exit 1
-        ;;
-esac
+if [ $# -eq 0 ]; then
+    echo "Starting all services..."
+    echo ""
+    echo "Services:"
+    echo "  - Manager      (ZMQ)     Port 5557"
+    echo "  - Dashboard    (Flask)   Port 5000  http://localhost:5000"
+    echo "  - Applet       (Flask)   Port 5051  http://localhost:5051"
+    echo "  - Optimizer    (Flask)   Port 5050  http://localhost:5050"
+    echo ""
+    python3 -m src.launcher
+elif [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+    python3 -m src.launcher --help
+else
+    python3 -m src.launcher "$@"
+fi

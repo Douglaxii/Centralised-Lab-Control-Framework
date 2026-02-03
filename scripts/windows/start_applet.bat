@@ -1,6 +1,5 @@
 @echo off
-REM Start the Applet Flask Server
-REM Usage: start_applet_server.bat [options]
+REM Start only the Applet Flask Server
 
-cd /d "%~dp0"
-python server\applet\launcher.py %*
+cd /d "%~dp0\..\.."
+python -m src.launcher --service applet

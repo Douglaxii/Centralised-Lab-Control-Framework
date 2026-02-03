@@ -9,6 +9,17 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 
+def _deep_merge(base: Dict, override: Dict) -> Dict:
+    """Deep merge override dict into base dict."""
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 class Config:
     """Configuration manager for the lab framework."""
     
@@ -24,25 +35,43 @@ class Config:
     
     def _load_config(self, config_path: Optional[str] = None):
         """Load configuration from YAML file."""
-        project_root = Path(__file__).parent.parent
+        # project_root is MLS (where config/ lives)
+        project_root = Path(__file__).parent.parent.parent.parent  # src/core/config -> src/core -> src -> MLS
         
         if config_path is None:
-            # Check if local config exists first
+            # Check for legacy settings first
+            legacy_config = project_root / "config" / "settings.yaml"
             local_config = project_root / "config" / "settings_local.yaml"
-            main_config = project_root / "config" / "settings.yaml"
             
-            if local_config.exists():
+            if legacy_config.exists():
+                # Use legacy single-file config
+                config_path = legacy_config
+            elif local_config.exists():
                 config_path = local_config
             else:
-                config_path = main_config
+                # Use new modular config: base.yaml + environment override
+                config_path = project_root / "config" / "base.yaml"
         
         self._config_path = Path(config_path)
         
         if not self._config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
         
+        # Load base config
         with open(self._config_path, 'r', encoding='utf-8') as f:
             self._config = yaml.safe_load(f)
+        
+        # If using modular config (base.yaml), load environment overrides
+        if self._config_path.name == "base.yaml":
+            # Check for environment override
+            env = os.environ.get('MLS_ENV', 'development')
+            env_config_path = project_root / "config" / "environments" / f"{env}.yaml"
+            
+            if env_config_path.exists():
+                with open(env_config_path, 'r', encoding='utf-8') as f:
+                    env_config = yaml.safe_load(f)
+                if env_config:
+                    self._config = _deep_merge(self._config, env_config)
         
         # Ensure log directory exists
         log_dir = project_root / "logs"
@@ -79,7 +108,13 @@ class Config:
         Get path configuration.
         Automatically resolves relative paths to absolute.
         """
+        # Try paths.* first, then fall back to other common path locations
         path = self.get(f'paths.{key}')
+        if path is None:
+            path = self.get(f'telemetry.{key}')
+        if path is None:
+            path = self.get(f'camera.{key}')
+        
         if path is None:
             raise KeyError(f"Path '{key}' not found in configuration")
         
@@ -88,7 +123,7 @@ class Config:
         
         # If relative, make it relative to project root
         if not path_obj.is_absolute():
-            project_root = Path(__file__).parent.parent
+            project_root = Path(__file__).parent.parent.parent.parent
             path_obj = project_root / path_obj
         
         return str(path_obj)

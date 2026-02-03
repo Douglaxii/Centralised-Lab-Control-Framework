@@ -1,4 +1,5 @@
 #!/bin/bash
-echo "Starting MLS Control Manager..."
+# Start only the Control Manager
+
 cd "$(dirname "$0")/../.."
-python -m src.server.manager.manager
+python3 -m src.launcher --service manager

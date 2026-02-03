@@ -7,8 +7,8 @@ import zmq
 from typing import Optional, Any, Dict, Union
 import logging
 
-from .config import get_config
-from .exceptions import ConnectionError, TimeoutError
+from ..config import get_config
+from ..exceptions import ConnectionError, TimeoutError
 
 
 logger = logging.getLogger(__name__)

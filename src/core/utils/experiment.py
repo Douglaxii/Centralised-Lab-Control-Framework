@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, field, asdict
 
-from .config import get_config
+from ..config import get_config
 
 
 @dataclass

@@ -39,10 +39,11 @@ from core import (
     setup_logging,
     get_tracker,
     log_safety_trigger,
-)
-from core.exceptions import ConnectionError, SafetyError
-from core.enums import (
-    SystemMode, AlgorithmState, CommandType,
+    ConnectionError,
+    SafetyError,
+    SystemMode,
+    AlgorithmState,
+    CommandType,
     u_rf_mv_to_U_RF_V
 )
 
@@ -1772,7 +1773,7 @@ class ControlManager:
         
         # Send to LabVIEW (convert U_RF volts to u_rf millivolts)
         if self.labview:
-            from core.enums import U_RF_V_to_u_rf_mv
+            from core import U_RF_V_to_u_rf_mv
             u_rf_mv = U_RF_V_to_u_rf_mv(u_rf_volts)
             success = self.labview.set_rf_voltage(u_rf_mv)
             if not success:

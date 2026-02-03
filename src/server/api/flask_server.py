@@ -41,8 +41,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
-from core import get_config, setup_logging, get_tracker
-from core.enums import SystemMode, AlgorithmState
+from core import get_config, setup_logging, get_tracker, SystemMode, AlgorithmState
 
 
 # =============================================================================
@@ -227,10 +226,16 @@ class KillSwitchManager:
 # Global kill switch manager
 kill_switch = KillSwitchManager()
 
+# =============================================================================
+# SETUP & CONFIGURATION
+# =============================================================================
+
+logger = setup_logging(component="flask")
+
 # Import shared telemetry storage (Manager reads files, Flask displays)
 # LabVIEW writes data files to E:/Data/, Manager reads them
 try:
-    from server.communications.data_server import (
+    from server.comms.data_server import (
         get_telemetry_data,
         get_data_sources
     )
@@ -238,12 +243,6 @@ try:
 except ImportError:
     TELEMETRY_AVAILABLE = False
     logger.warning("Telemetry storage not available - will use simulated data only")
-
-# =============================================================================
-# SETUP & CONFIGURATION
-# =============================================================================
-
-logger = setup_logging(component="flask")
 config = get_config()
 
 # Network configuration

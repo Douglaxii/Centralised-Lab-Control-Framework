@@ -20,7 +20,7 @@ import threading
 import time
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS

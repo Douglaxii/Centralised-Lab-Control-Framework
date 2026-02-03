@@ -35,17 +35,20 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Add analysis path for trap_sim_asy
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "analysis" / "eigenmodes"))
-
 try:
-    from trap_sim_asy import calculate_eigenmode, modes_dataframe, _format_df
-    from trap_sim_asy import DEFAULT_TRAP_PARAMS
-except ImportError as e:
-    logging.error(f"Failed to import trap_sim_asy: {e}")
-    raise
+    # Try absolute import first (when src is in path)
+    from analysis.eigenmodes.trap_sim_asy import calculate_eigenmode, modes_dataframe, _format_df
+    from analysis.eigenmodes.trap_sim_asy import DEFAULT_TRAP_PARAMS
+except ImportError:
+    # Fall back to relative import from parent directory (src)
+    try:
+        from ..analysis.eigenmodes.trap_sim_asy import calculate_eigenmode, modes_dataframe, _format_df
+        from ..analysis.eigenmodes.trap_sim_asy import DEFAULT_TRAP_PARAMS
+    except ImportError as e:
+        logging.error(f"Failed to import trap_sim_asy: {e}")
+        raise
 
-from .base_experiment import BaseExperiment, ExperimentStatus, ExperimentResult
+from .base import BaseExperiment, ExperimentStatus, ExperimentResult
 
 
 @dataclass

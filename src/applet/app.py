@@ -24,7 +24,13 @@ from flask import Flask, render_template, jsonify, request, Response
 from flask_cors import CORS
 
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+# Also add src directory to path for imports like 'from analysis...'
+src_dir = project_root / "src"
+if src_dir.exists() and str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
 
 # Setup logging
 logging.basicConfig(
@@ -45,8 +51,8 @@ app = Flask(
 CORS(app)
 
 # Import controller
-from controllers import controller
-from experiments import ExperimentStatus
+from .controllers import controller
+from . import ExperimentStatus
 
 # SSE clients
 sse_clients: list = []
@@ -215,17 +221,17 @@ def main():
     args = parser.parse_args()
     
     print(f"""
-╔══════════════════════════════════════════════════════════════╗
-║              Applet Flask Server                             ║
-╠══════════════════════════════════════════════════════════════╣
-║  URL: http://{args.host}:{args.port:<5}                            ║
-║                                                              ║
-║  Available Experiments:                                      ║
-{"║    - trap_eigenmode":<63}║
-{"║    - auto_compensation":<63}║
-{"║    - cam_sweep":<63}║
-{"║    - sim_calibration":<63}║
-╚══════════════════════════════════════════════════════════════╝
+==============================================================
+              Applet Flask Server                             
+==============================================================
+  URL: http://{args.host}:{args.port}
+                                                              
+  Available Experiments:                                      
+    - trap_eigenmode
+    - auto_compensation
+    - cam_sweep
+    - sim_calibration
+==============================================================
     """)
     
     logger.info(f"Starting Applet Server on {args.host}:{args.port}")

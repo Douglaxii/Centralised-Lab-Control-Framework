@@ -1,8 +1,9 @@
 #!/bin/bash
-echo "Usage: run_experiment.sh <experiment_name>"
-if [ -z "$1" ]; then
-    echo "Please provide an experiment name"
-    exit 1
-fi
+# Run any applet experiment
+# Usage: ./run_experiment.sh [experiment_name] [options]
+# Example: ./run_experiment.sh auto_compensation
+
 cd "$(dirname "$0")/../.."
-python -m src.applet.run_$1
+EXPERIMENT="$1"
+shift
+python3 -m "src.applet.run_${EXPERIMENT}" "$@"

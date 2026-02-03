@@ -40,7 +40,7 @@ from datetime import datetime
 import numpy as np
 from scipy.optimize import curve_fit
 
-from .base_experiment import BaseExperiment, ExperimentStatus, ExperimentResult
+from .base import BaseExperiment, ExperimentStatus, ExperimentResult
 
 
 @dataclass

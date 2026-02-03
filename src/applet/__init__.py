@@ -5,7 +5,7 @@ This module contains modular experimental scripts that can be
 controlled via the Flask API.
 """
 
-from .base_experiment import BaseExperiment, ExperimentStatus
+from .base import BaseExperiment, ExperimentStatus
 from .auto_compensation import AutoCompensationExperiment
 from .trap_eigenmode import TrapEigenmodeExperiment
 from .cam_sweep import CamSweepExperiment

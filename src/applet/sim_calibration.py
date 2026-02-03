@@ -36,7 +36,7 @@ import io
 
 import numpy as np
 
-from .base_experiment import BaseExperiment, ExperimentStatus, ExperimentResult
+from .base import BaseExperiment, ExperimentStatus, ExperimentResult
 
 
 @dataclass

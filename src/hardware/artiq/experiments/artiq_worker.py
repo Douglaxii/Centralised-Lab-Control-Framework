@@ -38,7 +38,7 @@ from core import (
     get_tracker,
     log_safety_trigger,
 )
-from core.exceptions import SafetyError, HardwareError
+from core import SafetyError, HardwareError
 
 # Import hardware fragments
 from compensation import Compensation
