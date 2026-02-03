@@ -50,9 +50,9 @@ app = Flask(
 )
 CORS(app)
 
-# Import controller
-from .controllers import controller
-from . import ExperimentStatus
+# Import controller - use absolute imports to work when run as module or script
+from applet.controllers import controller
+from applet import ExperimentStatus
 
 # SSE clients
 sse_clients: list = []

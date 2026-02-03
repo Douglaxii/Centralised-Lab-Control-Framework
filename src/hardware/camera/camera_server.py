@@ -158,6 +158,31 @@ def handle_client(conn, addr):
         logger.info(f"Connection closed: {addr}")
 
 
+def ensure_directories():
+    """Ensure all required data directories exist."""
+    import os
+    
+    # Local data paths for manager PC (E:/data)
+    data_paths = [
+        'E:/data',
+        'E:/data/jpg_frames',
+        'E:/data/jpg_frames_labelled',
+        'E:/data/ion_data',
+        'E:/data/camera',
+        'E:/data/camera/settings',
+        'E:/data/camera/frames',
+        'E:/data/logs',
+        'logs/server'
+    ]
+    
+    for path in data_paths:
+        try:
+            os.makedirs(path, exist_ok=True)
+            logger.debug(f"Ensured directory exists: {path}")
+        except Exception as e:
+            logger.warning(f"Could not create directory {path}: {e}")
+
+
 def main():
     """Main camera server."""
     
@@ -171,13 +196,16 @@ def main():
     logger.info("=" * 60)
     
     # Ensure output directories exist
-    os.makedirs('logs/server', exist_ok=True)
+    ensure_directories()
+    
+    # Additional paths from config if available
     if CORE_AVAILABLE:
         try:
             from camera_recording import FRAME_PATH
             os.makedirs(FRAME_PATH, exist_ok=True)
-        except:
-            os.makedirs('E:/Data/jpg_frames', exist_ok=True)
+            logger.info(f"Frame path ready: {FRAME_PATH}")
+        except Exception as e:
+            logger.warning(f"Could not create FRAME_PATH: {e}")
     
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

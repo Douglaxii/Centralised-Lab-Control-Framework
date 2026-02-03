@@ -1,0 +1,402 @@
+# MLS Unified Configuration File
+# This is the ONLY configuration file you need to edit.
+# 
+# QUICK START:
+# 1. Set your environment: 'development' for laptop, 'production' for manager PC
+# 2. The profile section below contains all settings for both environments
+# 3. Everything is in ONE file - no more conflicts!
+#
+# NOTE: ARTIQ code cannot use this config - it must be hardcoded in fragments.
+# This config is ONLY for the Python control system (manager, flask, camera, etc.)
+
+---
+# =============================================================================
+# ACTIVE ENVIRONMENT - CHANGE THIS TO SWITCH BETWEEN LAPTOP AND MANAGER PC
+# =============================================================================
+# Options: 'development' (your laptop) or 'production' (manager PC)
+environment: development
+
+
+# =============================================================================
+# PROFILE CONFIGURATIONS
+# Each profile contains complete settings for that environment
+# =============================================================================
+profiles:
+  
+  # ---------------------------------------------------------------------------
+  # DEVELOPMENT PROFILE - For your laptop
+  # ---------------------------------------------------------------------------
+  development:
+    description: "Local development on laptop"
+    
+    network:
+      master_ip: "127.0.0.1"        # Localhost for development
+      bind_host: "127.0.0.1"
+      cmd_port: 5555                # Master -> Worker commands
+      data_port: 5556               # Worker -> Master data
+      client_port: 5557             # Flask -> Manager
+      camera_port: 5558             # Camera server
+      connection_timeout: 5.0
+      receive_timeout: 1.0
+      heartbeat_interval: 10.0
+      max_retries: 3
+      retry_base_delay: 1.0
+    
+    paths:
+      # All data goes to local ./data folder
+      output_base: "./data"
+      artiq_data: "./data/artiq"
+      labview_tdms: "./data/PMT"
+      labview_telemetry: "./data/telemetry"
+      camera_frames: "./data/camera/raw_frames"
+      camera_settings: "./data/camera/settings"
+      camera_dcimg: "./data/camera/dcimg"
+      live_frames: "./data/camera/live_frames"
+      jpg_frames: "./data/camera/raw_frames"
+      jpg_frames_labelled: "./data/camera/processed_frames"
+      ion_data: "./data/ion_data"
+      experiments: "./data/experiments"
+      analysis_results: "./data/analysis/results"
+      analysis_settings: "./data/analysis/settings"
+      debug_path: "./data/debug"
+      dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
+    
+    hardware:
+      worker_defaults:
+        ec1: 0.0
+        ec2: 0.0
+        comp_h: 0.0
+        comp_v: 0.0
+        u_rf_volts: 200.0
+        piezo: 0.0
+        freq0: 215.5
+        freq1: 215.5
+        amp0: 0.05
+        amp1: 0.05
+        sw0: 0
+        sw1: 0
+        bephi: 0
+        b_field: 1
+        be_oven: 0
+        uv3: 0
+        e_gun: 0
+        sweep_target: 307
+        sweep_span: 40.0
+        sweep_att: 25.0
+        sweep_on: 300.0
+        sweep_off: 300.0
+        sweep_points: 41
+      
+      camera:
+        target_temperature: -20.0
+        cooler_timeout: 300
+        max_frames_default: 100
+        exposure_default: 0.3
+        trigger_mode: "software"      # Software trigger for testing
+        trigger_delay: 0.033138
+        subarray:
+          hsize: 300
+          hpos: 1624
+          vsize: 600
+          vpos: 1396
+    
+    labview:
+      enabled: false                # Disabled in development
+      host: "127.0.0.1"
+      port: 5559
+      timeout: 5.0
+      retry_delay: 1.0
+      max_retries: 3
+      auto_reconnect: false
+      pressure_threshold_mbar: 5.0e-9
+      pressure_check_interval: 0.05
+      devices:
+        - u_rf
+        - piezo
+        - be_oven
+        - b_field
+        - bephi
+        - uv3
+        - e_gun
+        - hd_valve
+        - dds
+    
+    telemetry:
+      enabled: false
+      path: "./data/telemetry"
+      poll_interval: 1.0
+      max_points: 1000
+      window_seconds: 300
+      tdms_path: "./data/PMT"
+      tdms_extension: ".tdms"
+    
+    camera:
+      auto_start: false             # Don't auto-start camera in dev
+      mode: "inf"
+      send_initial_trigger: false
+      host: "127.0.0.1"
+      port: 5558
+      raw_frames_path: "./data/camera/raw_frames"
+      labelled_frames_path: "./data/camera/processed_frames"
+      ion_data_path: "./data/ion_data"
+      flask_base_url: "http://127.0.0.1:5000"
+      infinite_mode:
+        max_frames: 100
+        exposure_ms: 300
+        trigger_mode: "software"
+      processing:
+        enabled: true
+        roi: [180, 220, 425, 495]
+        filter_radius: 6
+        threshold_sigma: 3.0
+        max_ions: 5
+    
+    logging:
+      level: "DEBUG"
+      format: "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
+      file_rotation:
+        max_bytes: 1048576
+        backup_count: 5
+      files:
+        manager: "./logs/manager.log"
+        worker: "./logs/artiq_worker.log"
+        camera: "./logs/camera.log"
+        analysis: "./logs/analysis.log"
+    
+    analysis:
+      sweep:
+        model: "lorentzian"
+        initial_guess:
+          gamma: 5000.0
+      image_handler:
+        roi:
+          x_start: 0
+          x_finish: 500
+          y_start: 10
+          y_finish: 300
+        detection:
+          threshold_percentile: 99.5
+          min_snr: 6.0
+          min_intensity: 35
+          max_intensity: 65000
+          min_sigma: 2.0
+          max_sigma: 30.0
+          max_ions: 10
+          min_distance: 15
+          edge_margin: 20
+          bg_kernel_size: 15
+          scales: [3, 5, 7]
+        visualization:
+          panel_height_ratio: 0.25
+          font_scale_title: 0.4
+          font_scale_data: 0.32
+          font_scale_ion_num: 0.45
+          crosshair_size: 12
+          circle_radius_factor: 1.5
+        performance:
+          num_threads: 4              # Fewer threads for laptop
+          use_vectorized: true
+          use_gpu: false              # Disable GPU for laptop
+          jpeg_quality: 85
+    
+    performance:
+      num_threads: 4
+      use_vectorized: true
+      use_gpu: false
+    
+    security:
+      enable_authentication: false
+      require_https: false
+      allowed_hosts:
+        - "127.0.0.1"
+        - "localhost"
+
+  # ---------------------------------------------------------------------------
+  # PRODUCTION PROFILE - For manager PC (134.99.120.40)
+  # ---------------------------------------------------------------------------
+  production:
+    description: "Manager PC in lab (134.99.120.40)"
+    
+    network:
+      master_ip: "134.99.120.40"      # Manager PC IP
+      bind_host: "0.0.0.0"            # Listen on all interfaces
+      cmd_port: 5555
+      data_port: 5556
+      client_port: 5557
+      camera_port: 5558
+      connection_timeout: 5.0
+      receive_timeout: 1.0
+      heartbeat_interval: 10.0
+      max_retries: 5
+      retry_base_delay: 1.0
+    
+    paths:
+      # Network drives for production
+      output_base: "Y:/Xi/Data"
+      artiq_data: "C:/artiq-master/results"
+      labview_tdms: "Y:/Xi/Data/PMT"
+      labview_telemetry: "Y:/Xi/Data/telemetry"
+      camera_frames: "Y:/Xi/Data/camera/raw_frames"
+      camera_settings: "Y:/Xi/Data/camera/settings"
+      camera_dcimg: "Y:/Xi/Data/camera/dcimg"
+      live_frames: "Y:/Xi/Data/camera/live_frames"
+      # Local drive for processed data (performance)
+      jpg_frames: "E:/data/jpg_frames"
+      jpg_frames_labelled: "E:/data/jpg_frames_labelled"
+      ion_data: "E:/data/ion_data"
+      experiments: "Y:/Xi/Data/experiments"
+      analysis_results: "Y:/Xi/Data/analysis/results"
+      analysis_settings: "Y:/Xi/Data/analysis/settings"
+      debug_path: "Y:/Xi/Data/debug"
+      dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
+    
+    hardware:
+      worker_defaults:
+        ec1: 0.0
+        ec2: 0.0
+        comp_h: 0.0
+        comp_v: 0.0
+        u_rf_volts: 200.0
+        piezo: 0.0
+        freq0: 215.5
+        freq1: 215.5
+        amp0: 0.05
+        amp1: 0.05
+        sw0: 0
+        sw1: 0
+        bephi: 0
+        b_field: 1
+        be_oven: 0
+        uv3: 0
+        e_gun: 0
+        sweep_target: 307
+        sweep_span: 40.0
+        sweep_att: 25.0
+        sweep_on: 300.0
+        sweep_off: 300.0
+        sweep_points: 41
+      
+      camera:
+        target_temperature: -20.0
+        cooler_timeout: 300
+        max_frames_default: 100
+        exposure_default: 0.3
+        trigger_mode: "extern"        # External trigger in production
+        trigger_delay: 0.033138
+        subarray:
+          hsize: 300
+          hpos: 1624
+          vsize: 600
+          vpos: 1396
+    
+    labview:
+      enabled: true                   # LabVIEW enabled in production
+      host: "172.17.1.217"            # SMILE PC IP
+      port: 5559
+      timeout: 5.0
+      retry_delay: 1.0
+      max_retries: 3
+      auto_reconnect: true
+      pressure_threshold_mbar: 5.0e-9
+      pressure_check_interval: 0.05
+      devices:
+        - u_rf
+        - piezo
+        - be_oven
+        - b_field
+        - bephi
+        - uv3
+        - e_gun
+        - hd_valve
+        - dds
+    
+    telemetry:
+      enabled: true
+      path: "Y:/Xi/Data/telemetry"
+      poll_interval: 1.0
+      max_points: 1000
+      window_seconds: 300
+      tdms_path: "Y:/Xi/Data/PMT"
+      tdms_extension: ".tdms"
+    
+    camera:
+      auto_start: true                # Auto-start camera in production
+      mode: "inf"
+      send_initial_trigger: true
+      host: "127.0.0.1"
+      port: 5558
+      raw_frames_path: "E:/data/jpg_frames"
+      labelled_frames_path: "E:/data/jpg_frames_labelled"
+      ion_data_path: "E:/data/ion_data"
+      flask_base_url: "http://127.0.0.1:5000"
+      infinite_mode:
+        max_frames: 100
+        exposure_ms: 300
+        trigger_mode: "extern"        # External trigger for real hardware
+      processing:
+        enabled: true
+        roi: [180, 220, 425, 495]
+        filter_radius: 6
+        threshold_sigma: 3.0
+        max_ions: 5
+    
+    logging:
+      level: "INFO"
+      format: "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
+      file_rotation:
+        max_bytes: 1048576
+        backup_count: 5
+      files:
+        manager: "Y:/Xi/Data/logs/manager.log"
+        worker: "Y:/Xi/Data/logs/artiq_worker.log"
+        camera: "Y:/Xi/Data/logs/camera.log"
+        analysis: "Y:/Xi/Data/logs/analysis.log"
+    
+    analysis:
+      sweep:
+        model: "lorentzian"
+        initial_guess:
+          gamma: 5000.0
+      image_handler:
+        roi:
+          x_start: 0
+          x_finish: 500
+          y_start: 10
+          y_finish: 300
+        detection:
+          threshold_percentile: 99.5
+          min_snr: 6.0
+          min_intensity: 35
+          max_intensity: 65000
+          min_sigma: 2.0
+          max_sigma: 30.0
+          max_ions: 10
+          min_distance: 15
+          edge_margin: 20
+          bg_kernel_size: 15
+          scales: [3, 5, 7]
+        visualization:
+          panel_height_ratio: 0.25
+          font_scale_title: 0.4
+          font_scale_data: 0.32
+          font_scale_ion_num: 0.45
+          crosshair_size: 12
+          circle_radius_factor: 1.5
+        performance:
+          num_threads: 8               # More threads for server
+          use_vectorized: true
+          use_gpu: true                # Enable GPU on server
+          jpeg_quality: 85
+    
+    performance:
+      num_threads: 8
+      use_vectorized: true
+      use_gpu: true
+    
+    security:
+      enable_authentication: true
+      require_https: false
+      allowed_hosts:
+        - "134.99.120.40"
+        - "localhost"
+        - "127.0.0.1"

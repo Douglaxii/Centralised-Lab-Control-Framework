@@ -14,7 +14,14 @@ from ..base import ExperimentStatus
 from ..auto_compensation import AutoCompensationExperiment
 from ..cam_sweep import CamSweepExperiment
 from ..sim_calibration import SimCalibrationExperiment
-from ..trap_eigenmode import TrapEigenmodeExperiment
+
+# TrapEigenmodeExperiment requires analysis module which may not be available
+try:
+    from ..trap_eigenmode import TrapEigenmodeExperiment
+    _TRAP_EIGENMODE_AVAILABLE = True
+except ImportError:
+    TrapEigenmodeExperiment = None
+    _TRAP_EIGENMODE_AVAILABLE = False
 
 
 class ExperimentController:
@@ -49,10 +56,13 @@ class ExperimentController:
         # Registry of available experiments
         self._experiments: Dict[str, Any] = {
             "auto_compensation": AutoCompensationExperiment,
-            "trap_eigenmode": TrapEigenmodeExperiment,
             "cam_sweep": CamSweepExperiment,
             "sim_calibration": SimCalibrationExperiment,
         }
+        
+        # Only add trap_eigenmode if analysis module is available
+        if _TRAP_EIGENMODE_AVAILABLE and TrapEigenmodeExperiment is not None:
+            self._experiments["trap_eigenmode"] = TrapEigenmodeExperiment
         
         # Currently running experiment
         self._current: Optional[Any] = None

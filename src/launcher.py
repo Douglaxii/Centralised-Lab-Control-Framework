@@ -48,6 +48,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger("Launcher")
 
+# Load and display configuration info
+try:
+    from core import get_config
+    _config = get_config()
+    _env = _config.environment
+    _master_ip = _config.master_ip
+    logger.info(f"Configuration loaded: {_env} (master_ip: {_master_ip})")
+except Exception as e:
+    logger.warning(f"Could not load configuration: {e}")
+
 
 class ServiceStatus(Enum):
     """Service status states."""
@@ -215,11 +225,33 @@ class UnifiedLauncher:
         }
     }
     
+    # Data paths that need to be created on startup
+    DATA_PATHS = [
+        'E:/data',
+        'E:/data/jpg_frames',
+        'E:/data/jpg_frames_labelled', 
+        'E:/data/ion_data',
+        'E:/data/camera',
+        'E:/data/logs',
+        'logs',
+        'logs/server'
+    ]
+    
     def __init__(self):
         self.services: Dict[str, ServiceManager] = {}
         self.state_file = Path(".launcher_state.json")
         self.running = False
         self._shutdown_event = threading.Event()
+        
+    def _ensure_data_directories(self):
+        """Ensure all required data directories exist."""
+        import os
+        for path in self.DATA_PATHS:
+            try:
+                os.makedirs(path, exist_ok=True)
+                logger.debug(f"Ensured directory exists: {path}")
+            except Exception as e:
+                logger.warning(f"Could not create directory {path}: {e}")
         
     def register_services(self, service_names: Optional[List[str]] = None):
         """Register services to be managed."""
@@ -247,8 +279,27 @@ class UnifiedLauncher:
     
     def start_all(self, stagger: float = 2.0) -> bool:
         """Start all registered services with staggered delays."""
+        # Ensure data directories exist
+        self._ensure_data_directories()
+        
+        # Get config info for display
+        try:
+            from core import get_config
+            config = get_config()
+            env = config.environment
+            master_ip = config.master_ip
+            data_path = config.get('paths.output_base', './data')
+        except:
+            env = "unknown"
+            master_ip = "unknown"
+            data_path = "unknown"
+        
         logger.info("=" * 60)
         logger.info("Starting MLS Services")
+        logger.info("=" * 60)
+        logger.info(f"Environment: {env}")
+        logger.info(f"Master IP: {master_ip}")
+        logger.info(f"Data Path: {data_path}")
         logger.info("=" * 60)
         
         # Start order matters: manager first, then Flask servers

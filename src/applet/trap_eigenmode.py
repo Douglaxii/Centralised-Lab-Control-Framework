@@ -39,14 +39,21 @@ try:
     # Try absolute import first (when src is in path)
     from analysis.eigenmodes.trap_sim_asy import calculate_eigenmode, modes_dataframe, _format_df
     from analysis.eigenmodes.trap_sim_asy import DEFAULT_TRAP_PARAMS
+    ANALYSIS_AVAILABLE = True
 except ImportError:
     # Fall back to relative import from parent directory (src)
     try:
         from ..analysis.eigenmodes.trap_sim_asy import calculate_eigenmode, modes_dataframe, _format_df
         from ..analysis.eigenmodes.trap_sim_asy import DEFAULT_TRAP_PARAMS
+        ANALYSIS_AVAILABLE = True
     except ImportError as e:
-        logging.error(f"Failed to import trap_sim_asy: {e}")
-        raise
+        logging.warning(f"analysis module not available, trap_eigenmode experiment disabled: {e}")
+        ANALYSIS_AVAILABLE = False
+        # Define placeholders to prevent NameError
+        calculate_eigenmode = None
+        modes_dataframe = None
+        _format_df = None
+        DEFAULT_TRAP_PARAMS = None
 
 from .base import BaseExperiment, ExperimentStatus, ExperimentResult
 
