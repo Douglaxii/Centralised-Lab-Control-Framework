@@ -14,9 +14,12 @@ This fragment replicates and extends the functionality from:
 Architecture:
 - Hardware trigger: TTL pulses via camera_trigger device
 - Software control: HTTP requests to Flask/camera server
+
+All settings are configurable via ndscan parameters for easy customization
+in experiment fragments without code changes.
 """
 
-from ndscan.experiment import Fragment, FloatParam, IntParam, BoolParam
+from ndscan.experiment import Fragment, FloatParam, IntParam, BoolParam, StringParam
 from artiq.experiment import *
 from oitg.units import us, ms
 import requests
@@ -36,6 +39,7 @@ class Camera(Fragment):
     - Start/stop infinity mode recording
     - Camera settings configuration
     - Image analysis control
+    - All settings exposed as ndscan parameters for easy customization
     """
     
     def build_fragment(self) -> None:
@@ -43,24 +47,57 @@ class Camera(Fragment):
         # Camera trigger TTL (ttl4 as defined in device_db.py)
         self.setattr_device("camera_trigger")
         
-        # HTTP configuration for camera control
-        # Default to localhost Flask server
-        self.base_url = "http://127.0.0.1:5000"
-        self.camera_server_host = "127.0.0.1"
-        self.camera_server_port = 5558
+        # =======================================================================
+        # Server Connection Parameters (easily customizable)
+        # =======================================================================
+        self.setattr_param(
+            "cam_server_url", 
+            StringParam, 
+            "Camera Flask server URL",
+            default="http://127.0.0.1:5000"
+        )
+        self.setattr_param(
+            "cam_zmq_host",
+            StringParam,
+            "Camera ZMQ server host",
+            default="127.0.0.1"
+        )
+        self.setattr_param(
+            "cam_zmq_port",
+            IntParam,
+            "Camera ZMQ server port",
+            default=5558,
+            min=1024,
+            max=65535
+        )
         
-        # Default pulse duration
-        self.default_pulse_us = 100.0
+        # =======================================================================
+        # Trigger Parameters (easily customizable)
+        # =======================================================================
+        self.setattr_param(
+            "cam_default_pulse_us",
+            FloatParam,
+            "Default trigger pulse duration",
+            default=100.0,
+            unit="us"
+        )
+        self.setattr_param(
+            "cam_short_pulse_us",
+            FloatParam,
+            "Short trigger pulse duration (for sweeps)",
+            default=10.0,
+            unit="us"
+        )
         
-        # State tracking
+        # State tracking (not a parameter)
         self.is_recording = False
         
-        # Route definitions (matching orca_quest.py structure)
+        # Route definitions (updated dynamically based on server_url)
         self._update_routes()
     
     def _update_routes(self):
-        """Update URL routes based on current base_url."""
-        base = self.base_url.rstrip("/")
+        """Update URL routes based on current server_url parameter."""
+        base = self.cam_server_url.get().rstrip("/")
         self.routes = {
             "start": f"{base}/start_camera",
             "stop": f"{base}/stop_camera",
@@ -73,14 +110,20 @@ class Camera(Fragment):
             "clear_analysis": f"{base}/clear_live_analysis",
         }
     
+    def host_setup(self):
+        """Update routes when host setup is called (parameters are now available)."""
+        self._update_routes()
+        super().host_setup()
+    
     def set_server_url(self, url: str):
         """
-        Set the Flask server URL for camera control.
+        Set the Flask server URL for camera control (programmatic override).
         
         Args:
             url: Base URL of the Flask server (e.g., "http://127.0.0.1:5000")
         """
-        self.base_url = url
+        # Update the parameter value
+        self.cam_server_url.set(url)
         self._update_routes()
     
     @kernel
@@ -90,41 +133,50 @@ class Camera(Fragment):
         # No specific initialization needed for TTL output
         
     @kernel
-    def trigger(self, pulse_duration_us: TFloat = 100.0) -> None:
+    def trigger(self, pulse_duration_us: TFloat = -1.0) -> None:
         """
         Send TTL pulse to trigger camera.
         
         Args:
             pulse_duration_us: Duration of the trigger pulse in microseconds.
+                              If negative, uses cam_default_pulse_us parameter.
                               Default is 100us (same as orca_quest.py).
         """
         self.core.break_realtime()
+        if pulse_duration_us < 0:
+            pulse_duration_us = self.cam_default_pulse_us.get()
         self.camera_trigger.pulse(pulse_duration_us * us)
     
     @kernel
-    def trigger_short(self, pulse_duration_us: TFloat = 10.0) -> None:
+    def trigger_short(self, pulse_duration_us: TFloat = -1.0) -> None:
         """
         Send short TTL pulse to trigger camera.
         
         Args:
             pulse_duration_us: Duration of the trigger pulse in microseconds.
+                              If negative, uses cam_short_pulse_us parameter.
                               Default is 10us (for sweep operations).
         """
         self.core.break_realtime()
+        if pulse_duration_us < 0:
+            pulse_duration_us = self.cam_short_pulse_us.get()
         self.camera_trigger.pulse(pulse_duration_us * us)
     
     @kernel
     def trigger_multiple(self, n_triggers: TInt, delay_ms: TFloat, 
-                         pulse_duration_us: TFloat = 100.0) -> None:
+                         pulse_duration_us: TFloat = -1.0) -> None:
         """
         Send multiple TTL trigger pulses.
         
         Args:
             n_triggers: Number of trigger pulses to send
             delay_ms: Delay between pulses in milliseconds
-            pulse_duration_us: Duration of each pulse in microseconds
+            pulse_duration_us: Duration of each pulse in microseconds.
+                              If negative, uses cam_default_pulse_us parameter.
         """
         self.core.break_realtime()
+        if pulse_duration_us < 0:
+            pulse_duration_us = self.cam_default_pulse_us.get()
         for i in range(n_triggers):
             self.camera_trigger.pulse(pulse_duration_us * us)
             delay(delay_ms * ms)
@@ -338,30 +390,137 @@ class Camera(Fragment):
 
 class AutoCamera(Fragment):
     """
-    Automated camera control fragment.
+    Automated camera control fragment with all settings as parameters.
     
     Replicates functionality from auto_cam.py AutoCam class.
     Provides automated camera boot and analysis configuration.
+    All settings are exposed as ndscan parameters for easy customization.
     """
     
     def build_fragment(self) -> None:
         self.setattr_device("core")
         self.setattr_fragment("camera", Camera)
         
-        # Auto-control parameters
+        # =======================================================================
+        # Auto-control Parameters
+        # =======================================================================
         self.setattr_param("auto_cam", BoolParam, "Auto camera", default=True)
         self.setattr_param("auto_ana", BoolParam, "Auto camera analysis", default=True)
+        self.setattr_param(
+            "auto_cam_stabilize_time",
+            FloatParam,
+            "Camera stabilization time after boot",
+            default=6.0,
+            unit="s"
+        )
         
-        # Camera settings
-        self.setattr_param("n_frames", IntParam, "Expected number of cam frames", default=100)
-        self.setattr_param("t_exposure", FloatParam, "Exposure time", default=300.0, unit="ms")
+        # =======================================================================
+        # Camera Settings (all customizable)
+        # =======================================================================
+        self.setattr_param(
+            "n_frames",
+            IntParam,
+            "Expected number of cam frames",
+            default=100,
+            min=1,
+            max=10000
+        )
+        self.setattr_param(
+            "t_exposure",
+            FloatParam,
+            "Exposure time",
+            default=300.0,
+            unit="ms"
+        )
+        self.setattr_param(
+            "trigger_mode",
+            StringParam,
+            "Trigger mode (extern/software)",
+            default="extern"
+        )
         
-        # Analysis settings (ROI for ion detection)
-        self.setattr_param("xstart", IntParam, "ROI xstart", default=180)
-        self.setattr_param("xfinish", IntParam, "ROI xfinish", default=220)
-        self.setattr_param("ystart", IntParam, "ROI ystart", default=425)
-        self.setattr_param("yfinish", IntParam, "ROI yfinish", default=495)
-        self.setattr_param("radius", IntParam, "Lowpass filter radius", default=6)
+        # =======================================================================
+        # Analysis Settings (ROI for ion detection - all customizable)
+        # =======================================================================
+        self.setattr_param(
+            "xstart",
+            IntParam,
+            "ROI xstart",
+            default=180,
+            min=0,
+            max=2048
+        )
+        self.setattr_param(
+            "xfinish",
+            IntParam,
+            "ROI xfinish",
+            default=220,
+            min=0,
+            max=2048
+        )
+        self.setattr_param(
+            "ystart",
+            IntParam,
+            "ROI ystart",
+            default=425,
+            min=0,
+            max=2048
+        )
+        self.setattr_param(
+            "yfinish",
+            IntParam,
+            "ROI yfinish",
+            default=495,
+            min=0,
+            max=2048
+        )
+        self.setattr_param(
+            "radius",
+            IntParam,
+            "Lowpass filter radius",
+            default=6,
+            min=1,
+            max=50
+        )
+        
+        # =======================================================================
+        # Timing Parameters (all customizable)
+        # =======================================================================
+        self.setattr_param(
+            "boot_stop_delay_ms",
+            FloatParam,
+            "Delay after stop before settings (ms)",
+            default=500.0,
+            unit="ms"
+        )
+        self.setattr_param(
+            "boot_settings_delay_ms",
+            FloatParam,
+            "Delay after settings before start (ms)",
+            default=500.0,
+            unit="ms"
+        )
+        self.setattr_param(
+            "ana_stop_delay_ms",
+            FloatParam,
+            "Analysis stop delay (ms)",
+            default=200.0,
+            unit="ms"
+        )
+        self.setattr_param(
+            "ana_params_delay_ms",
+            FloatParam,
+            "Analysis params delay (ms)",
+            default=200.0,
+            unit="ms"
+        )
+        self.setattr_param(
+            "ana_cleanup_delay_ms",
+            FloatParam,
+            "Analysis cleanup delay (ms)",
+            default=200.0,
+            unit="ms"
+        )
     
     @rpc
     def host_setup(self):
@@ -379,7 +538,7 @@ class AutoCamera(Fragment):
             self.boot_analysis()
         
         # Wait for camera to stabilize
-        time.sleep(6)
+        time.sleep(self.auto_cam_stabilize_time.get())
         
         # Continue with parent setup
         super().host_setup()
@@ -401,20 +560,21 @@ class AutoCamera(Fragment):
         Boot camera with configured settings.
         
         Replicates auto_cam.py boot_camera() method.
+        Uses all customizable parameters.
         """
         print("AutoCamera: Close potential camera operations and reboot...")
         
         # Stop any existing recording
         self.camera.stop_cam()
-        time.sleep(0.5)
+        time.sleep(self.boot_stop_delay_ms.get() / 1000.0)
         
         # Send settings
         self.camera.send_cam_settings(
             self.n_frames.get(),
             self.t_exposure.get(),
-            trigger_mode="extern"
+            trigger_mode=self.trigger_mode.get()
         )
-        time.sleep(0.5)
+        time.sleep(self.boot_settings_delay_ms.get() / 1000.0)
         
         # Start recording
         self.camera.start_cam_recording()
@@ -426,12 +586,13 @@ class AutoCamera(Fragment):
         Configure and start auto analysis.
         
         Replicates auto_cam.py boot_analysis() method.
+        Uses all customizable ROI parameters.
         """
         print("AutoCamera: Configure and start auto analysis...")
         
         # Stop any existing analysis
         self.camera.stop_analysis()
-        time.sleep(0.2)
+        time.sleep(self.ana_stop_delay_ms.get() / 1000.0)
         
         # Set parameters
         self.camera.set_analysis_params(
@@ -441,7 +602,7 @@ class AutoCamera(Fragment):
             int(self.yfinish.get()),
             int(self.radius.get())
         )
-        time.sleep(0.2)
+        time.sleep(self.ana_params_delay_ms.get() / 1000.0)
         
         # Start analysis
         self.camera.start_analysis()
@@ -457,12 +618,12 @@ class AutoCamera(Fragment):
         print("AutoCamera: Stop and save auto analysis...")
         
         self.camera.stop_analysis()
-        time.sleep(0.2)
+        time.sleep(self.ana_cleanup_delay_ms.get() / 1000.0)
         
         self.camera.save_analysis()
-        time.sleep(0.2)
+        time.sleep(self.ana_cleanup_delay_ms.get() / 1000.0)
         
         self.camera.clear_analysis()
-        time.sleep(0.2)
+        time.sleep(self.ana_cleanup_delay_ms.get() / 1000.0)
         
         print("AutoCamera: Analysis cleanup complete")

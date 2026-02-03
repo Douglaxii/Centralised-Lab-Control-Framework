@@ -1,11 +1,4 @@
-# MLS Unified Configuration File
-# This is the ONLY configuration file you need to edit.
-# 
-# QUICK START:
-# 1. Set your environment: 'development' for laptop, 'production' for manager PC
-# 2. The profile section below contains all settings for both environments
-# 3. Everything is in ONE file - no more conflicts!
-#
+
 # NOTE: ARTIQ code cannot use this config - it must be hardcoded in fragments.
 # This config is ONLY for the Python control system (manager, flask, camera, etc.)
 
@@ -69,7 +62,7 @@ profiles:
         ec2: 0.0
         comp_h: 0.0
         comp_v: 0.0
-        u_rf_volts: 200.0
+        u_rf_volts: 100.0
         piezo: 0.0
         freq0: 215.5
         freq1: 215.5
@@ -94,7 +87,7 @@ profiles:
         cooler_timeout: 300
         max_frames_default: 100
         exposure_default: 0.3
-        trigger_mode: "software"      # Software trigger for testing
+        trigger_mode: "External"      # External trigger for testing
         trigger_delay: 0.033138
         subarray:
           hsize: 300
@@ -133,27 +126,95 @@ profiles:
       tdms_extension: ".tdms"
     
     camera:
+      # -------------------------------------------------------------------------
+      # Camera Server Connection (matches mhi_cam configuration)
+      # -------------------------------------------------------------------------
       auto_start: false             # Don't auto-start camera in dev
-      mode: "inf"
+      mode: "inf"                   # "inf" = infinite mode, "single" = single capture
       send_initial_trigger: false
+      
+      # Flask HTTP server (for camera control commands)
+      flask_host: "127.0.0.1"
+      flask_port: 5000
+      flask_base_url: "http://127.0.0.1:5000"
+      
+      # ZMQ server (for image streaming/data)
       host: "127.0.0.1"
       port: 5558
-      # Use same paths as 'paths' section above
+      
+      # Command listener (for backward compatibility with mhi_cam)
+      command_listener:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5001
+      
+      # -------------------------------------------------------------------------
+      # Data Paths (use same structure as 'paths' section)
+      # -------------------------------------------------------------------------
       raw_frames_path: "./data/jpg_frames"
       labelled_frames_path: "./data/jpg_frames_labelled"
       ion_data_path: "./data/ion_data"
       ion_uncertainty_path: "./data/ion_uncertainty"
-      flask_base_url: "http://127.0.0.1:5000"
+      dcimg_path: "./data/camera/dcimg"
+      
+      # -------------------------------------------------------------------------
+      # Infinite Mode Settings (matches mhi_cam default settings)
+      # -------------------------------------------------------------------------
       infinite_mode:
         max_frames: 100
         exposure_ms: 300
-        trigger_mode: "software"
+        trigger_mode: "software"    # "software" or "extern"
+        
+      # -------------------------------------------------------------------------
+      # Single Recording Mode Settings
+      # -------------------------------------------------------------------------
+      single_mode:
+        max_frames: 1000
+        exposure_ms: 300
+        trigger_mode: "extern"
+        save_format: "dcimg"        # "dcimg" or "jpg"
+        
+      # -------------------------------------------------------------------------
+      # Image Processing Settings
+      # -------------------------------------------------------------------------
       processing:
         enabled: true
+        # Region of Interest for analysis [x_start, x_finish, y_start, y_finish]
         roi: [180, 220, 425, 495]
         filter_radius: 6
         threshold_sigma: 3.0
         max_ions: 5
+        
+      # -------------------------------------------------------------------------
+      # Hardware Trigger Settings
+      # -------------------------------------------------------------------------
+      trigger:
+        device: "camera_trigger"      # TTL device name in device_db.py
+        default_pulse_us: 100.0       # Default pulse duration
+        short_pulse_us: 10.0          # Short pulse for sweep operations
+        
+      # -------------------------------------------------------------------------
+      # Camera Hardware Settings (Hamamatsu ORCA-Quest)
+      # -------------------------------------------------------------------------
+      hardware:
+        model: "C15550-20UP"          # ORCA-Quest model
+        sensor_size: [2048, 2048]     # Full sensor resolution
+        bit_depth: 16
+        cooling: -10.0                # Sensor cooling temperature (°C)
+        
+      # -------------------------------------------------------------------------
+      # HTTP API Endpoints (matching mhi_cam routes)
+      # -------------------------------------------------------------------------
+      endpoints:
+        start: "/start_camera"
+        stop: "/stop_camera"
+        inf: "/start_camera_inf"
+        save_settings: "/save_camera_settings"
+        set_analysis: "/set_live_analysis_params"
+        start_analysis: "/start_live_analysis"
+        stop_analysis: "/stop_live_analysis"
+        save_analysis: "/save_live_analysis"
+        clear_analysis: "/clear_live_analysis"
     
     logging:
       level: "DEBUG"
@@ -326,27 +387,94 @@ profiles:
       tdms_extension: ".tdms"
     
     camera:
+      # -------------------------------------------------------------------------
+      # Camera Server Connection (matches mhi_cam configuration)
+      # -------------------------------------------------------------------------
       auto_start: true                # Auto-start camera in production
       mode: "inf"
       send_initial_trigger: true
+      
+      # Flask HTTP server (for camera control commands)
+      flask_host: "127.0.0.1"
+      flask_port: 5000
+      flask_base_url: "http://127.0.0.1:5000"
+      
+      # ZMQ server (for image streaming/data)
       host: "127.0.0.1"
       port: 5558
-      # Local E: drive paths for performance
+      
+      # Command listener (for backward compatibility with mhi_cam)
+      command_listener:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5001
+      
+      # -------------------------------------------------------------------------
+      # Data Paths (local E: drive for performance)
+      # -------------------------------------------------------------------------
       raw_frames_path: "E:/data/jpg_frames"
       labelled_frames_path: "E:/data/jpg_frames_labelled"
       ion_data_path: "E:/data/ion_data"
       ion_uncertainty_path: "E:/data/ion_uncertainty"
-      flask_base_url: "http://127.0.0.1:5000"
+      dcimg_path: "E:/data/camera/dcimg"
+      
+      # -------------------------------------------------------------------------
+      # Infinite Mode Settings (matches mhi_cam default settings)
+      # -------------------------------------------------------------------------
       infinite_mode:
         max_frames: 100
         exposure_ms: 300
         trigger_mode: "extern"        # External trigger for real hardware
+        
+      # -------------------------------------------------------------------------
+      # Single Recording Mode Settings
+      # -------------------------------------------------------------------------
+      single_mode:
+        max_frames: 1000
+        exposure_ms: 300
+        trigger_mode: "extern"
+        save_format: "dcimg"
+        
+      # -------------------------------------------------------------------------
+      # Image Processing Settings
+      # -------------------------------------------------------------------------
       processing:
         enabled: true
         roi: [180, 220, 425, 495]
         filter_radius: 6
         threshold_sigma: 3.0
         max_ions: 5
+        
+      # -------------------------------------------------------------------------
+      # Hardware Trigger Settings
+      # -------------------------------------------------------------------------
+      trigger:
+        device: "camera_trigger"
+        default_pulse_us: 100.0
+        short_pulse_us: 10.0
+        
+      # -------------------------------------------------------------------------
+      # Camera Hardware Settings (Hamamatsu ORCA-Quest)
+      # -------------------------------------------------------------------------
+      hardware:
+        model: "C15550-20UP"
+        sensor_size: [2048, 2048]
+        bit_depth: 16
+        cooling: -10.0
+        
+      # -------------------------------------------------------------------------
+      # HTTP API Endpoints (matching mhi_cam routes)
+      # -------------------------------------------------------------------------
+      endpoints:
+        start: "/start_camera"
+        stop: "/stop_camera"
+        inf: "/start_camera_inf"
+        save_settings: "/save_camera_settings"
+        set_analysis: "/set_live_analysis_params"
+        start_analysis: "/start_live_analysis"
+        stop_analysis: "/stop_live_analysis"
+        save_analysis: "/save_live_analysis"
+        clear_analysis: "/clear_live_analysis"
     
     logging:
       level: "INFO"
