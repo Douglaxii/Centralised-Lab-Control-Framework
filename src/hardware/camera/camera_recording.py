@@ -58,15 +58,15 @@ if CORE_AVAILABLE:
     _config = get_config()
     TARGET_TEMPERATURE = _config.get_camera_setting('target_temperature')
     COOLER_CHECK_TIMEOUT = _config.get_camera_setting('cooler_timeout')
-    SETTINGS_PATH = _config.get_path('camera_settings')
-    FRAME_PATH = _config.get_path('camera_frames')
-    DEBUG_PATH = _config.get_path('debug_path')
+    SETTINGS_PATH = _config.get('camera.camera_settings') or _config.get('paths.camera_settings') or "./data/camera/settings"
+    FRAME_PATH = _config.get('camera.raw_frames_path') or _config.get('paths.jpg_frames') or "./data/jpg_frames"
+    DEBUG_PATH = _config.get_path('debug_path') if hasattr(_config, 'get_path') else "./data/debug"
 else:
     TARGET_TEMPERATURE = -20.0
     COOLER_CHECK_TIMEOUT = 300
-    SETTINGS_PATH = "Y:/Stein/Server/Camera_Settings/"
-    FRAME_PATH = "Y:/Stein/Server/Camera_Frames"
-    DEBUG_PATH = "Y:/Stein/Server/Debug"
+    SETTINGS_PATH = "./data/camera/settings"
+    FRAME_PATH = "./data/jpg_frames"
+    DEBUG_PATH = "./data/debug"
 
 # Global signal handling
 signaled_sigint = False

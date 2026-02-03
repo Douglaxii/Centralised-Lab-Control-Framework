@@ -48,13 +48,15 @@ profiles:
       artiq_data: "./data/artiq"
       labview_tdms: "./data/PMT"
       labview_telemetry: "./data/telemetry"
-      camera_frames: "./data/camera/raw_frames"
+      # Camera paths - use consistent structure
+      camera_frames: "./data/jpg_frames"           # Raw JPG frames from camera
       camera_settings: "./data/camera/settings"
       camera_dcimg: "./data/camera/dcimg"
       live_frames: "./data/camera/live_frames"
-      jpg_frames: "./data/camera/raw_frames"
-      jpg_frames_labelled: "./data/camera/processed_frames"
-      ion_data: "./data/ion_data"
+      jpg_frames: "./data/jpg_frames"              # Same as camera_frames
+      jpg_frames_labelled: "./data/jpg_frames_labelled"  # Processed frames
+      ion_data: "./data/ion_data"                  # Ion detection data
+      ion_uncertainty: "./data/ion_uncertainty"    # Uncertainty calculations
       experiments: "./data/experiments"
       analysis_results: "./data/analysis/results"
       analysis_settings: "./data/analysis/settings"
@@ -136,9 +138,11 @@ profiles:
       send_initial_trigger: false
       host: "127.0.0.1"
       port: 5558
-      raw_frames_path: "./data/camera/raw_frames"
-      labelled_frames_path: "./data/camera/processed_frames"
+      # Use same paths as 'paths' section above
+      raw_frames_path: "./data/jpg_frames"
+      labelled_frames_path: "./data/jpg_frames_labelled"
       ion_data_path: "./data/ion_data"
+      ion_uncertainty_path: "./data/ion_uncertainty"
       flask_base_url: "http://127.0.0.1:5000"
       infinite_mode:
         max_frames: 100
@@ -236,14 +240,16 @@ profiles:
       artiq_data: "C:/artiq-master/results"
       labview_tdms: "Y:/Xi/Data/PMT"
       labview_telemetry: "Y:/Xi/Data/telemetry"
-      camera_frames: "Y:/Xi/Data/camera/raw_frames"
+      # Camera paths - raw on network, processed on local E: drive
+      camera_frames: "Y:/Xi/Data/camera/raw_frames"    # Raw from camera
       camera_settings: "Y:/Xi/Data/camera/settings"
       camera_dcimg: "Y:/Xi/Data/camera/dcimg"
       live_frames: "Y:/Xi/Data/camera/live_frames"
       # Local drive for processed data (performance)
-      jpg_frames: "E:/data/jpg_frames"
+      jpg_frames: "E:/data/jpg_frames"                  # Processed frames
       jpg_frames_labelled: "E:/data/jpg_frames_labelled"
       ion_data: "E:/data/ion_data"
+      ion_uncertainty: "E:/data/ion_uncertainty"
       experiments: "Y:/Xi/Data/experiments"
       analysis_results: "Y:/Xi/Data/analysis/results"
       analysis_settings: "Y:/Xi/Data/analysis/settings"
@@ -325,9 +331,11 @@ profiles:
       send_initial_trigger: true
       host: "127.0.0.1"
       port: 5558
+      # Local E: drive paths for performance
       raw_frames_path: "E:/data/jpg_frames"
       labelled_frames_path: "E:/data/jpg_frames_labelled"
       ion_data_path: "E:/data/ion_data"
+      ion_uncertainty_path: "E:/data/ion_uncertainty"
       flask_base_url: "http://127.0.0.1:5000"
       infinite_mode:
         max_frames: 100

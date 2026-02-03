@@ -235,15 +235,28 @@ class ImageHandler:
             os.environ['OPENBLAS_NUM_THREADS'] = str(self.config.NUM_THREADS)
             os.environ['OMP_NUM_THREADS'] = str(self.config.NUM_THREADS)
         
-        # Paths
+        # Paths - try to load from config, fall back to defaults
+        try:
+            from core import get_config
+            _cfg = get_config()
+            _default_raw = _cfg.get('camera.raw_frames_path') or _cfg.get('paths.jpg_frames')
+            _default_labelled = _cfg.get('camera.labelled_frames_path') or _cfg.get('paths.jpg_frames_labelled')
+            _default_ion = _cfg.get('camera.ion_data_path') or _cfg.get('paths.ion_data')
+            _default_unc = _cfg.get('camera.ion_uncertainty_path') or _cfg.get('paths.ion_uncertainty')
+        except:
+            _default_raw = None
+            _default_labelled = None
+            _default_ion = None
+            _default_unc = None
+        
         if raw_frames_path is None:
-            raw_frames_path = os.path.expanduser("~/Data/jpg_frames")
+            raw_frames_path = _default_raw or os.path.expanduser("~/Data/jpg_frames")
         if labelled_frames_path is None:
-            labelled_frames_path = os.path.expanduser("~/Data/jpg_frames_labelled")
+            labelled_frames_path = _default_labelled or os.path.expanduser("~/Data/jpg_frames_labelled")
         if ion_data_path is None:
-            ion_data_path = os.path.expanduser("~/Data/ion_data")
+            ion_data_path = _default_ion or os.path.expanduser("~/Data/ion_data")
         if ion_uncertainty_path is None:
-            ion_uncertainty_path = os.path.expanduser("~/Data/ion_uncertainty")
+            ion_uncertainty_path = _default_unc or os.path.expanduser("~/Data/ion_uncertainty")
             
         self.raw_frames_path = Path(raw_frames_path)
         self.labelled_frames_path = Path(labelled_frames_path)

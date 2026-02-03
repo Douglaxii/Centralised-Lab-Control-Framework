@@ -8,8 +8,8 @@ from artiq.experiment import *
 from oitg.units import V, us, ms
 import numpy as np
 
-from comp import Compensation
-from ec import EndCaps
+# Use abbreviated fragment names
+from fragments import Comp, EC
 
 
 class TrapControl(ExpFragment):
@@ -19,12 +19,16 @@ class TrapControl(ExpFragment):
     Controls:
     - Endcap voltages (EC1, EC2)
     - Compensation voltages (horizontal, vertical)
+    
+    Uses abbreviated fragment names:
+    - Comp = Compensation
+    - EC = EndCaps
     """
     
     def build_fragment(self) -> None:
         self.setattr_device("core")
-        self.setattr_fragment("comp", Compensation)
-        self.setattr_fragment("ec", EndCaps)
+        self.setattr_fragment("comp", Comp)
+        self.setattr_fragment("ec", EC)
         
         # Compensation parameters
         self.setattr_param("u_hor", FloatParam, "Horizontal compensation", 

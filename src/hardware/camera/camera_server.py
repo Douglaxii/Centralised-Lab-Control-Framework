@@ -162,18 +162,28 @@ def ensure_directories():
     """Ensure all required data directories exist."""
     import os
     
-    # Local data paths for manager PC (E:/data)
-    data_paths = [
-        'E:/data',
-        'E:/data/jpg_frames',
-        'E:/data/jpg_frames_labelled',
-        'E:/data/ion_data',
-        'E:/data/camera',
-        'E:/data/camera/settings',
-        'E:/data/camera/frames',
-        'E:/data/logs',
-        'logs/server'
-    ]
+    # Try to get paths from config first
+    try:
+        from core import get_config
+        cfg = get_config()
+        data_paths = [
+            cfg.get('camera.raw_frames_path') or cfg.get('paths.jpg_frames') or './data/jpg_frames',
+            cfg.get('camera.labelled_frames_path') or cfg.get('paths.jpg_frames_labelled') or './data/jpg_frames_labelled',
+            cfg.get('camera.ion_data_path') or cfg.get('paths.ion_data') or './data/ion_data',
+            cfg.get('camera.ion_uncertainty_path') or cfg.get('paths.ion_uncertainty') or './data/ion_uncertainty',
+            cfg.get('paths.camera_settings') or './data/camera/settings',
+            'logs/server'
+        ]
+    except:
+        # Fallback to default paths
+        data_paths = [
+            './data/jpg_frames',
+            './data/jpg_frames_labelled',
+            './data/ion_data',
+            './data/ion_uncertainty',
+            './data/camera/settings',
+            'logs/server'
+        ]
     
     for path in data_paths:
         try:

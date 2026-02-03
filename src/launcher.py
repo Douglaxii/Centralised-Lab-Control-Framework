@@ -222,20 +222,14 @@ class UnifiedLauncher:
             'port': 5050,
             'url': 'http://localhost:5050',
             'description': 'Optimizer Flask Server'
+        },
+        'camera': {
+            'module': 'src.hardware.camera.camera_server',
+            'port': 5558,
+            'url': 'tcp://localhost:5558',
+            'description': 'Camera TCP Server'
         }
     }
-    
-    # Data paths that need to be created on startup
-    DATA_PATHS = [
-        'E:/data',
-        'E:/data/jpg_frames',
-        'E:/data/jpg_frames_labelled', 
-        'E:/data/ion_data',
-        'E:/data/camera',
-        'E:/data/logs',
-        'logs',
-        'logs/server'
-    ]
     
     def __init__(self):
         self.services: Dict[str, ServiceManager] = {}
@@ -243,10 +237,40 @@ class UnifiedLauncher:
         self.running = False
         self._shutdown_event = threading.Event()
         
+    def _get_data_paths_from_config(self) -> list:
+        """Get data paths from config or return defaults."""
+        try:
+            from core import get_config
+            cfg = get_config()
+            paths = [
+                cfg.get('paths.jpg_frames'),
+                cfg.get('paths.jpg_frames_labelled'),
+                cfg.get('paths.ion_data'),
+                cfg.get('paths.ion_uncertainty'),
+                cfg.get('paths.camera_settings'),
+                cfg.get('paths.output_base'),
+                'logs',
+                'logs/server'
+            ]
+            # Filter out None values
+            return [p for p in paths if p]
+        except Exception as e:
+            logger.debug(f"Could not load paths from config: {e}")
+            # Return default paths
+            return [
+                './data/jpg_frames',
+                './data/jpg_frames_labelled',
+                './data/ion_data',
+                './data/camera/settings',
+                'logs',
+                'logs/server'
+            ]
+    
     def _ensure_data_directories(self):
         """Ensure all required data directories exist."""
         import os
-        for path in self.DATA_PATHS:
+        paths = self._get_data_paths_from_config()
+        for path in paths:
             try:
                 os.makedirs(path, exist_ok=True)
                 logger.debug(f"Ensured directory exists: {path}")
@@ -302,8 +326,8 @@ class UnifiedLauncher:
         logger.info(f"Data Path: {data_path}")
         logger.info("=" * 60)
         
-        # Start order matters: manager first, then Flask servers
-        start_order = ['manager', 'flask', 'applet', 'optimizer']
+        # Start order matters: manager first, camera, then Flask servers
+        start_order = ['manager', 'camera', 'flask', 'applet', 'optimizer']
         
         for name in start_order:
             if name not in self.services:
@@ -435,6 +459,7 @@ def main():
 Examples:
     python -m src.launcher                    # Start all services
     python -m src.launcher --service manager  # Start only manager
+    python -m src.launcher --service camera   # Start only camera
     python -m src.launcher --status           # Check status
     python -m src.launcher --stop             # Stop all services
     python -m src.launcher --restart          # Restart all services
@@ -443,7 +468,7 @@ Examples:
     
     parser.add_argument(
         "--service", "-s",
-        choices=['manager', 'flask', 'applet', 'optimizer', 'all'],
+        choices=['manager', 'camera', 'flask', 'applet', 'optimizer', 'all'],
         default='all',
         help="Service to start (default: all)"
     )
