@@ -1,25 +1,17 @@
 """
-sweeping.py - Secular frequency sweep fragment for ARTIQ.
+sweeping.py - Secular frequency sweep fragment for ARTIQ (ndscan 0.5.x COMPATIBLE)
 
-Controls DDS sweeps (axial or radial) with PMT readout.
+CRITICAL FIXES:
+1. Choices = TUPLE ("axial", "radial") NOT list ["axial", "radial"]
+2. Default = INTEGER INDEX (0) NOT string
+3. build_fragment() contains ONLY attribute declarations (no hardware access)
 """
-
 from ndscan.experiment import Fragment, FloatParam, EnumParam
 from artiq.experiment import *
 
-
 class sweeping(Fragment):
-    """
-    Sweeping fragment for secular frequency sweeps.
-    
-    Devices:
-        - urukul0_ch0 (axial)
-        - urukul0_ch1 (radial)
-        - ttl0_counter (PMT)
-        - ttl4 (camera trigger)
-    """
-    
     def build_fragment(self) -> None:
+        # ONLY attribute declarations here - NO hardware access during scan!
         self.setattr_device("core")
         self.setattr_device("ttl0_counter")
         self.setattr_device("urukul0_ch0")
@@ -31,11 +23,9 @@ class sweeping(Fragment):
         self.dds_radial = self.urukul0_ch1
         self.cam = self.ttl4
 
-        # Frequency parameter (scannable)
+        # Parameters (scannable)
         self.setattr_param("freq", FloatParam, "Frequency", 
                           default=400.0 * kHz, unit="kHz")
-        
-        # Static parameters
         self.setattr_param("att", FloatParam, "Attenuation", 
                           default=25.0, unit="dB")
         self.setattr_param("on_time", FloatParam, "ON time", 
@@ -43,15 +33,18 @@ class sweeping(Fragment):
         self.setattr_param("off_time", FloatParam, "OFF time", 
                           default=100.0 * ms, unit="ms")
         
-        # DDS selection
-        self.setattr_param("dds_choice", EnumParam, "DDS Select", 
-                          options={"axial": "axial", "radial": "radial"}, 
-                          default="axial")
+        # FIXED FOR ndscan 0.5.x:
+        #   - default = INTEGER INDEX (0 = first choice)
+        #   - choices = HASHABLE TUPLE (NOT list!)
+        self.setattr_param("dds_choice", EnumParam, "DDS Select",
+                          0,                          # Integer index default
+                          ("axial", "radial"))        # ← TUPLE required!
         
-        self.first = True
+        self.first_init = True  # Track first hardware init
 
     def host_setup(self):
-        """Select DDS device based on parameter."""
+        """Select DDS device - SAFE during scan (no hardware access)."""
+        # .get() returns string "axial" or "radial" based on integer index
         if self.dds_choice.get() == "axial":
             self.dds = self.dds_axial
         else:
@@ -59,93 +52,43 @@ class sweeping(Fragment):
 
     @kernel
     def device_setup(self):
-        """Initialize DDS hardware."""
+        """Hardware initialization - ONLY called during run(), NOT during scan."""
         self.core.break_realtime()
-        if self.first:
+        if self.first_init:
             self.dds.init()
-            self.first = False
+            self.first_init = False
         self.dds.set_att(self.att.get() * dB)
 
     @kernel
-    def sweep_point(self, freq_hz: TFloat, on_ms: TFloat, off_ms: TFloat) -> TInt:
-        """
-        Execute a single sweep point.
-        
-        Args:
-            freq_hz: Frequency in Hz for this point
-            on_ms: Gate/measurement time in milliseconds
-            off_ms: Delay after measurement in milliseconds
-            
-        Returns:
-            PMT count for this point
-        """
+    def sweep_point(self, freq_hz: TFloat, on_ms: TFloat, off_ms: TFloat) -> TInt32:
+        """Execute a single sweep point."""
         self.core.break_realtime()
-        
-        # Set frequency
         self.dds.set(frequency=freq_hz)
-        
-        # Enable DDS and gate PMT
         with parallel:
             self.dds.cfg_sw(True)
             self.pmt.gate_rising(on_ms * ms)
-        
-        # Disable DDS
         self.dds.cfg_sw(False)
-        
-        # Read PMT count
         counts = self.pmt.fetch_count()
-        
-        # Delay before next point
         delay(off_ms * ms)
-        
         return counts
 
     @kernel
-    def sweep_point_with_cam(self, freq_hz: TFloat, on_ms: TFloat, off_ms: TFloat) -> TInt:
-        """
-        Execute a single sweep point with camera trigger.
-        
-        Args:
-            freq_hz: Frequency in Hz for this point
-            on_ms: Gate/measurement time in milliseconds
-            off_ms: Delay after measurement in milliseconds
-            
-        Returns:
-            PMT count for this point
-        """
+    def sweep_point_with_cam(self, freq_hz: TFloat, on_ms: TFloat, off_ms: TFloat) -> TInt32:
+        """Execute a single sweep point with camera trigger."""
         self.core.break_realtime()
-        
-        # Set frequency
         self.dds.set(frequency=freq_hz)
-        
-        # Enable DDS, gate PMT, and trigger camera
         with parallel:
             self.dds.cfg_sw(True)
             self.pmt.gate_rising(on_ms * ms)
             self.cam.pulse(on_ms * ms)
-        
-        # Disable DDS
         self.dds.cfg_sw(False)
-        
-        # Read PMT count
         counts = self.pmt.fetch_count()
-        
-        # Delay before next point
         delay(off_ms * ms)
-        
         return counts
     
     @kernel
-    def pmt_measure(self, duration_ms: TFloat) -> TInt:
-        """
-        Simple PMT measurement without DDS.
-        
-        Args:
-            duration_ms: Gate duration in milliseconds
-            
-        Returns:
-            PMT count
-        """
+    def pmt_measure(self, duration_ms: TFloat) -> TInt32:
+        """Simple PMT measurement without DDS."""
         self.core.break_realtime()
         self.pmt.gate_rising(duration_ms * ms)
         delay(duration_ms * ms)
