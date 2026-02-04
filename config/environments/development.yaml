@@ -10,7 +10,8 @@ environment: development
 # ============================================================================
 
 network:
-  master_ip: "127.0.0.1"        # Use localhost for development
+  # ARTIQ machine IP (from artiq_log: enp0s8 interface)
+  master_ip: "192.168.56.101"
 
 
 # ============================================================================

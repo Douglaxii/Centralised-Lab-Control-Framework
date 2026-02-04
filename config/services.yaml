@@ -38,7 +38,8 @@ services:
     client_port: 5557           # Flask requests (REP)
     
     # Network bindings
-    bind_host: "127.0.0.1"
+    # ARTIQ machine IP (from artiq_log: enp0s8 interface)
+    bind_host: "192.168.56.101"
     
     # LabVIEW connection (may be on different PC)
     labview_host: "192.168.1.100"

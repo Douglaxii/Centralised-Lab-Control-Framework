@@ -23,7 +23,8 @@ profiles:
     description: "Local development on laptop"
     
     network:
-      master_ip: "127.0.0.1"        # Localhost for development
+      # ARTIQ machine IP (from artiq_log: enp0s8 interface)
+      master_ip: "192.168.56.101"   # ARTIQ VM IP address
       bind_host: "127.0.0.1"
       cmd_port: 5555                # Master -> Worker commands
       data_port: 5556               # Worker -> Master data

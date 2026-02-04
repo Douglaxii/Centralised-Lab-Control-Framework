@@ -6,9 +6,16 @@ Receives commands via TCP, handles camera operations.
 
 Commands:
 - START: Start single recording (DCIMG + JPG)
-- START_INF: Start infinite capture mode (JPG only, circular buffer)
-- STOP: Stop current capture
+- START_INF: Start infinite capture mode (JPG only, circular buffer, auto-cleanup)
+- STOP: Stop current capture (keep files)
+- STOP_CLEAR: Stop capture and clear all JPG files
+- CLEAR_FRAMES: Clear all JPG files without stopping
 - STATUS: Get camera status
+
+Infinity Mode Features:
+- Auto-cleanup of old JPG files (max 100 per folder by default)
+- Monitors: jpg_frames (raw) and jpg_frames_labelled (processed)
+- Automatic deletion of oldest files when limit exceeded
 """
 
 import os
@@ -25,7 +32,7 @@ import logging
 from datetime import datetime
 
 # Import camera logic module (wrapper around camera_recording)
-from camera_logic import start_camera, start_camera_inf, stop_camera
+from camera_logic import start_camera, start_camera_inf, stop_camera, clear_inf_frames
 
 # Add project root for core imports
 project_root = Path(__file__).parent.parent.parent
@@ -130,13 +137,33 @@ def handle_client(conn, addr):
                 
                 elif data == "STOP":
                     try:
-                        stop_camera()
+                        stop_camera(clear_files=False)
                         camera_active = False
                         capture_start_time = None
                         conn.sendall(b"OK: Capture stopped\n")
                         logger.info("Capture stopped")
                     except Exception as e:
                         logger.error(f"Failed to stop capture: {e}")
+                        conn.sendall(f"ERROR: {e}\n".encode())
+                
+                elif data == "STOP_CLEAR":
+                    try:
+                        stop_camera(clear_files=True)
+                        camera_active = False
+                        capture_start_time = None
+                        conn.sendall(b"OK: Capture stopped and files cleared\n")
+                        logger.info("Capture stopped and files cleared")
+                    except Exception as e:
+                        logger.error(f"Failed to stop/clear: {e}")
+                        conn.sendall(f"ERROR: {e}\n".encode())
+                
+                elif data == "CLEAR_FRAMES":
+                    try:
+                        deleted = clear_inf_frames()
+                        conn.sendall(f"OK: Cleared {deleted} files\n".encode())
+                        logger.info(f"Cleared {deleted} files")
+                    except Exception as e:
+                        logger.error(f"Failed to clear frames: {e}")
                         conn.sendall(f"ERROR: {e}\n".encode())
                 
                 elif data == "STATUS":
@@ -202,7 +229,8 @@ def main():
     logger.info("=" * 60)
     logger.info("Camera Server Starting...")
     logger.info(f"Listen on {HOST}:{PORT}")
-    logger.info("Commands: START, START_INF, STOP, STATUS")
+    logger.info("Commands: START, START_INF, STOP, STOP_CLEAR, CLEAR_FRAMES, STATUS")
+    logger.info("Infinity mode: Auto-cleanup max 100 files per folder")
     logger.info("=" * 60)
     
     # Ensure output directories exist

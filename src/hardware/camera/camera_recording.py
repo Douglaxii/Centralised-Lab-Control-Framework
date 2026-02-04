@@ -106,46 +106,163 @@ def extract_timestamp_from_name(filename):
         return datetime.min
 
 
-def cleanup_worker(folder, max_frames, stop_event, interval=5):
+def cleanup_worker(folders, max_frames, stop_event, interval=5, cleanup_labelled=True):
     """
-    Background worker that cleans up old frames.
+    Background worker that cleans up old frames from multiple folders.
     
     Args:
-        folder: Directory to clean
-        max_frames: Maximum number of frames to keep
+        folders: List of directories to clean (or single folder string)
+        max_frames: Maximum number of frames to keep per folder
         stop_event: Threading event to signal stop
         interval: Check interval in seconds
+        cleanup_labelled: Also cleanup corresponding labelled folder
     """
     stop_event.clear()
     
+    # Handle single folder or list
+    if isinstance(folders, str):
+        folders = [folders]
+    
+    # Add labelled folders if requested
+    if cleanup_labelled:
+        labelled_folders = []
+        for folder in folders:
+            if 'jpg_frames' in folder and 'labelled' not in folder:
+                labelled_folder = folder.replace('jpg_frames', 'jpg_frames_labelled')
+                if labelled_folder not in folders and os.path.exists(labelled_folder):
+                    labelled_folders.append(labelled_folder)
+        folders.extend(labelled_folders)
+    
+    logger.info(f"Cleanup worker started for {len(folders)} folders, max_frames={max_frames}")
+    
     while not stop_event.is_set():
         try:
-            files = [f for f in os.listdir(folder) if f.lower().endswith(".jpg")]
-            if len(files) > max_frames:
-                files_sorted = sorted(files, key=extract_timestamp_from_name)
-                to_delete = files_sorted[:len(files) - max_frames]
-                for f in to_delete:
-                    try:
-                        os.remove(os.path.join(folder, f))
-                    except Exception as e:
-                        logger.error(f"Error deleting {f}: {e}")
+            for folder in folders:
+                if not os.path.exists(folder):
+                    continue
+                
+                # Get all JPG files (both raw and labelled)
+                jpg_files = [f for f in os.listdir(folder) if f.lower().endswith('.jpg')]
+                json_files = [f for f in os.listdir(folder) if f.lower().endswith('.json')]
+                
+                # Cleanup JPG files
+                if len(jpg_files) > max_frames:
+                    files_sorted = sorted(jpg_files, key=extract_timestamp_from_name)
+                    to_delete = files_sorted[:len(jpg_files) - max_frames]
+                    
+                    for f in to_delete:
+                        try:
+                            file_path = os.path.join(folder, f)
+                            os.remove(file_path)
+                            logger.debug(f"Deleted old frame: {f}")
+                            
+                            # Also delete corresponding JSON metadata if exists
+                            json_name = os.path.splitext(f)[0] + '.json'
+                            json_path = os.path.join(folder, json_name)
+                            if os.path.exists(json_path):
+                                os.remove(json_path)
+                                logger.debug(f"Deleted metadata: {json_name}")
+                                
+                        except Exception as e:
+                            logger.error(f"Error deleting {f}: {e}")
+                    
+                    logger.info(f"Cleaned up {len(to_delete)} old files from {folder}")
+            
             time.sleep(interval)
         except Exception as e:
             logger.error(f"Cleanup worker error: {e}")
             time.sleep(interval)
 
 
-def start_cleanup_thread(folder, max_frames, interval=5):
-    """Start the cleanup thread."""
+def start_cleanup_thread(folders, max_frames=100, interval=5, cleanup_labelled=True):
+    """
+    Start the cleanup thread for multiple folders.
+    
+    Args:
+        folders: Folder path(s) to clean (str or list)
+        max_frames: Maximum files to keep (default 100)
+        interval: Check interval in seconds
+        cleanup_labelled: Also cleanup jpg_frames_labelled folder
+    """
     global cleanup_stop_event
     cleanup_stop_event.clear()
+    
+    # Handle single folder
+    if isinstance(folders, str):
+        folders = [folders]
+    
     t = threading.Thread(
         target=cleanup_worker, 
-        args=(folder, max_frames, cleanup_stop_event, interval), 
+        args=(folders, max_frames, cleanup_stop_event, interval, cleanup_labelled), 
         daemon=True
     )
     t.start()
+    logger.info(f"Cleanup thread started for folders: {folders}")
     return t
+
+
+def cleanup_all_inf_folders(max_frames=100):
+    """
+    Cleanup all infinity mode folders immediately.
+    Use this when stopping infinity mode to clear all JPGs.
+    
+    Args:
+        max_frames: Maximum files to keep (default 100, set to 0 to delete all)
+    """
+    folders_to_clean = []
+    
+    # Get paths from config
+    if CORE_AVAILABLE:
+        try:
+            raw_path = _config.get('camera.raw_frames_path') or _config.get('paths.jpg_frames')
+            labelled_path = _config.get('camera.labelled_frames_path') or _config.get('paths.jpg_frames_labelled')
+            live_path = str(_config.get_path('live_frames')) if hasattr(_config, 'get_path') else None
+            
+            if raw_path:
+                folders_to_clean.append(raw_path)
+            if labelled_path:
+                folders_to_clean.append(labelled_path)
+            if live_path:
+                folders_to_clean.append(live_path)
+        except:
+            pass
+    
+    # Fallback defaults
+    if not folders_to_clean:
+        folders_to_clean = [
+            './data/jpg_frames',
+            './data/jpg_frames_labelled',
+            'Y:/Stein/Server/Live_Frames'
+        ]
+    
+    total_deleted = 0
+    for folder in folders_to_clean:
+        if not os.path.exists(folder):
+            continue
+        
+        try:
+            jpg_files = [f for f in os.listdir(folder) if f.lower().endswith('.jpg')]
+            
+            if len(jpg_files) > max_frames:
+                files_sorted = sorted(jpg_files, key=extract_timestamp_from_name)
+                to_delete = files_sorted[:len(jpg_files) - max_frames] if max_frames > 0 else files_sorted
+                
+                for f in to_delete:
+                    try:
+                        os.remove(os.path.join(folder, f))
+                        # Also delete JSON
+                        json_path = os.path.join(folder, os.path.splitext(f)[0] + '.json')
+                        if os.path.exists(json_path):
+                            os.remove(json_path)
+                        total_deleted += 1
+                    except Exception as e:
+                        logger.error(f"Error deleting {f}: {e}")
+                
+                logger.info(f"Immediate cleanup: deleted {len(to_delete)} files from {folder}")
+        except Exception as e:
+            logger.error(f"Cleanup error for {folder}: {e}")
+    
+    return total_deleted
 
 
 def frame_to_bytes(frame):
@@ -810,7 +927,8 @@ def handle_recording_request(exp_id=None):
 
 def handle_infinite_capture_request(exp_id=None):
     """
-    Infinite capture handler.
+    Infinite capture handler with auto-cleanup for JPG and labelled JPG folders.
+    Keeps maximum 100 files per folder (configurable via max_frames setting).
     
     Args:
         exp_id: Optional experiment ID for metadata
@@ -826,22 +944,53 @@ def handle_infinite_capture_request(exp_id=None):
     
     # Default settings for infinite mode
     Settings = {
-        "max_frames": 100,
+        "max_frames": 100,  # Maximum files per folder
         "exposure": 0.3,
         "trigger_mode": "software"
     }
     
     max_frames = int(Settings["max_frames"])
     
+    # Get all folders that need cleanup
+    folders_to_monitor = []
+    
     if CORE_AVAILABLE:
-        ordner_pfad = str(_config.get_path('live_frames'))
+        try:
+            # Primary live frames folder
+            live_path = str(_config.get_path('live_frames'))
+            folders_to_monitor.append(live_path)
+            
+            # Also monitor jpg_frames (raw) and jpg_frames_labelled (processed)
+            jpg_path = _config.get('camera.raw_frames_path') or _config.get('paths.jpg_frames')
+            labelled_path = _config.get('camera.labelled_frames_path') or _config.get('paths.jpg_frames_labelled')
+            
+            if jpg_path and jpg_path not in folders_to_monitor:
+                folders_to_monitor.append(jpg_path)
+            if labelled_path and labelled_path not in folders_to_monitor:
+                folders_to_monitor.append(labelled_path)
+                
+        except Exception as e:
+            logger.warning(f"Could not get all paths from config: {e}")
+            folders_to_monitor = ["Y:/Stein/Server/Live_Frames/"]
     else:
-        ordner_pfad = "Y:/Stein/Server/Live_Frames/"
+        # Fallback paths
+        folders_to_monitor = [
+            "Y:/Stein/Server/Live_Frames/",
+            "./data/jpg_frames",
+            "./data/jpg_frames_labelled"
+        ]
     
-    Path(ordner_pfad).mkdir(parents=True, exist_ok=True)
+    # Ensure all directories exist
+    for folder in folders_to_monitor:
+        Path(folder).mkdir(parents=True, exist_ok=True)
     
-    # Start cleanup thread
-    t = start_cleanup_thread(ordner_pfad, max_frames, interval=5)
+    # Use first folder as primary capture folder
+    ordner_pfad = folders_to_monitor[0]
+    
+    # Start cleanup thread for ALL folders (including labelled)
+    logger.info(f"Starting infinity mode with max {max_frames} files per folder")
+    logger.info(f"Monitoring folders: {folders_to_monitor}")
+    t = start_cleanup_thread(folders_to_monitor, max_frames=max_frames, interval=5, cleanup_labelled=True)
     
     # Initialize DCAM
     if not dcamcon_init():
