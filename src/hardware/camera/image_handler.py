@@ -580,13 +580,8 @@ class ImageHandler:
             else:
                 color = (0, 165, 255)
             
-            cs = cfg.CROSSHAIR_SIZE
+
             
-            # Compact crosshair
-            cv2.line(color_frame, (ix - cs, iy), (ix + cs, iy), (255, 255, 255), 1)
-            cv2.line(color_frame, (ix, iy - cs), (ix, iy + cs), (255, 255, 255), 1)
-            cv2.line(color_frame, (ix - cs, iy), (ix + cs, iy), color, 1)
-            cv2.line(color_frame, (ix, iy - cs), (ix, iy + cs), color, 1)
             
             # Small circle
             radius = max(3, int(ion.sig_x * cfg.CIRCLE_RADIUS_FACTOR))
