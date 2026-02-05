@@ -242,7 +242,7 @@ try:
     TELEMETRY_AVAILABLE = True
 except ImportError:
     TELEMETRY_AVAILABLE = False
-    logger.warning("Telemetry storage not available - will use simulated data only")
+    logger.warning("Telemetry storage not available - no telemetry data will be displayed")
 config = get_config()
 
 # Network configuration
@@ -847,20 +847,19 @@ def generate_frames():
                 frame = add_overlay_to_frame(frame, pos, latency)
 
             else:
-                # Fallback to simulated frame
-                frame = generate_simulated_frame(time.time())
-
+                # No real data available - return empty frame (black)
                 with camera_lock:
                     camera_state.is_live = False
-                    pos = camera_state.ion_position.copy()
-                    latency = 999  # Indicate simulation
+                    latency = 0
 
-                # Add overlays to simulated frame
-                frame = add_overlay_to_frame(frame, pos, latency)
-
-                # Add simulation indicator
-                cv2.putText(frame, "SIMULATED CAMERA FEED", (250, 30),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 100, 100), 1)
+                # Create black frame with "No Signal" text
+                frame = np.zeros((600, 800, 3), dtype=np.uint8)
+                
+                # Display "No Signal" message
+                cv2.putText(frame, "NO CAMERA SIGNAL", (280, 280),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (100, 100, 100), 2)
+                cv2.putText(frame, "Waiting for camera feed...", (260, 320),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (80, 80, 80), 1)
 
             # Encode and yield frame
             ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
@@ -889,21 +888,11 @@ def get_telemetry_for_time_window(window_seconds: float = 300.0) -> Dict[str, Li
     Get telemetry data for specified time window.
 
     Returns data points with timestamps for accurate time-based rendering.
-    Merges simulated data with real data from LabVIEW sources.
+    Only returns real data from LabVIEW sources (no mock data).
     """
     now = time.time()
     cutoff = now - window_seconds
     result = {}
-
-    # Get simulated/camera data
-    with telemetry_lock:
-        for key, deque_data in telemetry_data.items():
-            points = [
-                {"t": ts, "v": val}
-                for ts, val in deque_data
-                if ts >= cutoff
-            ]
-            result[key] = points
 
     # Get real data from DataIngestionServer (LabVIEW sources)
     if TELEMETRY_AVAILABLE:
@@ -911,22 +900,13 @@ def get_telemetry_for_time_window(window_seconds: float = 300.0) -> Dict[str, Li
             real_telemetry, real_lock = get_telemetry_data()
             with real_lock:
                 for key, deque_data in real_telemetry.items():
-                    if key in result:
-                        # Merge real data with simulated, prioritizing real
-                        real_points = [
-                            {"t": ts, "v": val}
-                            for ts, val in deque_data
-                            if ts >= cutoff
-                        ]
-                        if real_points:
-                            # Use real data if available
-                            result[key] = real_points
-                    else:
-                        result[key] = [
-                            {"t": ts, "v": val}
-                            for ts, val in deque_data
-                            if ts >= cutoff
-                        ]
+                    points = [
+                        {"t": ts, "v": val}
+                        for ts, val in deque_data
+                        if ts >= cutoff
+                    ]
+                    if points:
+                        result[key] = points
         except Exception as e:
             logger.debug(f"Could not get real telemetry data: {e}")
 
@@ -1152,9 +1132,7 @@ def simulate_turbo_algorithm():
             time.sleep(1)
 
 
-# Start background simulation threads
-threading.Thread(target=simulate_telemetry, daemon=True, name="TelemetrySim").start()
-threading.Thread(target=simulate_turbo_algorithm, daemon=True, name="TurboSim").start()
+# Background simulation threads removed - no mock data
 
 
 # =============================================================================
