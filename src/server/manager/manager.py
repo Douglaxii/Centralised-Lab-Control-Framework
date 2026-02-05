@@ -26,6 +26,8 @@ import json
 import threading
 import logging
 import socket
+import re
+import struct
 from typing import Optional, Dict, Any, Set, Callable, Tuple
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -190,6 +192,302 @@ class CameraInterface:
                 "recording": self.is_recording,
                 "status_message": msg if success else "Unknown",
                 "server": f"{self.host}:{self.port}"
+            }
+
+
+# =============================================================================
+# WAVEMETER INTERFACE - HighFinesse/Angstrom WS7 Wavemeter TCP Client
+# =============================================================================
+
+class WavemeterInterface:
+    """
+    Interface to HighFinesse/Angstrom WS7 Wavemeter via TCP broadcast.
+    
+    Connects to the LabVIEW server running on the wavemeter PC and receives
+    real-time frequency measurements. The data stream contains:
+    - Frequency data as ASCII text (in THz)
+    - Channel ID as binary double precision
+    - Temperature and pressure readings (filtered out)
+    
+    Frequency values are converted from THz to GHz and stored in telemetry.
+    """
+    
+    # Default connection settings
+    DEFAULT_HOST = '134.99.120.141'  # Wavemeter PC IP
+    DEFAULT_PORT = 1790               # LabVIEW TCP broadcast port
+    
+    # Frequency filtering ranges (in THz)
+    UV_RANGE = (900, 980)        # UV frequency range ~957 THz
+    FUNDAMENTAL_RANGE = (200, 260)  # Fundamental range ~239 THz
+    TEMP_RANGE = (20, 35)        # Temperature ~27°C (filter out)
+    PRESSURE_RANGE = (900, 1100) # Pressure ~985 mBar (filter out)
+    
+    # Channel detection
+    CHANNEL_RANGE = (1.0, 8.0)   # Valid channel IDs
+    
+    def __init__(self, host: Optional[str] = None, port: Optional[int] = None, 
+                 divider: float = 4.0, enabled: bool = True):
+        """
+        Initialize wavemeter interface.
+        
+        Args:
+            host: Wavemeter PC IP address (default from config or DEFAULT_HOST)
+            port: TCP port (default from config or DEFAULT_PORT)
+            divider: Divider for UV->Fundamental conversion (4.0 for UV, 1.0 for raw)
+            enabled: Whether to enable the interface (default True)
+        """
+        self.logger = logging.getLogger("wavemeter_interface")
+        
+        # Load configuration
+        config = get_config()
+        self.host = host or config.get('wavemeter.host', self.DEFAULT_HOST)
+        self.port = port or config.get('wavemeter.port', self.DEFAULT_PORT)
+        self.divider = divider or config.get('wavemeter.divider', 4.0)
+        self.enabled = config.get('wavemeter.enabled', enabled)
+        
+        # Connection settings
+        self.timeout = 5.0
+        self.reconnect_delay = 3.0
+        
+        # State
+        self.running = False
+        self.connected = False
+        self.thread: Optional[threading.Thread] = None
+        self.lock = threading.RLock()
+        
+        # Current readings
+        self.current_channel = 1
+        self.current_freq_ghz = 0.0
+        self.current_freq_thz = 0.0
+        self.last_update_time: Optional[float] = None
+        self.reading_count = 0
+        
+        # Statistics
+        self.stats = {
+            "connections": 0,
+            "readings": 0,
+            "errors": 0,
+            "start_time": None
+        }
+        
+        # Regex for finding frequency values in text
+        self.freq_pattern = re.compile(r'(\d{3,}\.\d+)')
+        
+        if self.enabled:
+            self.logger.info(f"Wavemeter Interface initialized ({self.host}:{self.port})")
+        else:
+            self.logger.info("Wavemeter Interface disabled")
+    
+    def start(self):
+        """Start the wavemeter data collection thread."""
+        if not self.enabled:
+            self.logger.info("Wavemeter Interface disabled, not starting")
+            return False
+        
+        if self.running:
+            return True
+        
+        self.running = True
+        self.stats["start_time"] = time.time()
+        self.thread = threading.Thread(
+            target=self._data_collection_loop,
+            daemon=True,
+            name="WavemeterInterface"
+        )
+        self.thread.start()
+        self.logger.info("Wavemeter data collection started")
+        return True
+    
+    def stop(self):
+        """Stop the wavemeter data collection."""
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=2.0)
+        self.connected = False
+        self.logger.info("Wavemeter Interface stopped")
+    
+    def _data_collection_loop(self):
+        """Main data collection loop - connects and reads wavemeter data."""
+        while self.running:
+            try:
+                self._connect_and_read()
+            except Exception as e:
+                self.logger.error(f"Wavemeter connection error: {e}")
+                self.stats["errors"] += 1
+            
+            if self.running:
+                self.logger.warning(f"Reconnecting in {self.reconnect_delay}s...")
+                time.sleep(self.reconnect_delay)
+    
+    def _connect_and_read(self):
+        """Connect to wavemeter and read data stream."""
+        self.logger.info(f"Connecting to wavemeter at {self.host}:{self.port}")
+        
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(self.timeout)
+            s.connect((self.host, self.port))
+            
+            self.connected = True
+            self.stats["connections"] += 1
+            self.logger.info("Connected to wavemeter!")
+            
+            buffer = b""
+            
+            while self.running:
+                try:
+                    # Receive data chunk
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        break
+                    
+                    buffer += chunk
+                    
+                    # Process buffer for channel and frequency data
+                    buffer = self._process_buffer(buffer)
+                    
+                    # Prevent buffer overflow
+                    if len(buffer) > 8192:
+                        buffer = buffer[-2048:]
+                    
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    self.logger.error(f"Read error: {e}")
+                    self.stats["errors"] += 1
+                    break
+        
+        self.connected = False
+        self.logger.warning("Wavemeter connection closed")
+    
+    def _process_buffer(self, buffer: bytes) -> bytes:
+        """
+        Process received buffer for channel and frequency data.
+        
+        Args:
+            buffer: Current byte buffer
+            
+        Returns:
+            Updated buffer (may be truncated)
+        """
+        # --- A. DETECT CHANNEL (Binary Search) ---
+        c_idx = buffer.find(b'channelId')
+        if c_idx != -1 and len(buffer) > c_idx + 30:
+            for offset in range(9, 25):
+                try:
+                    candidate = buffer[c_idx + offset:c_idx + offset + 8]
+                    if len(candidate) < 8:
+                        break
+                    val = struct.unpack('>d', candidate)[0]
+                    if self.CHANNEL_RANGE[0] <= val <= self.CHANNEL_RANGE[1] and val.is_integer():
+                        self.current_channel = int(val)
+                        break
+                except:
+                    pass
+            # Clear buffer up to here to stay fresh
+            buffer = buffer[c_idx + 20:]
+        
+        # --- B. DETECT FREQUENCY (Text Search) ---
+        try:
+            text_view = buffer.decode('utf-8', errors='ignore')
+            matches = self.freq_pattern.findall(text_view)
+            
+            for m in matches:
+                val_thz = float(m)
+                valid_reading = False
+                final_freq_ghz = 0.0
+                
+                # Filter: UV Range (~957 THz)
+                if self.UV_RANGE[0] < val_thz < self.UV_RANGE[1]:
+                    final_freq_ghz = (val_thz * 1000.0) / self.divider
+                    valid_reading = True
+                
+                # Filter: Fundamental Range (~239 THz)
+                elif self.FUNDAMENTAL_RANGE[0] < val_thz < self.FUNDAMENTAL_RANGE[1]:
+                    final_freq_ghz = val_thz * 1000.0
+                    valid_reading = True
+                
+                # Filter out temperature and pressure readings
+                elif self.TEMP_RANGE[0] < val_thz < self.TEMP_RANGE[1]:
+                    continue  # Temperature reading, skip
+                elif self.PRESSURE_RANGE[0] < val_thz < self.PRESSURE_RANGE[1]:
+                    continue  # Pressure reading, skip
+                
+                if valid_reading:
+                    self._store_reading(final_freq_ghz, val_thz)
+                    # Clear buffer to prevent reprocessing
+                    return b""
+        
+        except Exception:
+            pass
+        
+        return buffer
+    
+    def _store_reading(self, freq_ghz: float, raw_thz: float):
+        """
+        Store a valid frequency reading.
+        
+        Args:
+            freq_ghz: Converted frequency in GHz
+            raw_thz: Raw frequency reading in THz
+        """
+        timestamp = time.time()
+        
+        with self.lock:
+            self.current_freq_ghz = freq_ghz
+            self.current_freq_thz = raw_thz
+            self.last_update_time = timestamp
+            self.reading_count += 1
+            self.stats["readings"] += 1
+        
+        # Store in telemetry (laser_freq is the channel name in data_server)
+        if TELEMETRY_STORAGE_AVAILABLE:
+            try:
+                store_data_point("laser_freq", freq_ghz, timestamp)
+                update_data_source("wavemeter", timestamp)
+            except Exception as e:
+                self.logger.debug(f"Failed to store telemetry: {e}")
+        
+        # Log periodically (every 5 seconds)
+        if int(timestamp) % 5 == 0:
+            self.logger.debug(f"CH {self.current_channel} | {freq_ghz:.4f} GHz ({raw_thz:.4f} THz)")
+    
+    def get_current_reading(self) -> Dict[str, Any]:
+        """
+        Get the current frequency reading.
+        
+        Returns:
+            Dictionary with current reading information
+        """
+        with self.lock:
+            return {
+                "channel": self.current_channel,
+                "frequency_ghz": self.current_freq_ghz,
+                "frequency_thz": self.current_freq_thz,
+                "last_update": self.last_update_time,
+                "connected": self.connected,
+                "reading_count": self.reading_count
+            }
+    
+    def get_status(self) -> Dict[str, Any]:
+        """
+        Get interface status.
+        
+        Returns:
+            Dictionary with status information
+        """
+        with self.lock:
+            uptime = time.time() - self.stats["start_time"] if self.stats["start_time"] else 0
+            return {
+                "enabled": self.enabled,
+                "connected": self.connected,
+                "running": self.running,
+                "server": f"{self.host}:{self.port}",
+                "current_channel": self.current_channel,
+                "current_frequency_ghz": self.current_freq_ghz,
+                "last_update": self.last_update_time,
+                "reading_count": self.reading_count,
+                "stats": self.stats.copy(),
+                "uptime_seconds": uptime
             }
 
 
@@ -742,6 +1040,10 @@ class ControlManager:
         # Camera Interface (direct control, bypassing Flask)
         self.camera: Optional[CameraInterface] = None
         self._init_camera()
+        
+        # Wavemeter Interface (HighFinesse WS7 frequency data)
+        self.wavemeter: Optional[WavemeterInterface] = None
+        self._init_wavemeter()
         
         # Optimizer Controller (Bayesian optimization)
         self.optimizer_controller: Optional[OptimizerController] = None
@@ -1482,7 +1784,7 @@ class ControlManager:
         }
     
     def _handle_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle general STATUS query including kill switch and camera status."""
+        """Handle general STATUS query including kill switch, camera, and wavemeter status."""
         with self.worker_lock:
             worker_alive = self.worker_alive
         
@@ -1497,6 +1799,14 @@ class ControlManager:
             except:
                 camera_status = {"available": False}
         
+        # Get wavemeter status if available
+        wavemeter_status = None
+        if self.wavemeter:
+            try:
+                wavemeter_status = self.wavemeter.get_status()
+            except:
+                wavemeter_status = {"available": False}
+        
         return {
             "status": "success",
             "mode": self.mode.value,
@@ -1506,7 +1816,8 @@ class ControlManager:
             "turbo": turbo_dict,
             "safety_triggered": self.safety_triggered,
             "kill_switch": self.kill_switch.get_status(),
-            "camera": camera_status
+            "camera": camera_status,
+            "wavemeter": wavemeter_status
         }
     
     def _handle_turbo_status(self, req: Dict[str, Any]) -> Dict[str, Any]:
@@ -2045,6 +2356,28 @@ class ControlManager:
             safety_state=self.params,
             exp_id=self.current_exp.exp_id if self.current_exp else None
         )
+    
+    def _init_wavemeter(self):
+        """Initialize wavemeter interface for frequency data collection."""
+        try:
+            config = get_config()
+            enabled = config.get('wavemeter.enabled', True)
+            
+            if not enabled:
+                self.logger.info("Wavemeter interface disabled in config")
+                return
+            
+            self.wavemeter = WavemeterInterface()
+            
+            # Start the wavemeter data collection
+            if self.wavemeter.start():
+                self.logger.info(f"Wavemeter interface started ({self.wavemeter.host}:{self.wavemeter.port})")
+            else:
+                self.logger.warning("Wavemeter interface failed to start")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to initialize wavemeter interface: {e}")
+            self.wavemeter = None
     
     # ==========================================================================
     # OPTIMIZER INTEGRATION - Bayesian Optimization for Ion Loading
@@ -2687,6 +3020,11 @@ class ControlManager:
         if hasattr(self, 'labview_data_reader') and self.labview_data_reader:
             self.logger.info("Stopping LabVIEW file reader...")
             self.labview_data_reader.stop()
+        
+        # Stop wavemeter interface
+        if hasattr(self, 'wavemeter') and self.wavemeter:
+            self.logger.info("Stopping wavemeter interface...")
+            self.wavemeter.stop()
         
         # Stop LabVIEW interface
         if self.labview:

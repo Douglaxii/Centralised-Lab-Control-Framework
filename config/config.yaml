@@ -136,6 +136,14 @@ profiles:
         - hd_valve
         - dds
     
+    wavemeter:
+      enabled: false                # Disabled in development
+      host: "134.99.120.141"        # Wavemeter PC IP
+      port: 1790                    # LabVIEW TCP broadcast port
+      divider: 4.0                  # UV->Fundamental conversion (4.0 for UV, 1.0 for raw)
+      timeout: 5.0                  # Connection timeout in seconds
+      reconnect_delay: 3.0          # Reconnect delay in seconds
+    
     telemetry:
       enabled: false
       path: "./data/telemetry"
@@ -396,6 +404,14 @@ profiles:
         - e_gun
         - hd_valve
         - dds
+    
+    wavemeter:
+      enabled: true                   # Enabled in production
+      host: "134.99.120.141"          # Wavemeter PC IP
+      port: 1790                      # LabVIEW TCP broadcast port
+      divider: 4.0                    # UV->Fundamental conversion (4.0 for UV, 1.0 for raw)
+      timeout: 5.0                    # Connection timeout in seconds
+      reconnect_delay: 3.0            # Reconnect delay in seconds
     
     telemetry:
       enabled: true

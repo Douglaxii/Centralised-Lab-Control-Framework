@@ -1371,7 +1371,81 @@ def get_status():
         "turbo": turbo_info,
         "data_sources": data_sources,
         "kill_switch": ks_status,
-        "kill_switch_limits": KILL_SWITCH_LIMITS
+        "kill_switch_limits": KILL_SWITCH_LIMITS,
+        "wavemeter": resp.get("wavemeter", {"available": False})
+    })
+
+
+@app.route('/api/wavemeter/status', methods=['GET'])
+def get_wavemeter_status():
+    """
+    Get detailed wavemeter status and current frequency reading.
+    
+    Returns:
+        - enabled: Whether wavemeter interface is enabled
+        - connected: Whether connected to wavemeter PC
+        - current_frequency_ghz: Current laser frequency in GHz
+        - current_frequency_thz: Current laser frequency in THz
+        - current_channel: Active measurement channel
+        - reading_count: Total number of readings received
+        - server: Wavemeter server address
+    """
+    resp = send_to_manager({"action": "STATUS", "source": "FLASK"})
+    
+    wavemeter_info = resp.get("wavemeter", {"available": False})
+    
+    return jsonify({
+        "status": "success",
+        "wavemeter": wavemeter_info
+    })
+
+
+@app.route('/api/wavemeter/frequency', methods=['GET'])
+def get_wavemeter_frequency():
+    """
+    Get current laser frequency reading.
+    
+    Query parameters:
+        - unit: 'ghz' (default) or 'thz'
+    
+    Returns:
+        - frequency: Current frequency value
+        - unit: Frequency unit
+        - channel: Active measurement channel
+        - timestamp: Last update timestamp
+    """
+    unit = request.args.get('unit', 'ghz').lower()
+    
+    resp = send_to_manager({"action": "STATUS", "source": "FLASK"})
+    wavemeter_info = resp.get("wavemeter", {})
+    
+    if not wavemeter_info or not wavemeter_info.get("enabled"):
+        return jsonify({
+            "status": "error",
+            "message": "Wavemeter not enabled",
+            "available": False
+        }), 503
+    
+    if not wavemeter_info.get("connected"):
+        return jsonify({
+            "status": "error",
+            "message": "Wavemeter not connected",
+            "available": True,
+            "connected": False
+        }), 503
+    
+    if unit == 'thz':
+        freq = wavemeter_info.get("current_frequency_thz", 0)
+    else:
+        freq = wavemeter_info.get("current_frequency_ghz", 0)
+    
+    return jsonify({
+        "status": "success",
+        "frequency": freq,
+        "unit": unit,
+        "channel": wavemeter_info.get("current_channel", 1),
+        "timestamp": wavemeter_info.get("last_update"),
+        "reading_count": wavemeter_info.get("reading_count", 0)
     })
 
 
