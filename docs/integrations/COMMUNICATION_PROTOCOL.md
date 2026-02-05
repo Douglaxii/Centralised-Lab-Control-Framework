@@ -709,48 +709,61 @@ Returns whether the server is ready to accept traffic. Used by Kubernetes and co
 
 ### 6.5 LabVIEW SMILE Protocol (Port 5559)
 
-#### Command Types
+**Simplified Protocol:** Only `device` and `value` fields are sent to LabVIEW.
 
-| Command | Device | Value Type | Description |
-|---------|--------|------------|-------------|
-| set_voltage | U_RF | float (V) | RF voltage 0-1000V |
-| set_voltage | piezo | float (V) | Piezo 0-4V |
-| set_toggle | be_oven | bool | Be+ oven on/off |
-| set_toggle | b_field | bool | B-field on/off |
-| set_toggle | bephi | bool | Bephi on/off |
-| set_toggle | uv3 | bool | UV3 laser on/off |
-| set_toggle | e_gun | bool | Electron gun on/off |
-| set_shutter | hd_shutter_1 | bool | HD valve shutter 1 |
-| set_shutter | hd_shutter_2 | bool | HD valve shutter 2 |
-| set_frequency | dds | float (MHz) | DDS frequency |
-| get_status | all | null | Query all device states |
-| emergency_stop | all | null | Immediate stop |
-| ping | system | null | Keepalive |
+#### Supported Devices
 
-#### LabVIEW Command Format
+| Device | Value Type | Range | Description |
+|--------|------------|-------|-------------|
+| `u_rf` | float | 0-1000 | RF voltage (mV) |
+| `piezo` | float | 0-4 | Piezo voltage (V) |
+| `be_oven` | int | 0 or 1 | Be+ oven (1=on, 0=off) |
+| `b_field` | int | 0 or 1 | B-field (1=on, 0=off) |
+| `bephi` | int | 0 or 1 | Bephi (1=on, 0=off) |
+| `uv3` | int | 0 or 1 | UV3 laser (1=on, 0=off) |
+| `e_gun` | int | 0 or 1 | Electron gun (1=on, 0=off) |
+| `hd_valve` | int | 0 or 1 | HD valve (1=on, 0=off) |
+| `dds` | float | 0-200 | DDS frequency (MHz) |
+
+#### LabVIEW Command Format (Simplified)
+
+**Request:**
 ```json
 {
-  "command": "set_voltage",
-  "device": "U_RF",
-  "value": 200.0,
-  "timestamp": 1706380800.123,
-  "request_id": "REQ_000001_1706380800123"
+  "device": "u_rf",
+  "value": 200.0
 }
+```
+
+For boolean devices, value is `1` for True/on and `0` for False/off:
+```json
+{"device": "be_oven", "value": 1}
+{"device": "e_gun", "value": 0}
 ```
 
 #### LabVIEW Response Format
+
+LabVIEW can respond with either JSON or simple text:
+
+**JSON Response:**
 ```json
 {
-  "request_id": "REQ_000001_1706380800123",
   "status": "ok",
-  "device": "U_RF",
-  "value": 200.0,
-  "message": null,
-  "timestamp": 1706380800.125
+  "device": "u_rf",
+  "value": 200.0
 }
 ```
 
-Status values: `ok`, `error`, `busy`
+**Simple Text Response:**
+```
+OK
+```
+or
+```
+ERROR: <message>
+```
+
+Status values: `ok`, `error`
 
 ### 6.6 Data Ingestion Protocol (Port 5560)
 

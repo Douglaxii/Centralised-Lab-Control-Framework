@@ -11,11 +11,17 @@ Commands:
 - STOP_CLEAR: Stop capture and clear all JPG files
 - CLEAR_FRAMES: Clear all JPG files without stopping
 - STATUS: Get camera status
+- PING: Health check (returns PONG)
+- READY: Check if server is ready to accept commands
 
 Infinity Mode Features:
 - Auto-cleanup of old JPG files (max 100 per folder by default)
 - Monitors: jpg_frames (raw) and jpg_frames_labelled (processed)
 - Automatic deletion of oldest files when limit exceeded
+
+Usage:
+    python -m src.hardware.camera.camera_server    # Standalone mode
+    python -m src.launcher                          # Via unified launcher
 """
 
 import os
@@ -176,6 +182,15 @@ def handle_client(conn, addr):
                     logger.info(f"Experiment ID set: {exp_id}")
                     conn.sendall(f"OK: Experiment ID set to {exp_id}\n".encode())
                 
+                elif data == "PING":
+                    # Health check for launcher monitoring
+                    conn.sendall(b"PONG\n")
+                
+                elif data == "READY":
+                    # Check if server is ready
+                    ready_status = "READY: yes" if not camera_active else "READY: busy"
+                    conn.sendall(f"{ready_status}\n".encode())
+                
                 else:
                     conn.sendall(b"ERROR: Unknown command\n")
                     
@@ -220,6 +235,15 @@ def ensure_directories():
             logger.warning(f"Could not create directory {path}: {e}")
 
 
+def health_check(host=HOST, port=PORT, timeout=2.0):
+    """Check if camera server is healthy and responding."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except:
+        return False
+
+
 def main():
     """Main camera server."""
     
@@ -228,8 +252,10 @@ def main():
     
     logger.info("=" * 60)
     logger.info("Camera Server Starting...")
+    logger.info(f"Module: src.hardware.camera.camera_server")
     logger.info(f"Listen on {HOST}:{PORT}")
     logger.info("Commands: START, START_INF, STOP, STOP_CLEAR, CLEAR_FRAMES, STATUS")
+    logger.info("           PING (health check), READY (ready status)")
     logger.info("Infinity mode: Auto-cleanup max 100 files per folder")
     logger.info("=" * 60)
     

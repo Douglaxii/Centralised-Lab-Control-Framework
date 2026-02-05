@@ -4,18 +4,31 @@ LabVIEW Interface Module - TCP Communication with SMILE LabVIEW Program
 Provides bidirectional communication between the Python Control Manager and
 the SMILE LabVIEW program for hardware control.
 
-Supported Controls:
-- U_RF (RF voltage)
-- Piezo voltage (kill switch protected: 10s max)
-- Be+ Oven (on/off)
-- B-field (on/off)
-- Bephi (on/off)
-- UV3 (on/off)
-- E-gun (on/off) (kill switch protected: 30s max)
-- HD Valve Shutters (on/off)
-- DDS Frequency
+Simplified Protocol:
+    TCP commands are sent as JSON with only two fields:
+    {
+        "device": "<device_name>",
+        "value": <value>
+    }
+    
+    For boolean devices, value is 1 (True) or 0 (False).
+    For voltage devices, value is a float.
 
-Protocol: JSON over TCP
+Supported Devices:
+    - u_rf: RF voltage (float, e.g., 200.0)
+    - piezo: Piezo voltage (float, e.g., 2.5) - kill switch protected: 10s max
+    - hd_valve: HD valve shutter (1=on, 0=off)
+    - be_oven: Be+ oven (1=on, 0=off)
+    - uv3: UV3 laser (1=on, 0=off)
+    - bephi: Bephi (1=on, 0=off)
+    - b_field: B-field (1=on, 0=off)
+    - e_gun: Electron gun (1=on, 0=off) - kill switch protected: 30s max
+
+Example Commands:
+    {"device": "u_rf", "value": 200.0}
+    {"device": "piezo", "value": 2.5}
+    {"device": "be_oven", "value": 1}
+    {"device": "e_gun", "value": 0}
 
 SAFETY CRITICAL:
 - Piezo output is limited to 10 seconds maximum by worker-level kill switch
@@ -749,11 +762,11 @@ class LabVIEWInterface:
             time.sleep(5.0)  # Check every 5 seconds
     
     def _send_ping(self):
-        """Send keepalive ping."""
+        """Send keepalive ping (using simplified format with device='ping')."""
         ping_cmd = LabVIEWCommand(
             command=LabVIEWCommandType.PING.value,
-            device="system",
-            value=None,
+            device="ping",
+            value=1,
             timestamp=time.time(),
             request_id=self._generate_request_id()
         )
@@ -769,9 +782,18 @@ class LabVIEWInterface:
         """
         Send a command to LabVIEW and wait for response.
         
-        Note: This method assumes LabVIEW sends one response per command
-        and uses newline delimiter. LabVIEW must handle TCP fragmentation
-        by buffering data until newline is received.
+        Uses simplified protocol: only 'device' and 'value' fields are sent.
+        Format: {"device": "<device_name>", "value": <value>}
+        
+        Supported devices:
+        - u_rf: RF voltage (float)
+        - piezo: Piezo voltage (float)
+        - hd_valve: HD valve (1=True, 0=False)
+        - be_oven: Be+ oven (1=True, 0=False)
+        - uv3: UV3 laser (1=True, 0=False)
+        - bephi: Bephi (1=True, 0=False)
+        - b_field: B-field (1=True, 0=False)
+        - e_gun: Electron gun (1=True, 0=False)
         
         Args:
             command: Command to send
@@ -785,21 +807,46 @@ class LabVIEWInterface:
                     return None
             
             try:
+                # Build simplified command with only device and value
+                # Booleans are converted to 1/0 as required
+                simplified_cmd = {
+                    "device": command.device,
+                    "value": 1 if command.value is True else (0 if command.value is False else command.value)
+                }
+                
                 # Send command with newline terminator
-                # IMPORTANT: LabVIEW must buffer TCP data and wait for \n
-                # to handle TCP fragmentation correctly
-                message = command.to_json() + "\n"
+                message = json.dumps(simplified_cmd) + "\n"
                 self.socket.sendall(message.encode('utf-8'))
                 
+                self.logger.debug(f"Sent to LabVIEW: {simplified_cmd}")
+                
                 # Wait for response (blocking read)
-                # LabVIEW should send response with \n terminator
                 response_data = self.socket.recv(4096).decode('utf-8').strip()
                 
                 if not response_data:
                     return None
                 
-                response_dict = json.loads(response_data)
-                return LabVIEWResponse.from_dict(response_dict)
+                # Try to parse response, but don't fail if LabVIEW doesn't send JSON
+                try:
+                    response_dict = json.loads(response_data)
+                    return LabVIEWResponse.from_dict(response_dict)
+                except json.JSONDecodeError:
+                    # LabVIEW might send simple OK/ERROR response
+                    if response_data.upper() in ("OK", "SUCCESS"):
+                        return LabVIEWResponse(
+                            request_id=command.request_id,
+                            status="ok",
+                            device=command.device,
+                            value=command.value
+                        )
+                    else:
+                        return LabVIEWResponse(
+                            request_id=command.request_id,
+                            status="error",
+                            device=command.device,
+                            value=command.value,
+                            message=response_data
+                        )
                 
             except socket.timeout:
                 self.logger.warning("LabVIEW response timeout")

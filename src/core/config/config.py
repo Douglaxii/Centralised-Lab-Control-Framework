@@ -112,6 +112,27 @@ class Config:
         # Ensure log directory exists
         log_dir = project_root / "logs"
         log_dir.mkdir(exist_ok=True)
+        
+        # Auto-setup paths and directories if enabled
+        self._auto_setup_paths()
+    
+    def _auto_setup_paths(self):
+        """Auto-setup paths and create directories if enabled."""
+        try:
+            # Import here to avoid circular dependency
+            from .auto_setup import ensure_directories, substitute_env_vars
+            
+            # Substitute environment variables in paths
+            if 'paths' in self._config:
+                self._config['paths'] = substitute_env_vars(self._config['paths'])
+            
+            # Create directories
+            created = ensure_directories(self)
+            if created:
+                logger.info(f"Auto-created directories: {len(created)}")
+                
+        except Exception as e:
+            logger.debug(f"Auto-setup skipped: {e}")
     
     def _load_unified_config(self, raw_config: Dict, project_root: Path):
         """Load configuration from unified format with profiles.

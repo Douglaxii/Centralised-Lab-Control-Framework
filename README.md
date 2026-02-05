@@ -13,15 +13,53 @@ MLS coordinates multiple hardware subsystems for loading and manipulating Beryll
 
 ## Quick Start
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
+### 1. Environment Setup (Auto-Configuration)
 
-# Start all services
-python launcher.py
+```bash
+# Auto-detect environment and setup paths
+python scripts/setup/auto_config.py
+
+# Or use the batch file (Windows)
+scripts\windows\setup_environment.bat
+```
+
+### 2. Start All Services
+
+```bash
+# Start all services (Manager, Camera, Flask, Applet, Optimizer)
+python -m src.launcher
+
+# Or on Windows, use the batch file
+scripts\windows\start_all.bat
 
 # Access dashboards
 http://localhost:5000    # Main control interface
+http://localhost:5050    # Optimizer interface
+http://localhost:5051    # Applet interface
+```
+
+### Start Without Camera (for testing without hardware)
+
+```bash
+# Option 1: Use batch file
+scripts\windows\start_without_camera.bat
+
+# Option 2: Exclude camera from command
+python -m src.launcher --service manager,flask,applet,optimizer
+```
+
+### Environment Selection
+
+The system auto-detects environment, but you can force it:
+
+```bash
+# Force development mode (laptop)
+set MLS_ENV=development
+python -m src.launcher
+
+# Force production mode (manager PC)
+set MLS_ENV=production
+python -m src.launcher
 ```
 
 ## Architecture
@@ -128,79 +166,57 @@ See [docs/BO.md](docs/BO.md) for complete architecture documentation.
 
 ```
 MLS/
-├── launcher.py                 # Unified service launcher
-├── requirements.txt            # Python dependencies
-├── start.bat / start.sh        # Quick start scripts
+├── src/                        # All Python source code
+│   ├── launcher.py             # Unified service launcher (starts all services)
+│   ├── core/                   # Shared utilities
+│   │   ├── config/            # Configuration management
+│   │   ├── logging/           # Logging utilities
+│   │   ├── exceptions/        # Custom exceptions
+│   │   └── utils/             # ZMQ helpers, enums, experiment tracking
+│   │
+│   ├── server/                 # Server components
+│   │   ├── manager/           # ControlManager (ZMQ coordinator)
+│   │   ├── api/               # Flask servers (port 5000)
+│   │   └── comms/             # Communication layer
+│   │
+│   ├── hardware/               # Hardware interfaces
+│   │   ├── camera/            # Camera system (port 5558)
+│   │   │   ├── camera_server.py
+│   │   │   ├── camera_logic.py
+│   │   │   └── image_handler.py
+│   │   ├── artiq/             # ARTIQ integration
+│   │   └── labview/           # LabVIEW/SMILE interface
+│   │
+│   ├── optimizer/              # Bayesian optimization (port 5050)
+│   │   ├── two_phase_controller.py
+│   │   ├── turbo.py
+│   │   └── mobo.py
+│   │
+│   ├── frontend/               # User interfaces
+│   │   └── applet/            # Experiment applets (port 5051)
+│   │
+│   └── analysis/               # Physics analysis tools
+│       ├── secular_comparison.py
+│       └── eigenmodes/
 │
 ├── config/                     # Configuration files
-│   ├── settings.yaml          # Main system configuration
-│   ├── parallel_config.yaml   # Parallel processing config
-│   └── examples/              # Example configurations
-│       └── local_development.yaml
+│   ├── config.yaml            # Main configuration (dev/prod profiles)
+│   └── artiq/                 # ARTIQ-specific config
 │
-├── core/                       # Shared utilities
-│   ├── config.py              # Configuration management
-│   ├── enums.py               # Enumerations and constants
-│   ├── exceptions.py          # Custom exceptions
-│   ├── experiment.py          # Experiment tracking
-│   ├── logger.py              # Logging utilities
-│   └── zmq_utils.py           # ZMQ helper functions
-│
-├── server/                     # Server components
-│   ├── communications/        # Communication layer
-│   │   ├── manager.py         # ControlManager (main coordinator)
-│   │   ├── labview_interface.py
-│   │   └── data_server.py
-│   │
-│   ├── cam/                   # Camera system
-│   │   ├── camera_server.py
-│   │   ├── camera_logic.py
-│   │   ├── camera_recording.py
-│   │   ├── image_handler.py   # Ion detection (Core Ultra 9 + Quadro P400 optimized)
-│   │   └── utils/             # Camera utilities
-│   │
-│   ├── Flask/                 # Main web interface (Port 5000)
-│   │   └── flask_server.py
-│   │
-│   └── optimizer/             # Bayesian optimization
-│       ├── two_phase_controller.py
-│       ├── turbo.py           # TuRBO optimizer (Phase I)
-│       ├── mobo.py            # MOBO optimizer (Phase II)
-│       ├── parameters.py
-│       ├── objectives.py
-│       └── storage.py
-│
-├── artiq/                      # ARTIQ hardware control
-│   ├── experiments/
-│   └── fragments/
+├── scripts/                    # Operational scripts
+│   ├── windows/               # Windows batch files
+│   │   ├── start_all.bat      # Start all services
+│   │   ├── start_without_camera.bat
+│   │   ├── stop_all.bat
+│   │   └── status.bat
+│   ├── setup/                 # Setup scripts
+│   └── switch_env.py          # Environment switcher
 │
 ├── tests/                      # Test suite
-│   └── output/                # Test outputs (kept minimal)
-│
-├── tools/                      # Diagnostic tools
-├── setup/                      # Setup scripts
-│   ├── setup_conda.bat
-│   ├── setup_conda.py
-│   ├── validate_setup.py
-│   └── environment.yml
-│
 ├── logs/                       # Log files (rotated)
 ├── data/                       # Data storage
-│
+├── requirements.txt            # Python dependencies
 └── docs/                       # Documentation
-    ├── ARCHITECTURE.md
-    ├── BO.md
-    ├── API_REFERENCE.md
-    ├── guides/                # User guides
-    │   ├── CAMERA_ACTIVATION.md
-    │   ├── CONDA_SETUP.md
-    │   └── SAFETY_KILL_SWITCH.md
-    ├── camera/                # Camera-specific docs
-    │   ├── IMAGE_HANDLER_README.md
-    │   └── UNCERTAINTY_CALCULATION.md
-    ├── server/                # Server docs
-    ├── tests/                 # Testing docs
-    └── summaries/             # Implementation summaries
 ```
 
 ## Features

@@ -4,9 +4,10 @@ Unified Launcher - Starts all MLS services
 
 Services started:
 1. Control Manager (ZMQ hub) - Port 5557
-2. Main Flask Dashboard - Port 5000
-3. Applet Flask Server - Port 5051  
-4. Optimizer Flask Server - Port 5050
+2. Camera TCP Server - Port 5558
+3. Main Flask Dashboard - Port 5000
+4. Applet Flask Server - Port 5051  
+5. Optimizer Flask Server - Port 5050
 
 Usage:
     python -m src.launcher                    # Start all services
@@ -14,6 +15,7 @@ Usage:
     python -m src.launcher --stop             # Stop all services
     python -m src.launcher --restart          # Restart all services
     python -m src.launcher --service manager  # Start only manager
+    python -m src.launcher --service camera   # Start only camera
 """
 
 import os
@@ -24,6 +26,7 @@ import subprocess
 import json
 import argparse
 import logging
+import socket
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, List
@@ -51,10 +54,27 @@ logger = logging.getLogger("Launcher")
 # Load and display configuration info
 try:
     from core import get_config
+    from core.config.auto_setup import setup_environment, ensure_directories
+    
+    # Auto-detect environment and setup paths
+    env_info = setup_environment()
+    logger.info(f"Environment: {env_info['environment']} (hostname: {env_info['hostname']})")
+    logger.info(f"Detected IP: {env_info['ip_address']}")
+    
     _config = get_config()
     _env = _config.environment
     _master_ip = _config.master_ip
     logger.info(f"Configuration loaded: {_env} (master_ip: {_master_ip})")
+    
+    # Ensure all directories exist
+    created_dirs = ensure_directories(_config)
+    if created_dirs:
+        logger.info(f"Created directories: {len(created_dirs)}")
+        for d in created_dirs[:5]:  # Show first 5
+            logger.info(f"  - {d}")
+        if len(created_dirs) > 5:
+            logger.info(f"  ... and {len(created_dirs) - 5} more")
+            
 except Exception as e:
     logger.warning(f"Could not load configuration: {e}")
 
@@ -187,47 +207,98 @@ class ServiceManager:
     
     def check_health(self) -> bool:
         """Check if service is healthy."""
+        # First check if process is running
         if not self.is_running():
             self.info.status = ServiceStatus.ERROR
             self.info.last_error = "Process not running"
             return False
+        
+        # For TCP-based services, try to connect
+        if self.url.startswith('tcp://'):
+            try:
+                # Parse host:port from tcp://host:port
+                host_port = self.url.replace('tcp://', '')
+                host, port_str = host_port.rsplit(':', 1)
+                port = int(port_str)
+                host = '127.0.0.1' if host == 'localhost' else host
+                
+                with socket.create_connection((host, port), timeout=2.0):
+                    return True
+            except Exception as e:
+                # Process is running but port not ready yet (might still be starting)
+                return True  # Don't mark as error during startup
+        
         return True
+    
+    def wait_for_ready(self, timeout: float = 30.0) -> bool:
+        """Wait for service to be ready (port listening)."""
+        if not self.url.startswith('tcp://'):
+            return True  # Non-TCP services are ready when process starts
+        
+        # Parse host:port from tcp://host:port
+        host_port = self.url.replace('tcp://', '')
+        host, port_str = host_port.rsplit(':', 1)
+        port = int(port_str)
+        host = '127.0.0.1' if host == 'localhost' else host
+        
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                with socket.create_connection((host, port), timeout=1.0):
+                    logger.debug(f"{self.name} is ready on port {port}")
+                    return True
+            except:
+                time.sleep(0.5)
+        
+        logger.warning(f"{self.name} did not become ready within {timeout}s")
+        return False
 
 
 class UnifiedLauncher:
     """Unified launcher for all MLS services."""
     
     # Service definitions
+    # Order matters: infrastructure first (manager, camera), then UI services
     SERVICES = {
         'manager': {
             'module': 'src.server.manager.manager',
             'port': 5557,
             'url': 'tcp://localhost:5557',
-            'description': 'ZMQ Control Manager'
-        },
-        'flask': {
-            'module': 'src.server.api.flask_server',
-            'port': 5000,
-            'url': 'http://localhost:5000',
-            'description': 'Main Dashboard Flask Server'
-        },
-        'applet': {
-            'module': 'src.applet.app',
-            'port': 5051,
-            'url': 'http://localhost:5051',
-            'description': 'Applet Experiment Flask Server'
-        },
-        'optimizer': {
-            'module': 'src.optimizer.flask_optimizer.app',
-            'port': 5050,
-            'url': 'http://localhost:5050',
-            'description': 'Optimizer Flask Server'
+            'description': 'ZMQ Control Manager',
+            'required': True,
+            'start_delay': 0.0
         },
         'camera': {
             'module': 'src.hardware.camera.camera_server',
             'port': 5558,
             'url': 'tcp://localhost:5558',
-            'description': 'Camera TCP Server'
+            'description': 'Camera TCP Server',
+            'required': False,  # Can be disabled if camera hardware not available
+            'start_delay': 1.0  # Give manager time to start
+        },
+        'flask': {
+            'module': 'src.server.api.flask_server',
+            'port': 5000,
+            'url': 'http://localhost:5000',
+            'description': 'Main Dashboard Flask Server',
+            'required': True,
+            'start_delay': 0.5
+        },
+        'applet': {
+            'module': 'src.applet.app',
+            'port': 5051,
+            'url': 'http://localhost:5051',
+            'description': 'Applet Experiment Flask Server',
+            'required': False,
+            'start_delay': 0.5
+        },
+        'optimizer': {
+            'module': 'src.optimizer.flask_optimizer.app',
+            'port': 5050,
+            'url': 'http://localhost:5050',
+            'description': 'Optimizer Flask Server',
+            'required': False,
+            'start_delay': 0.5
         }
     }
     
@@ -326,7 +397,8 @@ class UnifiedLauncher:
         logger.info(f"Data Path: {data_path}")
         logger.info("=" * 60)
         
-        # Start order matters: manager first, camera, then Flask servers
+        # Start order matters: infrastructure first (manager, camera), then UI services
+        # Camera must start before Flask so dashboard can connect immediately
         start_order = ['manager', 'camera', 'flask', 'applet', 'optimizer']
         
         for name in start_order:
@@ -337,14 +409,36 @@ class UnifiedLauncher:
             logger.info(f"\nStarting {name}...")
             
             if not service.start():
-                logger.error(f"Failed to start {name}, stopping all services...")
-                self.stop_all()
-                return False
+                # Check if service is required
+                config = self.SERVICES.get(name, {})
+                if config.get('required', True):
+                    logger.error(f"Required service {name} failed to start, stopping all services...")
+                    self.stop_all()
+                    return False
+                else:
+                    logger.warning(f"Optional service {name} failed to start, continuing...")
+                    continue
+            
+            # Wait for service to be ready (port listening)
+            logger.debug(f"  Waiting for {name} to be ready...")
+            if not service.wait_for_ready(timeout=30.0):
+                config = self.SERVICES.get(name, {})
+                if config.get('required', True):
+                    logger.error(f"Required service {name} did not become ready, stopping all services...")
+                    self.stop_all()
+                    return False
+                else:
+                    logger.warning(f"Optional service {name} did not become ready, continuing...")
+            
+            # Service-specific additional delay
+            config = self.SERVICES.get(name, {})
+            extra_delay = config.get('start_delay', 0)
             
             # Stagger starts to avoid resource contention
-            if stagger > 0 and name != start_order[-1]:
-                logger.info(f"  Waiting {stagger}s before next service...")
-                time.sleep(stagger)
+            total_delay = stagger + extra_delay
+            if total_delay > 0 and name != start_order[-1]:
+                logger.info(f"  Waiting {total_delay:.1f}s before next service...")
+                time.sleep(total_delay)
         
         self.running = True
         self.save_state()
@@ -453,9 +547,16 @@ class UnifiedLauncher:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="MLS Unified Launcher - Start all services",
+        description="MLS Unified Launcher - Start all MLS services including Camera",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Services:
+    manager     ZMQ Control Manager (port 5557) - REQUIRED
+    camera      Camera TCP Server (port 5558) - Optional
+    flask       Main Dashboard Flask Server (port 5000) - REQUIRED
+    applet      Applet Flask Server (port 5051)
+    optimizer   Optimizer Flask Server (port 5050)
+
 Examples:
     python -m src.launcher                    # Start all services
     python -m src.launcher --service manager  # Start only manager
@@ -463,6 +564,13 @@ Examples:
     python -m src.launcher --status           # Check status
     python -m src.launcher --stop             # Stop all services
     python -m src.launcher --restart          # Restart all services
+    python -m src.launcher --daemon           # Start in background
+
+Windows Batch Files (in scripts/windows/):
+    start_all.bat              # Start all services
+    start_without_camera.bat   # Start without camera hardware
+    stop_all.bat               # Stop all services
+    status.bat                 # Check service status
         """
     )
     

@@ -1,12 +1,31 @@
 
 # NOTE: ARTIQ code cannot use this config - it must be hardcoded in fragments.
 # This config is ONLY for the Python control system (manager, flask, camera, etc.)
+#
+# AUTO-CONFIGURATION:
+# The system can auto-detect environment and configure paths. Set MLS_ENV to override:
+#   SET MLS_ENV=development   (for laptop)
+#   SET MLS_ENV=production    (for manager PC)
+#
+# ENVIRONMENT VARIABLES in paths:
+# You can use ${VAR}, $VAR, or %VAR% syntax in path values:
+#   output_base: "${MLS_DATA_PATH}/data"
+#   jpg_frames: "$TEMP/frames"
+#
+# Run auto-configuration:
+#   python scripts/setup/auto_config.py
 
 ---
 # =============================================================================
 # ACTIVE ENVIRONMENT - CHANGE THIS TO SWITCH BETWEEN LAPTOP AND MANAGER PC
 # =============================================================================
 # Options: 'development' (your laptop) or 'production' (manager PC)
+# This is auto-detected if not set. Detection order:
+#   1. MLS_ENV environment variable
+#   2. Hostname (manager, lab-pc, etc. = production)
+#   3. Network drives (Y:, E: exist = production)
+#   4. IP address (134.99.x.x = production)
+#   5. Default to development
 environment: development
 
 
