@@ -1,130 +1,199 @@
-
-# NOTE: ARTIQ code cannot use this config - it must be hardcoded in fragments.
-# This config is ONLY for the Python control system (manager, flask, camera, etc.)
+# MLS Configuration File
+# Single unified configuration for Camera, Manager, Flask, Turbo, and Applets
 #
-# AUTO-CONFIGURATION:
-# The system can auto-detect environment and configure paths. Set MLS_ENV to override:
-#   SET MLS_ENV=development   (for laptop)
-#   SET MLS_ENV=production    (for manager PC)
+# Usage:
+#   from src.core.config import get_config
+#   config = get_config()
 #
-# ENVIRONMENT VARIABLES in paths:
-# You can use ${VAR}, $VAR, or %VAR% syntax in path values:
-#   output_base: "${MLS_DATA_PATH}/data"
-#   jpg_frames: "$TEMP/frames"
-#
-# Run auto-configuration:
-#   python scripts/setup/auto_config.py
+# Environment Selection:
+#   Set MLS_ENV environment variable:
+#   - MLS_ENV=development  (laptop/local testing)
+#   - MLS_ENV=production   (lab/manager PC)
 
 ---
 # =============================================================================
-# ACTIVE ENVIRONMENT - CHANGE THIS TO SWITCH BETWEEN LAPTOP AND MANAGER PC
+# ACTIVE ENVIRONMENT
 # =============================================================================
-# Options: 'development' (your laptop) or 'production' (manager PC)
-# This is auto-detected if not set. Detection order:
-#   1. MLS_ENV environment variable
-#   2. Hostname (manager, lab-pc, etc. = production)
-#   3. Network drives (Y:, E: exist = production)
-#   4. IP address (134.99.x.x = production)
-#   5. Default to development
+# Set to 'development' for laptop testing, 'production' for lab
 environment: development
 
 
 # =============================================================================
-# PROFILE CONFIGURATIONS
-# Each profile contains complete settings for that environment
+# PROFILES
 # =============================================================================
 profiles:
-  
-  # ---------------------------------------------------------------------------
-  # DEVELOPMENT PROFILE - For your laptop
-  # ---------------------------------------------------------------------------
+
+  # ============================================================================
+  # DEVELOPMENT PROFILE (Laptop/Local Testing)
+  # ============================================================================
   development:
     description: "Local development on laptop"
-    
+
+    # -------------------------------------------------------------------------
+    # Network Configuration
+    # -------------------------------------------------------------------------
     network:
-      # ARTIQ machine IP (from artiq_log: enp0s8 interface)
-      master_ip: "192.168.56.101"   # ARTIQ VM IP address
-      bind_host: "127.0.0.1"
-      cmd_port: 5555                # Master -> Worker commands
-      data_port: 5556               # Worker -> Master data
-      client_port: 5557             # Flask -> Manager
-      camera_port: 5558             # Camera server
+      # IP Addresses
+      master_ip: "192.168.56.101"     # ARTIQ VM IP
+      bind_host: "127.0.0.1"          # Local only
+      
+      # ZMQ Ports
+      cmd_port: 5555                  # Manager -> ARTIQ commands
+      data_port: 5556                 # ARTIQ -> Manager data
+      client_port: 5557               # Flask -> Manager requests
+      camera_port: 5558               # Camera server
+      
+      # Timeouts (seconds)
       connection_timeout: 5.0
       receive_timeout: 1.0
       heartbeat_interval: 10.0
+      
+      # Retry settings
       max_retries: 3
       retry_base_delay: 1.0
-    
+
+    # -------------------------------------------------------------------------
+    # Services Configuration
+    # -------------------------------------------------------------------------
+    services:
+      # Flask Web Server
+      flask:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5000
+        threaded: true
+        debug: true
+      
+      # Control Manager
+      manager:
+        enabled: true
+        host: "127.0.0.1"
+        max_worker_threads: 4
+      
+      # Camera Server
+      camera:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5558
+        auto_start: false           # Don't auto-start in dev
+        mode: "inf"                 # "inf" or "single"
+      
+      # Optimizer (TuRBO/MOBO)
+      optimizer:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5050
+      
+      # Applets
+      applet:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5051
+
+    # -------------------------------------------------------------------------
+    # Data Paths
+    # -------------------------------------------------------------------------
     paths:
-      # All data goes to local ./data folder
-      output_base: "./data"
-      artiq_data: "./data/artiq"
-      labview_tdms: "./data/PMT"
-      labview_telemetry: "./data/telemetry"
-      # Camera paths - use consistent structure
-      camera_frames: "./data/jpg_frames"           # Raw JPG frames from camera
-      camera_settings: "./data/camera/settings"
+      base: "./data"
+      output_base: "./data"          # Backward compatibility
+      
+      # Camera data
+      camera_raw: "./data/camera/raw"
+      camera_processed: "./data/camera/processed"
       camera_dcimg: "./data/camera/dcimg"
-      live_frames: "./data/camera/live_frames"
-      jpg_frames: "./data/jpg_frames"              # Same as camera_frames
-      jpg_frames_labelled: "./data/jpg_frames_labelled"  # Processed frames
-      ion_data: "./data/ion_data"                  # Ion detection data
-      ion_uncertainty: "./data/ion_uncertainty"    # Uncertainty calculations
-      experiments: "./data/experiments"
-      analysis_results: "./data/analysis/results"
-      analysis_settings: "./data/analysis/settings"
+      jpg_frames: "./data/camera/frames"
+      jpg_frames_labelled: "./data/camera/frames_labelled"
+      live_frames: "./data/camera/live"
       debug_path: "./data/debug"
+      
+      # Experiment data
+      experiments: "./data/experiments"
+      analysis: "./data/analysis"
+      
+      # Logs
+      logs: "./logs"
+      
+      # ARTIQ
+      artiq_results: "./data/artiq"
       dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
-    
+
+    # -------------------------------------------------------------------------
+    # Hardware Settings
+    # -------------------------------------------------------------------------
     hardware:
-      worker_defaults:
+      # Default voltage/parameters for ARTIQ worker
+      defaults:
+        # DC Electrodes (Volts, -1 to 50)
         ec1: 0.0
         ec2: 0.0
         comp_h: 0.0
         comp_v: 0.0
+        
+        # RF Voltage (Volts, 0 to 200)
         u_rf_volts: 100.0
+        
+        # Piezo (Volts, 0 to 4)
         piezo: 0.0
+        
+        # DDS/Raman (MHz)
         freq0: 215.5
         freq1: 215.5
         amp0: 0.05
         amp1: 0.05
         sw0: 0
         sw1: 0
+        
+        # Toggles (0=off, 1=on)
         bephi: 0
         b_field: 1
         be_oven: 0
         uv3: 0
         e_gun: 0
-        sweep_target: 307
-        sweep_span: 40.0
-        sweep_att: 25.0
-        sweep_on: 300.0
-        sweep_off: 300.0
+        
+        # Sweep parameters
+        sweep_target: 307        # kHz
+        sweep_span: 40.0         # kHz
+        sweep_att: 25.0          # dB
+        sweep_on: 300.0          # ms
+        sweep_off: 300.0         # ms
         sweep_points: 41
       
+      # Camera hardware
       camera:
-        target_temperature: -20.0
-        cooler_timeout: 300
-        max_frames_default: 100
-        exposure_default: 0.3
-        trigger_mode: "External"      # External trigger for testing
-        trigger_delay: 0.033138
-        subarray:
-          hsize: 300
-          hpos: 1624
-          vsize: 600
-          vpos: 1396
-    
+        model: "C15550-20UP"     # Hamamatsu ORCA-Quest
+        sensor_size: [2048, 2048]
+        bit_depth: 16
+        cooling: -10.0           # Celsius
+        
+        # Acquisition defaults
+        exposure_ms: 300
+        trigger_mode: "software"  # "software" or "extern"
+        max_frames: 100
+        
+        # ROI (Region of Interest)
+        roi: [0, 500, 10, 300]   # [x_start, x_finish, y_start, y_finish]
+        
+        # Image processing
+        processing:
+          enabled: true
+          filter_radius: 6
+          threshold_sigma: 3.0
+          max_ions: 5
+
+    # -------------------------------------------------------------------------
+    # LabVIEW Integration (Disabled in dev)
+    # -------------------------------------------------------------------------
     labview:
-      enabled: false                # Disabled in development
+      enabled: false
       host: "127.0.0.1"
       port: 5559
       timeout: 5.0
-      retry_delay: 1.0
-      max_retries: 3
-      auto_reconnect: false
+      
+      # Pressure safety
       pressure_threshold_mbar: 5.0e-9
       pressure_check_interval: 0.05
+      
+      # Available devices
       devices:
         - u_rf
         - piezo
@@ -135,168 +204,116 @@ profiles:
         - e_gun
         - hd_valve
         - dds
-    
+
+    # -------------------------------------------------------------------------
+    # Wavemeter (HighFinesse WS7)
+    # -------------------------------------------------------------------------
     wavemeter:
-      enabled: false                # Disabled in development
-      host: "134.99.120.141"        # Wavemeter PC IP
-      port: 1790                    # LabVIEW TCP broadcast port
-      divider: 4.0                  # UV->Fundamental conversion (4.0 for UV, 1.0 for raw)
-      timeout: 5.0                  # Connection timeout in seconds
-      reconnect_delay: 3.0          # Reconnect delay in seconds
-    
-    telemetry:
       enabled: false
-      path: "./data/telemetry"
-      poll_interval: 1.0
-      max_points: 1000
-      window_seconds: 300
-      tdms_path: "./data/PMT"
-      tdms_extension: ".tdms"
-    
-    camera:
-      # -------------------------------------------------------------------------
-      # Camera Server Connection (matches mhi_cam configuration)
-      # -------------------------------------------------------------------------
-      auto_start: false             # Don't auto-start camera in dev
-      mode: "inf"                   # "inf" = infinite mode, "single" = single capture
-      send_initial_trigger: false
+      host: "134.99.120.141"
+      port: 1790
+      divider: 4.0
       
-      # Flask HTTP server (for camera control commands)
-      flask_host: "127.0.0.1"
-      flask_port: 5000
-      flask_base_url: "http://127.0.0.1:5000"
+      fundamental_range: [200, 260]
+      uv_range: [900, 980]
       
-      # ZMQ server (for image streaming/data)
-      host: "127.0.0.1"
-      port: 5558
+      display_unit: "GHz"
+      precision: 3
+
+    # -------------------------------------------------------------------------
+    # Turbo/Optimizer Settings
+    # -------------------------------------------------------------------------
+    optimizer:
+      # TuRBO (Phase I) settings
+      turbo:
+        max_iterations: 100
+        batch_size: 1
+        num_restarts: 10
+        raw_samples: 512
+        
+        # Trust region parameters
+        tr_length_init: 0.8
+        tr_length_min: 0.01
+        tr_length_max: 1.6
+        failure_tolerance: 5
+        success_tolerance: 3
       
-      # Command listener (for backward compatibility with mhi_cam)
-      command_listener:
+      # MOBO (Phase II) settings
+      mobo:
+        max_iterations: 50
+        batch_size: 1
+        num_restarts: 10
+        raw_samples: 256
+        
+        # Multi-objective
+        ref_point: [0.0, 100.0]    # Reference point for Pareto front
+        
+      # Two-phase controller
+      two_phase:
+        phase1_iterations: 30
+        phase2_iterations: 20
+        warm_start: true
+
+    # -------------------------------------------------------------------------
+    # Applet Settings
+    # -------------------------------------------------------------------------
+    applet:
+      # Auto-compensation applet
+      auto_comp:
         enabled: true
-        host: "127.0.0.1"
-        port: 5001
+        max_iterations: 50
+        convergence_threshold: 0.01
       
-      # -------------------------------------------------------------------------
-      # Data Paths (use same structure as 'paths' section)
-      # -------------------------------------------------------------------------
-      raw_frames_path: "./data/jpg_frames"
-      labelled_frames_path: "./data/jpg_frames_labelled"
-      ion_data_path: "./data/ion_data"
-      ion_uncertainty_path: "./data/ion_uncertainty"
-      dcimg_path: "./data/camera/dcimg"
-      
-      # -------------------------------------------------------------------------
-      # Infinite Mode Settings (matches mhi_cam default settings)
-      # -------------------------------------------------------------------------
-      infinite_mode:
-        max_frames: 100
-        exposure_ms: 300
-        trigger_mode: "software"    # "software" or "extern"
-        
-      # -------------------------------------------------------------------------
-      # Single Recording Mode Settings
-      # -------------------------------------------------------------------------
-      single_mode:
-        max_frames: 1000
-        exposure_ms: 300
-        trigger_mode: "extern"
-        save_format: "dcimg"        # "dcimg" or "jpg"
-        
-      # -------------------------------------------------------------------------
-      # Image Processing Settings
-      # -------------------------------------------------------------------------
-      processing:
+      # Camera sweep applet
+      cam_sweep:
         enabled: true
-        # Region of Interest for analysis [x_start, x_finish, y_start, y_finish]
-        roi: [180, 220, 425, 495]
-        filter_radius: 6
-        threshold_sigma: 3.0
-        max_ions: 5
-        
-      # -------------------------------------------------------------------------
-      # Hardware Trigger Settings
-      # -------------------------------------------------------------------------
-      trigger:
-        device: "camera_trigger"      # TTL device name in device_db.py
-        default_pulse_us: 100.0       # Default pulse duration
-        short_pulse_us: 10.0          # Short pulse for sweep operations
-        
-      # -------------------------------------------------------------------------
-      # Camera Hardware Settings (Hamamatsu ORCA-Quest)
-      # -------------------------------------------------------------------------
-      hardware:
-        model: "C15550-20UP"          # ORCA-Quest model
-        sensor_size: [2048, 2048]     # Full sensor resolution
-        bit_depth: 16
-        cooling: -10.0                # Sensor cooling temperature (°C)
-        
-      # -------------------------------------------------------------------------
-      # HTTP API Endpoints (matching mhi_cam routes)
-      # -------------------------------------------------------------------------
-      endpoints:
-        start: "/start_camera"
-        stop: "/stop_camera"
-        inf: "/start_camera_inf"
-        save_settings: "/save_camera_settings"
-        set_analysis: "/set_live_analysis_params"
-        start_analysis: "/start_live_analysis"
-        stop_analysis: "/stop_live_analysis"
-        save_analysis: "/save_live_analysis"
-        clear_analysis: "/clear_live_analysis"
-    
+        default_exposure_ms: 100
+        default_frames: 10
+      
+      # Secular sweep applet
+      secular_sweep:
+        enabled: true
+        default_span_khz: 40
+        default_steps: 41
+
+    # -------------------------------------------------------------------------
+    # Logging
+    # -------------------------------------------------------------------------
     logging:
       level: "DEBUG"
       format: "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
-      file_rotation:
-        max_bytes: 1048576
-        backup_count: 5
+      
+      # Log files
       files:
         manager: "./logs/manager.log"
-        worker: "./logs/artiq_worker.log"
+        flask: "./logs/flask.log"
         camera: "./logs/camera.log"
-        analysis: "./logs/analysis.log"
-    
-    analysis:
-      sweep:
-        model: "lorentzian"
-        initial_guess:
-          gamma: 5000.0
-      image_handler:
-        roi:
-          x_start: 0
-          x_finish: 500
-          y_start: 10
-          y_finish: 300
-        detection:
-          threshold_percentile: 99.5
-          min_snr: 6.0
-          min_intensity: 35
-          max_intensity: 65000
-          min_sigma: 2.0
-          max_sigma: 30.0
-          max_ions: 10
-          min_distance: 15
-          edge_margin: 20
-          bg_kernel_size: 15
-          scales: [3, 5, 7]
-        visualization:
-          panel_height_ratio: 0.25
-          font_scale_title: 0.4
-          font_scale_data: 0.32
-          font_scale_ion_num: 0.45
-          crosshair_size: 12
-          circle_radius_factor: 1.5
-        performance:
-          num_threads: 4              # Fewer threads for laptop
-          use_vectorized: true
-          use_gpu: false              # Disable GPU for laptop
-          jpeg_quality: 85
-    
+        optimizer: "./logs/optimizer.log"
+        applet: "./logs/applet.log"
+      
+      # Rotation
+      rotation:
+        max_bytes: 1048576        # 1 MB
+        backup_count: 5
+      
+      # Console output
+      console: true
+
+    # -------------------------------------------------------------------------
+    # Performance
+    # -------------------------------------------------------------------------
     performance:
       num_threads: 4
       use_vectorized: true
-      use_gpu: false
-    
+      use_gpu: false              # Disable GPU for laptop
+      
+      # Memory limits
+      max_memory_mb: 1024
+      telemetry_buffer_size: 1000
+
+    # -------------------------------------------------------------------------
+    # Security
+    # -------------------------------------------------------------------------
     security:
       enable_authentication: false
       require_https: false
@@ -304,49 +321,88 @@ profiles:
         - "127.0.0.1"
         - "localhost"
 
-  # ---------------------------------------------------------------------------
-  # PRODUCTION PROFILE - For manager PC (134.99.120.40)
-  # ---------------------------------------------------------------------------
+
+  # ============================================================================
+  # PRODUCTION PROFILE (Lab/Manager PC)
+  # ============================================================================
   production:
     description: "Manager PC in lab (134.99.120.40)"
-    
+
+    # -------------------------------------------------------------------------
+    # Network Configuration
+    # -------------------------------------------------------------------------
     network:
-      master_ip: "134.99.120.40"      # Manager PC IP
-      bind_host: "0.0.0.0"            # Listen on all interfaces
+      master_ip: "134.99.120.40"      # Manager PC
+      bind_host: "0.0.0.0"            # All interfaces
+      
       cmd_port: 5555
       data_port: 5556
       client_port: 5557
       camera_port: 5558
+      
       connection_timeout: 5.0
       receive_timeout: 1.0
       heartbeat_interval: 10.0
+      
       max_retries: 5
       retry_base_delay: 1.0
-    
+
+    # -------------------------------------------------------------------------
+    # Services Configuration
+    # -------------------------------------------------------------------------
+    services:
+      flask:
+        enabled: true
+        host: "0.0.0.0"
+        port: 5000
+        threaded: true
+        debug: false
+      
+      manager:
+        enabled: true
+        host: "0.0.0.0"
+        max_worker_threads: 8
+      
+      camera:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5558
+        auto_start: true            # Auto-start camera
+        mode: "inf"
+      
+      optimizer:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5050
+      
+      applet:
+        enabled: true
+        host: "127.0.0.1"
+        port: 5051
+
+    # -------------------------------------------------------------------------
+    # Data Paths
+    # -------------------------------------------------------------------------
     paths:
-      # Network drives for production
-      output_base: "Y:/Xi/Data"
-      artiq_data: "C:/artiq-master/results"
-      labview_tdms: "Y:/Xi/Data/PMT"
-      labview_telemetry: "Y:/Xi/Data/telemetry"
-      # Camera paths - raw on network, processed on local E: drive
-      camera_frames: "Y:/Xi/Data/camera/raw_frames"    # Raw from camera
-      camera_settings: "Y:/Xi/Data/camera/settings"
+      base: "Y:/Xi/Data"
+      
+      camera_raw: "Y:/Xi/Data/camera/raw"
+      camera_processed: "E:/Data/camera/processed"  # Local for speed
       camera_dcimg: "Y:/Xi/Data/camera/dcimg"
-      live_frames: "Y:/Xi/Data/camera/live_frames"
-      # Local drive for processed data (performance)
-      jpg_frames: "E:/data/jpg_frames"                  # Processed frames
-      jpg_frames_labelled: "E:/data/jpg_frames_labelled"
-      ion_data: "E:/data/ion_data"
-      ion_uncertainty: "E:/data/ion_uncertainty"
+      
       experiments: "Y:/Xi/Data/experiments"
-      analysis_results: "Y:/Xi/Data/analysis/results"
-      analysis_settings: "Y:/Xi/Data/analysis/settings"
-      debug_path: "Y:/Xi/Data/debug"
+      analysis: "Y:/Xi/Data/analysis"
+      
+      logs: "Y:/Xi/Data/logs"
+      
+      artiq_results: "C:/artiq-master/results"
       dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
-    
+
+    # -------------------------------------------------------------------------
+    # Hardware Settings
+    # -------------------------------------------------------------------------
     hardware:
-      worker_defaults:
+      defaults:
         ec1: 0.0
         ec2: 0.0
         comp_h: 0.0
@@ -372,28 +428,35 @@ profiles:
         sweep_points: 41
       
       camera:
-        target_temperature: -20.0
-        cooler_timeout: 300
-        max_frames_default: 100
-        exposure_default: 0.3
-        trigger_mode: "extern"        # External trigger in production
-        trigger_delay: 0.033138
-        subarray:
-          hsize: 300
-          hpos: 1624
-          vsize: 600
-          vpos: 1396
-    
+        model: "C15550-20UP"
+        sensor_size: [2048, 2048]
+        bit_depth: 16
+        cooling: -20.0
+        
+        exposure_ms: 300
+        trigger_mode: "extern"      # External trigger for hardware
+        max_frames: 100
+        
+        roi: [0, 500, 10, 300]
+        
+        processing:
+          enabled: true
+          filter_radius: 6
+          threshold_sigma: 3.0
+          max_ions: 5
+
+    # -------------------------------------------------------------------------
+    # LabVIEW Integration (Enabled in production)
+    # -------------------------------------------------------------------------
     labview:
-      enabled: true                   # LabVIEW enabled in production
-      host: "172.17.1.217"            # SMILE PC IP
+      enabled: true
+      host: "172.17.1.217"          # SMILE PC
       port: 5559
       timeout: 5.0
-      retry_delay: 1.0
-      max_retries: 3
-      auto_reconnect: true
+      
       pressure_threshold_mbar: 5.0e-9
       pressure_check_interval: 0.05
+      
       devices:
         - u_rf
         - piezo
@@ -404,167 +467,102 @@ profiles:
         - e_gun
         - hd_valve
         - dds
-    
+
+    # -------------------------------------------------------------------------
+    # Wavemeter (HighFinesse WS7)
+    # -------------------------------------------------------------------------
     wavemeter:
-      enabled: true                   # Enabled in production
-      host: "134.99.120.141"          # Wavemeter PC IP
-      port: 1790                      # LabVIEW TCP broadcast port
-      divider: 4.0                    # UV->Fundamental conversion (4.0 for UV, 1.0 for raw)
-      timeout: 5.0                    # Connection timeout in seconds
-      reconnect_delay: 3.0            # Reconnect delay in seconds
-    
-    telemetry:
       enabled: true
-      path: "Y:/Xi/Data/telemetry"
-      poll_interval: 1.0
-      max_points: 1000
-      window_seconds: 300
-      tdms_path: "Y:/Xi/Data/PMT"
-      tdms_extension: ".tdms"
-    
-    camera:
-      # -------------------------------------------------------------------------
-      # Camera Server Connection (matches mhi_cam configuration)
-      # -------------------------------------------------------------------------
-      auto_start: true                # Auto-start camera in production
-      mode: "inf"
-      send_initial_trigger: true
+      host: "134.99.120.141"
+      port: 1790
+      divider: 4.0
       
-      # Flask HTTP server (for camera control commands)
-      flask_host: "127.0.0.1"
-      flask_port: 5000
-      flask_base_url: "http://127.0.0.1:5000"
+      fundamental_range: [200, 260]
+      uv_range: [900, 980]
       
-      # ZMQ server (for image streaming/data)
-      host: "127.0.0.1"
-      port: 5558
+      display_unit: "GHz"
+      precision: 3
+
+    # -------------------------------------------------------------------------
+    # Turbo/Optimizer Settings
+    # -------------------------------------------------------------------------
+    optimizer:
+      turbo:
+        max_iterations: 100
+        batch_size: 1
+        num_restarts: 10
+        raw_samples: 512
+        tr_length_init: 0.8
+        tr_length_min: 0.01
+        tr_length_max: 1.6
+        failure_tolerance: 5
+        success_tolerance: 3
       
-      # Command listener (for backward compatibility with mhi_cam)
-      command_listener:
+      mobo:
+        max_iterations: 50
+        batch_size: 1
+        num_restarts: 10
+        raw_samples: 256
+        ref_point: [0.0, 100.0]
+        
+      two_phase:
+        phase1_iterations: 30
+        phase2_iterations: 20
+        warm_start: true
+
+    # -------------------------------------------------------------------------
+    # Applet Settings
+    # -------------------------------------------------------------------------
+    applet:
+      auto_comp:
         enabled: true
-        host: "127.0.0.1"
-        port: 5001
+        max_iterations: 50
+        convergence_threshold: 0.01
       
-      # -------------------------------------------------------------------------
-      # Data Paths (local E: drive for performance)
-      # -------------------------------------------------------------------------
-      raw_frames_path: "E:/data/jpg_frames"
-      labelled_frames_path: "E:/data/jpg_frames_labelled"
-      ion_data_path: "E:/data/ion_data"
-      ion_uncertainty_path: "E:/data/ion_uncertainty"
-      dcimg_path: "E:/data/camera/dcimg"
-      
-      # -------------------------------------------------------------------------
-      # Infinite Mode Settings (matches mhi_cam default settings)
-      # -------------------------------------------------------------------------
-      infinite_mode:
-        max_frames: 100
-        exposure_ms: 300
-        trigger_mode: "extern"        # External trigger for real hardware
-        
-      # -------------------------------------------------------------------------
-      # Single Recording Mode Settings
-      # -------------------------------------------------------------------------
-      single_mode:
-        max_frames: 1000
-        exposure_ms: 300
-        trigger_mode: "extern"
-        save_format: "dcimg"
-        
-      # -------------------------------------------------------------------------
-      # Image Processing Settings
-      # -------------------------------------------------------------------------
-      processing:
+      cam_sweep:
         enabled: true
-        roi: [180, 220, 425, 495]
-        filter_radius: 6
-        threshold_sigma: 3.0
-        max_ions: 5
-        
-      # -------------------------------------------------------------------------
-      # Hardware Trigger Settings
-      # -------------------------------------------------------------------------
-      trigger:
-        device: "camera_trigger"
-        default_pulse_us: 100.0
-        short_pulse_us: 10.0
-        
-      # -------------------------------------------------------------------------
-      # Camera Hardware Settings (Hamamatsu ORCA-Quest)
-      # -------------------------------------------------------------------------
-      hardware:
-        model: "C15550-20UP"
-        sensor_size: [2048, 2048]
-        bit_depth: 16
-        cooling: -10.0
-        
-      # -------------------------------------------------------------------------
-      # HTTP API Endpoints (matching mhi_cam routes)
-      # -------------------------------------------------------------------------
-      endpoints:
-        start: "/start_camera"
-        stop: "/stop_camera"
-        inf: "/start_camera_inf"
-        save_settings: "/save_camera_settings"
-        set_analysis: "/set_live_analysis_params"
-        start_analysis: "/start_live_analysis"
-        stop_analysis: "/stop_live_analysis"
-        save_analysis: "/save_live_analysis"
-        clear_analysis: "/clear_live_analysis"
-    
+        default_exposure_ms: 100
+        default_frames: 10
+      
+      secular_sweep:
+        enabled: true
+        default_span_khz: 40
+        default_steps: 41
+
+    # -------------------------------------------------------------------------
+    # Logging
+    # -------------------------------------------------------------------------
     logging:
       level: "INFO"
       format: "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"
-      file_rotation:
-        max_bytes: 1048576
-        backup_count: 5
+      
       files:
         manager: "Y:/Xi/Data/logs/manager.log"
-        worker: "Y:/Xi/Data/logs/artiq_worker.log"
+        flask: "Y:/Xi/Data/logs/flask.log"
         camera: "Y:/Xi/Data/logs/camera.log"
-        analysis: "Y:/Xi/Data/logs/analysis.log"
-    
-    analysis:
-      sweep:
-        model: "lorentzian"
-        initial_guess:
-          gamma: 5000.0
-      image_handler:
-        roi:
-          x_start: 0
-          x_finish: 500
-          y_start: 10
-          y_finish: 300
-        detection:
-          threshold_percentile: 99.5
-          min_snr: 6.0
-          min_intensity: 35
-          max_intensity: 65000
-          min_sigma: 2.0
-          max_sigma: 30.0
-          max_ions: 10
-          min_distance: 15
-          edge_margin: 20
-          bg_kernel_size: 15
-          scales: [3, 5, 7]
-        visualization:
-          panel_height_ratio: 0.25
-          font_scale_title: 0.4
-          font_scale_data: 0.32
-          font_scale_ion_num: 0.45
-          crosshair_size: 12
-          circle_radius_factor: 1.5
-        performance:
-          num_threads: 8               # More threads for server
-          use_vectorized: true
-          use_gpu: true                # Enable GPU on server
-          jpeg_quality: 85
-    
+        optimizer: "Y:/Xi/Data/logs/optimizer.log"
+        applet: "Y:/Xi/Data/logs/applet.log"
+      
+      rotation:
+        max_bytes: 1048576
+        backup_count: 5
+      
+      console: true
+
+    # -------------------------------------------------------------------------
+    # Performance
+    # -------------------------------------------------------------------------
     performance:
       num_threads: 8
       use_vectorized: true
-      use_gpu: true
-    
+      use_gpu: true               # Enable GPU on server
+      
+      max_memory_mb: 4096
+      telemetry_buffer_size: 1000
+
+    # -------------------------------------------------------------------------
+    # Security
+    # -------------------------------------------------------------------------
     security:
       enable_authentication: true
       require_https: false

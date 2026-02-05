@@ -17,7 +17,7 @@ from typing import Sequence, Iterable
 # ── import the physics engine ───────────────────────────────────────
 try:
     trap = importlib.import_module("trap_sim")
-    print("✓ using physics module: trap_sim")
+    print("[OK] using physics module: trap_sim")
 except ModuleNotFoundError:
     sys.exit("❌  trap_sim.py not found on PYTHONPATH")
 

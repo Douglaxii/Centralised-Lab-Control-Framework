@@ -27,7 +27,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import trap simulation
-from server.analysis.eigenmodes.trap_sim_asy import (
+from analysis.eigenmodes.trap_sim_asy import (
     eigenmodes_from_masses,
     u_RF as GLOBAL_U_RF,
     EC1 as GLOBAL_EC1,
@@ -35,7 +35,7 @@ from server.analysis.eigenmodes.trap_sim_asy import (
     OMEGA,
     RF_MHZ
 )
-from core import u_rf_mv_to_U_RF_V
+from core import u_rf_mv_to_U_RF_V, RF_SCALE_V_PER_MV
 
 # Setup logging
 logger = logging.getLogger("secular_comparison")
@@ -604,7 +604,7 @@ class SecularFrequencyComparator:
         try:
             if data_client is None:
                 # Try to import and create client
-                from server.communications.data_server import DataClient
+                from services.comms.data_server import DataClient
                 data_client = DataClient()
                 if not data_client.connect("secular_compare"):
                     logger.error("Failed to connect to data server")
@@ -702,7 +702,7 @@ def main():
     print()
     
     if result.fit_success:
-        print(f"✓ Fit successful!")
+        print(f"[OK] Fit successful!")
         print(f"  Predicted: {result.smallest_freq_kHz:.3f} kHz")
         print(f"  Fitted: {result.fitted_center_kHz:.3f} kHz")
         print(f"  Difference: {result.frequency_difference_kHz:.3f} kHz")
@@ -710,7 +710,7 @@ def main():
     elif result.signal_detected:
         print("⚠ Signal detected but fit failed")
     else:
-        print("✗ No signal detected")
+        print("[FAIL] No signal detected")
 
 
 if __name__ == "__main__":

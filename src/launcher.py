@@ -1,659 +1,497 @@
 #!/usr/bin/env python3
 """
-Unified Launcher - Starts all MLS services
-
-Services started:
-1. Control Manager (ZMQ hub) - Port 5557
-2. Camera TCP Server - Port 5558
-3. Main Flask Dashboard - Port 5000
-4. Applet Flask Server - Port 5051  
-5. Optimizer Flask Server - Port 5050
+MLS Launcher - Main entry point for starting all services.
 
 Usage:
     python -m src.launcher                    # Start all services
-    python -m src.launcher --status           # Check status
+    python -m src.launcher --services manager,api  # Start specific services
+    python -m src.launcher --status           # Check service status
     python -m src.launcher --stop             # Stop all services
-    python -m src.launcher --restart          # Restart all services
-    python -m src.launcher --service manager  # Start only manager
-    python -m src.launcher --service camera   # Start only camera
+
+Services:
+    manager     - ControlManager (ZMQ coordinator, port 5555-5558)
+    api         - Flask REST API (port 5000)
+    camera      - Camera server (port 5558)
+    optimizer   - Bayesian optimization UI (port 5050)
+    applet      - Applet server (port 5051)
 """
 
-import os
-import sys
-import time
-import signal
-import subprocess
-import json
 import argparse
 import logging
+import subprocess
+import sys
+import time
 import socket
+import signal
+import os
 from pathlib import Path
+from typing import List, Dict, Optional
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Optional, List
-from dataclasses import dataclass, asdict
-from enum import Enum
-import threading
 
-# Add src to path for imports
+# Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Ensure logs directory exists
-os.makedirs('logs', exist_ok=True)
-
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(levelname)-8s | %(name)-15s | %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('logs/launcher.log', mode='a')
-    ]
-)
-logger = logging.getLogger("Launcher")
-
-# Load and display configuration info
-try:
-    from core import get_config
-    from core.config.auto_setup import setup_environment, ensure_directories
-    
-    # Auto-detect environment and setup paths
-    env_info = setup_environment()
-    logger.info(f"Environment: {env_info['environment']} (hostname: {env_info['hostname']})")
-    logger.info(f"Detected IP: {env_info['ip_address']}")
-    
-    _config = get_config()
-    _env = _config.environment
-    _master_ip = _config.master_ip
-    logger.info(f"Configuration loaded: {_env} (master_ip: {_master_ip})")
-    
-    # Ensure all directories exist
-    created_dirs = ensure_directories(_config)
-    if created_dirs:
-        logger.info(f"Created directories: {len(created_dirs)}")
-        for d in created_dirs[:5]:  # Show first 5
-            logger.info(f"  - {d}")
-        if len(created_dirs) > 5:
-            logger.info(f"  ... and {len(created_dirs) - 5} more")
-            
-except Exception as e:
-    logger.warning(f"Could not load configuration: {e}")
-
-
-class ServiceStatus(Enum):
-    """Service status states."""
-    STOPPED = "stopped"
-    STARTING = "starting"
-    RUNNING = "running"
-    ERROR = "error"
-    RESTARTING = "restarting"
+from core import get_config, setup_logging
 
 
 @dataclass
-class ServiceInfo:
-    """Information about a managed service."""
+class Service:
+    """Service definition."""
     name: str
-    status: ServiceStatus
-    pid: Optional[int]
     port: int
-    url: str
-    start_time: Optional[float]
-    restart_count: int
-    last_error: Optional[str]
+    cmd: List[str]
+    color: str
+    depends_on: List[str] = None
+    
+    def __post_init__(self):
+        if self.depends_on is None:
+            self.depends_on = []
 
 
-class ServiceManager:
-    """Manages a single service process."""
-    
-    def __init__(
-        self,
-        name: str,
-        command: List[str],
-        port: int,
-        url: str,
-        env_vars: Optional[Dict[str, str]] = None,
-        cwd: Optional[str] = None
-    ):
-        self.name = name
-        self.command = command
-        self.port = port
-        self.url = url
-        self.env_vars = env_vars or {}
-        self.cwd = cwd
-        self.process: Optional[subprocess.Popen] = None
-        self.info = ServiceInfo(
-            name=name,
-            status=ServiceStatus.STOPPED,
-            pid=None,
-            port=port,
-            url=url,
-            start_time=None,
-            restart_count=0,
-            last_error=None
-        )
-        self._lock = threading.Lock()
-    
-    def start(self) -> bool:
-        """Start the service."""
-        with self._lock:
-            if self.is_running():
-                logger.warning(f"{self.name} is already running (PID: {self.info.pid})")
-                return True
-            
-            try:
-                self.info.status = ServiceStatus.STARTING
-                env = os.environ.copy()
-                env.update(self.env_vars)
-                
-                # Log file for this service
-                log_file = open(f'logs/{self.name}.log', 'a')
-                
-                self.process = subprocess.Popen(
-                    self.command,
-                    env=env,
-                    stdout=log_file,
-                    stderr=subprocess.STDOUT,
-                    cwd=self.cwd
-                )
-                
-                self.info.pid = self.process.pid
-                self.info.start_time = time.time()
-                self.info.status = ServiceStatus.RUNNING
-                
-                logger.info(f"Started {self.name} (PID: {self.info.pid}) on port {self.port}")
-                logger.info(f"  URL: {self.url}")
-                return True
-                
-            except Exception as e:
-                self.info.status = ServiceStatus.ERROR
-                self.info.last_error = str(e)
-                logger.error(f"Failed to start {self.name}: {e}")
-                return False
-    
-    def stop(self, timeout: float = 10.0) -> bool:
-        """Stop the service gracefully."""
-        with self._lock:
-            if self.process is None:
-                return True
-            
-            try:
-                logger.info(f"Stopping {self.name} (PID: {self.info.pid})...")
-                
-                # Try graceful termination first
-                self.process.terminate()
-                try:
-                    self.process.wait(timeout=timeout)
-                    logger.info(f"Stopped {self.name} gracefully")
-                except subprocess.TimeoutExpired:
-                    # Force kill if graceful fails
-                    logger.warning(f"{self.name} did not stop gracefully, killing...")
-                    self.process.kill()
-                    self.process.wait(timeout=5)
-                    logger.info(f"Killed {self.name}")
-                
-                self.info.status = ServiceStatus.STOPPED
-                self.info.pid = None
-                self.process = None
-                return True
-                
-            except Exception as e:
-                logger.error(f"Error stopping {self.name}: {e}")
-                return False
-    
-    def is_running(self) -> bool:
-        """Check if service is running."""
-        if self.process is None:
-            return False
-        return self.process.poll() is None
-    
-    def check_health(self) -> bool:
-        """Check if service is healthy."""
-        # First check if process is running
-        if not self.is_running():
-            self.info.status = ServiceStatus.ERROR
-            self.info.last_error = "Process not running"
-            return False
-        
-        # For TCP-based services, try to connect
-        if self.url.startswith('tcp://'):
-            try:
-                # Parse host:port from tcp://host:port
-                host_port = self.url.replace('tcp://', '')
-                host, port_str = host_port.rsplit(':', 1)
-                port = int(port_str)
-                host = '127.0.0.1' if host == 'localhost' else host
-                
-                with socket.create_connection((host, port), timeout=2.0):
-                    return True
-            except Exception as e:
-                # Process is running but port not ready yet (might still be starting)
-                return True  # Don't mark as error during startup
-        
-        return True
-    
-    def wait_for_ready(self, timeout: float = 30.0) -> bool:
-        """Wait for service to be ready (port listening)."""
-        if not self.url.startswith('tcp://'):
-            return True  # Non-TCP services are ready when process starts
-        
-        # Parse host:port from tcp://host:port
-        host_port = self.url.replace('tcp://', '')
-        host, port_str = host_port.rsplit(':', 1)
-        port = int(port_str)
-        host = '127.0.0.1' if host == 'localhost' else host
-        
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                with socket.create_connection((host, port), timeout=1.0):
-                    logger.debug(f"{self.name} is ready on port {port}")
-                    return True
-            except:
-                time.sleep(0.5)
-        
-        logger.warning(f"{self.name} did not become ready within {timeout}s")
+# Service colors for terminal output
+COLORS = {
+    'manager': '\033[92m',    # Green
+    'api': '\033[94m',        # Blue
+    'camera': '\033[96m',     # Cyan
+    'optimizer': '\033[93m',  # Yellow
+    'applet': '\033[95m',     # Magenta
+    'launcher': '\033[97m',   # White
+    'error': '\033[91m',      # Red
+    'reset': '\033[0m'
+}
+
+
+def log(service: str, message: str):
+    """Log a message with service color."""
+    color = COLORS.get(service, '')
+    reset = COLORS['reset']
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    print(f"{color}[{timestamp}] [{service.upper():8}] {message}{reset}")
+
+
+def is_port_available(host: str, port: int) -> bool:
+    """Check if a port is available."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            result = s.connect_ex((host, port))
+            return result != 0  # Port is available if connect fails
+    except:
         return False
 
 
-class UnifiedLauncher:
-    """Unified launcher for all MLS services."""
+def is_port_in_use(host: str, port: int) -> bool:
+    """Check if a port is in use."""
+    return not is_port_available(host, port)
+
+
+def wait_for_port(host: str, port: int, timeout: float = 30.0, expected: bool = True) -> bool:
+    """Wait for a port to be in expected state (True=in use, False=available)."""
+    start = time.time()
+    while time.time() - start < timeout:
+        current = is_port_in_use(host, port)
+        if current == expected:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def get_service_config(name: str) -> Service:
+    """Get service configuration."""
+    config = get_config()
+    python = sys.executable
+    project_root = Path(__file__).parent.parent
     
-    # Service definitions
-    # Order matters: infrastructure first (manager, camera), then UI services
-    SERVICES = {
-        'manager': {
-            'module': 'src.server.manager.manager',
-            'port': 5557,
-            'url': 'tcp://localhost:5557',
-            'description': 'ZMQ Control Manager',
-            'required': True,
-            'start_delay': 0.0
-        },
-        'camera': {
-            'module': 'src.hardware.camera.camera_server',
-            'port': 5558,
-            'url': 'tcp://localhost:5558',
-            'description': 'Camera TCP Server',
-            'required': False,  # Can be disabled if camera hardware not available
-            'start_delay': 1.0  # Give manager time to start
-        },
-        'flask': {
-            'module': 'src.server.api.flask_server',
-            'port': 5000,
-            'url': 'http://localhost:5000',
-            'description': 'Main Dashboard Flask Server',
-            'required': True,
-            'start_delay': 0.5
-        },
-        'applet': {
-            'module': 'src.applet.app',
-            'port': 5051,
-            'url': 'http://localhost:5051',
-            'description': 'Applet Experiment Flask Server',
-            'required': False,
-            'start_delay': 0.5
-        },
-        'optimizer': {
-            'module': 'src.optimizer.flask_optimizer.app',
-            'port': 5050,
-            'url': 'http://localhost:5050',
-            'description': 'Optimizer Flask Server',
-            'required': False,
-            'start_delay': 0.5
-        }
+    services = {
+        'manager': Service(
+            name='manager',
+            port=config.client_port,  # 5557 - client port for checking
+            cmd=[python, "-m", "src.services.manager.manager"],
+            color=COLORS['manager']
+        ),
+        'api': Service(
+            name='api',
+            port=config.flask_port,  # 5000
+            cmd=[python, "-m", "src.services.api.flask_server"],
+            color=COLORS['api'],
+            depends_on=['manager']
+        ),
+        'optimizer': Service(
+            name='optimizer',
+            port=config.optimizer_port,  # 5050
+            cmd=[python, "-m", "src.services.optimizer.flask_optimizer.app", "--host", "0.0.0.0", "--port", str(config.optimizer_port)],
+            color=COLORS['optimizer'],
+            depends_on=['manager']
+        ),
+        'applet': Service(
+            name='applet',
+            port=config.get('services.applet.port', 5051),
+            cmd=[python, "-m", "src.services.applet.app", "--host", "0.0.0.0", "--port", str(config.get('services.applet.port', 5051))],
+            color=COLORS['applet'],
+            depends_on=['manager']
+        ),
+        'camera': Service(
+            name='camera',
+            port=config.camera_port,  # 5558
+            cmd=[python, "-m", "src.services.camera.camera_server"],
+            color=COLORS['camera']
+        ),
     }
     
+    return services[name]
+
+
+class ServiceManager:
+    """Manages service processes."""
+    
     def __init__(self):
-        self.services: Dict[str, ServiceManager] = {}
-        self.state_file = Path(".launcher_state.json")
-        self.running = False
-        self._shutdown_event = threading.Event()
+        self.processes: Dict[str, subprocess.Popen] = {}
+        self.logger = logging.getLogger("launcher")
+        self._shutdown = False
         
-    def _get_data_paths_from_config(self) -> list:
-        """Get data paths from config or return defaults."""
-        try:
-            from core import get_config
-            cfg = get_config()
-            paths = [
-                cfg.get('paths.jpg_frames'),
-                cfg.get('paths.jpg_frames_labelled'),
-                cfg.get('paths.ion_data'),
-                cfg.get('paths.ion_uncertainty'),
-                cfg.get('paths.camera_settings'),
-                cfg.get('paths.output_base'),
-                'logs',
-                'logs/server'
-            ]
-            # Filter out None values
-            return [p for p in paths if p]
-        except Exception as e:
-            logger.debug(f"Could not load paths from config: {e}")
-            # Return default paths
-            return [
-                './data/jpg_frames',
-                './data/jpg_frames_labelled',
-                './data/ion_data',
-                './data/camera/settings',
-                'logs',
-                'logs/server'
-            ]
+        # Setup signal handlers
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
     
-    def _ensure_data_directories(self):
-        """Ensure all required data directories exist."""
-        import os
-        paths = self._get_data_paths_from_config()
-        for path in paths:
-            try:
-                os.makedirs(path, exist_ok=True)
-                logger.debug(f"Ensured directory exists: {path}")
-            except Exception as e:
-                logger.warning(f"Could not create directory {path}: {e}")
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals."""
+        signame = signal.Signals(signum).name
+        log('launcher', f"Received {signame}, shutting down...")
+        self._shutdown = True
+        self.stop_all()
+    
+    def start_service(self, name: str, wait: bool = True) -> bool:
+        """Start a single service."""
+        config = get_config()
+        service = get_service_config(name)
+        host = config.bind_host if name != 'camera' else '0.0.0.0'
         
-    def register_services(self, service_names: Optional[List[str]] = None):
-        """Register services to be managed."""
-        names = service_names or list(self.SERVICES.keys())
+        # Check if already running
+        if name in self.processes:
+            proc = self.processes[name]
+            if proc.poll() is None:
+                log(name, "Already running")
+                return True
+            else:
+                # Process died, remove it
+                del self.processes[name]
         
-        for name in names:
-            if name not in self.SERVICES:
-                logger.warning(f"Unknown service: {name}")
-                continue
+        # Check port availability
+        if is_port_in_use(host, service.port):
+            log(name, f"Port {service.port} already in use!")
+            return False
+        
+        # Start dependencies first
+        for dep in service.depends_on:
+            if dep not in self.processes:
+                log(name, f"Starting dependency: {dep}")
+                if not self.start_service(dep, wait=True):
+                    log(name, f"Failed to start dependency: {dep}")
+                    return False
+        
+        try:
+            log(name, f"Starting on port {service.port}...")
             
-            config = self.SERVICES[name]
-            command = [sys.executable, "-m", config['module']]
+            # Create process
+            env = os.environ.copy()
+            env['PYTHONUNBUFFERED'] = '1'
             
-            self.services[name] = ServiceManager(
-                name=name,
-                command=command,
-                port=config['port'],
-                url=config['url'],
-                env_vars={
-                    'PYTHONPATH': str(Path(__file__).parent.parent),
-                    'MLS_ENV': os.environ.get('MLS_ENV', 'development')
-                }
+            proc = subprocess.Popen(
+                service.cmd,
+                cwd=str(Path(__file__).parent.parent),
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                universal_newlines=True
             )
-            logger.debug(f"Registered service: {name}")
+            
+            self.processes[name] = proc
+            
+            # Wait for service to be ready
+            if wait:
+                if wait_for_port(host, service.port, timeout=30, expected=True):
+                    log(name, f"[OK] Ready on port {service.port}")
+                    return True
+                else:
+                    # Check if process died
+                    if proc.poll() is not None:
+                        stdout, _ = proc.communicate()
+                        log(name, f"[EXIT] Failed to start (exit code {proc.returncode})")
+                        if stdout:
+                            print(f"  Output: {stdout[-500:]}")  # Last 500 chars
+                    else:
+                        log(name, "[FAIL] Timeout waiting for startup")
+                    return False
+            else:
+                return True
+                
+        except Exception as e:
+            log(name, f"[FAIL] Error starting: {e}")
+            return False
     
-    def start_all(self, stagger: float = 2.0) -> bool:
-        """Start all registered services with staggered delays."""
-        # Ensure data directories exist
-        self._ensure_data_directories()
+    def stop_service(self, name: str) -> bool:
+        """Stop a single service."""
+        if name not in self.processes:
+            return True
         
-        # Get config info for display
+        proc = self.processes[name]
+        
+        if proc.poll() is not None:
+            # Already stopped
+            del self.processes[name]
+            return True
+        
+        log(name, "Stopping...")
+        
         try:
-            from core import get_config
-            config = get_config()
-            env = config.environment
-            master_ip = config.master_ip
-            data_path = config.get('paths.output_base', './data')
-        except:
-            env = "unknown"
-            master_ip = "unknown"
-            data_path = "unknown"
-        
-        logger.info("=" * 60)
-        logger.info("Starting MLS Services")
-        logger.info("=" * 60)
-        logger.info(f"Environment: {env}")
-        logger.info(f"Master IP: {master_ip}")
-        logger.info(f"Data Path: {data_path}")
-        logger.info("=" * 60)
-        
-        # Start order matters: infrastructure first (manager, camera), then UI services
-        # Camera must start before Flask so dashboard can connect immediately
-        start_order = ['manager', 'camera', 'flask', 'applet', 'optimizer']
-        
-        for name in start_order:
-            if name not in self.services:
-                continue
+            # Try graceful shutdown first
+            proc.terminate()
             
-            service = self.services[name]
-            logger.info(f"\nStarting {name}...")
+            # Wait for process to exit
+            try:
+                proc.wait(timeout=5)
+                log(name, "[OK] Stopped")
+            except subprocess.TimeoutExpired:
+                # Force kill
+                proc.kill()
+                proc.wait()
+                log(name, "[OK] Killed")
             
-            if not service.start():
-                # Check if service is required
-                config = self.SERVICES.get(name, {})
-                if config.get('required', True):
-                    logger.error(f"Required service {name} failed to start, stopping all services...")
-                    self.stop_all()
-                    return False
-                else:
-                    logger.warning(f"Optional service {name} failed to start, continuing...")
-                    continue
+            del self.processes[name]
+            return True
             
-            # Wait for service to be ready (port listening)
-            logger.debug(f"  Waiting for {name} to be ready...")
-            if not service.wait_for_ready(timeout=30.0):
-                config = self.SERVICES.get(name, {})
-                if config.get('required', True):
-                    logger.error(f"Required service {name} did not become ready, stopping all services...")
-                    self.stop_all()
-                    return False
-                else:
-                    logger.warning(f"Optional service {name} did not become ready, continuing...")
-            
-            # Service-specific additional delay
-            config = self.SERVICES.get(name, {})
-            extra_delay = config.get('start_delay', 0)
-            
-            # Stagger starts to avoid resource contention
-            total_delay = stagger + extra_delay
-            if total_delay > 0 and name != start_order[-1]:
-                logger.info(f"  Waiting {total_delay:.1f}s before next service...")
-                time.sleep(total_delay)
-        
-        self.running = True
-        self.save_state()
-        
-        logger.info("\n" + "=" * 60)
-        logger.info("All services started successfully!")
-        logger.info("=" * 60)
-        self._print_urls()
-        return True
+        except Exception as e:
+            log(name, f"[FAIL] Error stopping: {e}")
+            return False
     
     def stop_all(self):
         """Stop all services."""
-        logger.info("\nStopping all services...")
+        log('launcher', "Stopping all services...")
         
         # Stop in reverse order
-        for name in reversed(list(self.services.keys())):
-            if name in self.services:
-                self.services[name].stop()
-        
-        self.running = False
-        self.save_state()
-        logger.info("All services stopped.")
+        for name in list(self.processes.keys())[::-1]:
+            self.stop_service(name)
     
-    def status(self) -> Dict:
+    def poll_outputs(self):
+        """Poll service outputs and print to console."""
+        for name, proc in list(self.processes.items()):
+            if proc.poll() is not None:
+                # Process died
+                log(name, f"[EXIT] Process exited with code {proc.returncode}")
+                del self.processes[name]
+                continue
+            
+            # Try to read output (non-blocking)
+            try:
+                import select
+                if proc.stdout in select.select([proc.stdout], [], [], 0)[0]:
+                    line = proc.stdout.readline()
+                    if line:
+                        # Print with service color
+                        color = COLORS.get(name, '')
+                        reset = COLORS['reset']
+                        print(f"{color}[{name}] {line.rstrip()}{reset}")
+            except:
+                pass
+    
+    def get_status(self) -> Dict[str, str]:
         """Get status of all services."""
-        return {
-            name: {
-                "status": service.info.status.value,
-                "pid": service.info.pid,
-                "port": service.info.port,
-                "url": service.info.url,
-                "running": service.is_running()
-            }
-            for name, service in self.services.items()
-        }
-    
-    def print_status(self):
-        """Print formatted status."""
-        print("\n" + "=" * 60)
-        print("MLS Service Status")
-        print("=" * 60)
+        status = {}
+        config = get_config()
         
-        for name, info in self.status().items():
-            status_icon = "[RUNNING]" if info['running'] else "[STOPPED]"
-            print(f"{status_icon} {name:<15} | Port: {info['port']} | PID: {info['pid'] or 'N/A'}")
-            print(f"   URL: {info['url']}")
-            print(f"   Status: {info['status']}")
-            print()
+        for name in ['manager', 'api', 'optimizer', 'applet', 'camera']:
+            service = get_service_config(name)
+            host = config.bind_host if name != 'camera' else '0.0.0.0'
+            
+            if is_port_in_use(host, service.port):
+                status[name] = 'running'
+            else:
+                status[name] = 'stopped'
         
-        print("=" * 60)
-    
-    def _print_urls(self):
-        """Print access URLs."""
-        print("\nService URLs:")
-        print("-" * 40)
-        for name, config in self.SERVICES.items():
-            if name in self.services:
-                print(f"  {config['description']:<35} {config['url']}")
-        print("-" * 40)
-        print()
-    
-    def save_state(self):
-        """Save launcher state to file."""
-        state = {
-            "timestamp": datetime.now().isoformat(),
-            "running": self.running,
-            "services": self.status()
-        }
-        with open(self.state_file, 'w') as f:
-            json.dump(state, f, indent=2)
-    
-    def load_state(self) -> Optional[Dict]:
-        """Load launcher state from file."""
-        if not self.state_file.exists():
-            return None
-        try:
-            with open(self.state_file) as f:
-                return json.load(f)
-        except Exception as e:
-            logger.warning(f"Could not load state file: {e}")
-            return None
+        return status
     
     def monitor(self):
-        """Monitor services and restart if needed."""
-        logger.info("Monitoring services (Press Ctrl+C to stop)...")
+        """Monitor running services."""
+        log('launcher', "Monitoring services (Ctrl+C to stop)...")
         
         try:
-            while not self._shutdown_event.is_set():
-                for name, service in self.services.items():
-                    if not service.check_health():
-                        logger.warning(f"{name} is not healthy, restarting...")
-                        service.info.restart_count += 1
-                        service.stop(timeout=5)
-                        time.sleep(1)
-                        service.start()
+            while not self._shutdown and self.processes:
+                self.poll_outputs()
                 
-                self.save_state()
-                time.sleep(5)  # Check every 5 seconds
+                # Check if any process died
+                for name, proc in list(self.processes.items()):
+                    if proc.poll() is not None:
+                        log(name, f"[EXIT] Process exited (code {proc.returncode})")
+                        del self.processes[name]
+                
+                time.sleep(0.1)
                 
         except KeyboardInterrupt:
-            logger.info("\nShutdown signal received...")
+            log('launcher', "Interrupted by user")
         finally:
             self.stop_all()
 
 
-def main():
-    """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="MLS Unified Launcher - Start all MLS services including Camera",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Services:
-    manager     ZMQ Control Manager (port 5557) - REQUIRED
-    camera      Camera TCP Server (port 5558) - Optional
-    flask       Main Dashboard Flask Server (port 5000) - REQUIRED
-    applet      Applet Flask Server (port 5051)
-    optimizer   Optimizer Flask Server (port 5050)
-
-Examples:
-    python -m src.launcher                    # Start all services
-    python -m src.launcher --service manager  # Start only manager
-    python -m src.launcher --service camera   # Start only camera
-    python -m src.launcher --status           # Check status
-    python -m src.launcher --stop             # Stop all services
-    python -m src.launcher --restart          # Restart all services
-    python -m src.launcher --daemon           # Start in background
-
-Windows Batch Files (in scripts/windows/):
-    start_all.bat              # Start all services
-    start_without_camera.bat   # Start without camera hardware
-    stop_all.bat               # Stop all services
-    status.bat                 # Check service status
-        """
-    )
+def print_status():
+    """Print service status."""
+    config = get_config()
+    manager = ServiceManager()
+    status = manager.get_status()
     
+    print("\n" + "=" * 60)
+    print("                    SERVICE STATUS")
+    print("=" * 60)
+    
+    for name, state in status.items():
+        service = get_service_config(name)
+        host = config.bind_host if name != 'camera' else '0.0.0.0'
+        
+        if state == 'running':
+            icon = '[OK]'
+            color = '\033[92m'  # Green
+        else:
+            icon = '[--]'
+            color = '\033[91m'  # Red
+        
+        reset = '\033[0m'
+        print(f"  {color}{icon} {name:12}{reset} {state:8}  port {service.port}")
+    
+    print("=" * 60)
+
+
+def stop_all_services():
+    """Stop all running services."""
+    log('launcher', "Stopping all MLS services...")
+    
+    # Try to find and kill processes by port
+    import subprocess as sp
+    
+    config = get_config()
+    ports = [5000, 5050, 5051, 5555, 5556, 5557, 5558]
+    
+    for port in ports:
+        try:
+            # Find process using port (Windows)
+            result = sp.run(
+                ['netstat', '-ano', '|', 'findstr', f':{port}'],
+                capture_output=True,
+                text=True,
+                shell=True
+            )
+            
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.splitlines():
+                    if 'LISTENING' in line:
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            pid = parts[-1]
+                            log('launcher', f"Killing process {pid} on port {port}")
+                            sp.run(['taskkill', '/F', '/PID', pid], capture_output=True)
+                            
+        except Exception as e:
+            pass
+    
+    log('launcher', "Done!")
+
+
+def main():
+    parser = argparse.ArgumentParser(description='MLS Service Launcher')
     parser.add_argument(
-        "--service", "-s",
-        choices=['manager', 'camera', 'flask', 'applet', 'optimizer', 'all'],
+        '--services',
+        type=str,
         default='all',
-        help="Service to start (default: all)"
+        help='Comma-separated list of services to start (default: all)'
     )
     parser.add_argument(
-        "--status",
-        action="store_true",
-        help="Show service status"
+        '--status',
+        action='store_true',
+        help='Check service status'
     )
     parser.add_argument(
-        "--stop",
-        action="store_true",
-        help="Stop all services"
+        '--stop',
+        action='store_true',
+        help='Stop all services'
     )
     parser.add_argument(
-        "--restart", "-r",
-        action="store_true",
-        help="Restart all services"
-    )
-    parser.add_argument(
-        "--daemon", "-d",
-        action="store_true",
-        help="Run in daemon mode (no interactive console)"
-    )
-    parser.add_argument(
-        "--stagger",
-        type=float,
-        default=2.0,
-        help="Delay between service starts (seconds, default: 2.0)"
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Enable verbose logging"
+        '--daemon',
+        action='store_true',
+        help='Run in daemon mode (don\'t wait for services)'
     )
     
     args = parser.parse_args()
     
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    
-    launcher = UnifiedLauncher()
-    
-    # Determine which services to manage
-    if args.service == 'all':
-        service_names = list(UnifiedLauncher.SERVICES.keys())
-    else:
-        service_names = [args.service]
-    
-    launcher.register_services(service_names)
+    # Setup logging
+    setup_logging()
     
     if args.status:
-        launcher.print_status()
+        print_status()
         return
     
     if args.stop:
-        launcher.stop_all()
+        stop_all_services()
         return
     
-    if args.restart:
-        launcher.stop_all()
-        time.sleep(2)
-        if launcher.start_all(stagger=args.stagger):
-            if not args.daemon:
-                launcher.monitor()
-        else:
-            sys.exit(1)
+    # Determine which services to start
+    if args.services == 'all':
+        services = ['manager', 'api', 'optimizer', 'applet', 'camera']
+    else:
+        services = [s.strip() for s in args.services.split(',')]
+    
+    # Check if launcher can run these services
+    valid_services = ['manager', 'api', 'camera', 'optimizer', 'applet']
+    for service in services:
+        if service not in valid_services:
+            log('launcher', f"Unknown service: {service}")
+            log('launcher', f"Valid services: {', '.join(valid_services)}")
+            return
+    
+    # Filter to only enabled services from config
+    config = get_config()
+    enabled_services = []
+    for service in services:
+        if service == 'manager' and config.get('services.manager.enabled', True):
+            enabled_services.append(service)
+        elif service == 'api' and config.get('services.flask.enabled', True):
+            enabled_services.append(service)
+        elif service == 'camera' and config.get('services.camera.enabled', True):
+            enabled_services.append(service)
+        elif service == 'optimizer' and config.get('services.optimizer.enabled', True):
+            enabled_services.append(service)
+        elif service == 'applet' and config.get('services.applet.enabled', True):
+            enabled_services.append(service)
+    
+    services = enabled_services
+    
+    if not services:
+        log('launcher', "No services enabled in config!")
         return
+    
+    log('launcher', f"Starting services: {', '.join(services)}")
     
     # Start services
-    if launcher.start_all(stagger=args.stagger):
-        if args.daemon:
-            logger.info("Running in daemon mode. Use --status to check, --stop to stop.")
-        else:
-            launcher.monitor()
+    manager = ServiceManager()
+    failed = []
+    
+    for service in services:
+        if not manager.start_service(service, wait=True):
+            failed.append(service)
+    
+    if failed:
+        log('launcher', f"Failed to start: {', '.join(failed)}")
+        log('launcher', "Stopping all services...")
+        manager.stop_all()
+        return
+    
+    log('launcher', f"All services started successfully!")
+    
+    # Monitor or exit
+    if args.daemon:
+        log('launcher', "Running in daemon mode. Use --status to check, --stop to stop.")
     else:
-        logger.error("Failed to start services.")
-        sys.exit(1)
+        manager.monitor()
 
 
 if __name__ == "__main__":

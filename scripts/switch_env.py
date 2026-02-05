@@ -21,7 +21,7 @@ from pathlib import Path
 
 def get_config_path() -> Path:
     """Get the path to the unified config file."""
-    return Path(__file__).parent / "config" / "config.yaml"
+    return Path(__file__).parent.parent / "config" / "config.yaml"
 
 
 def read_config() -> str:
@@ -147,7 +147,7 @@ def main():
     env = env_map[arg]
     
     if set_environment(env):
-        print(f"✓ Environment switched to: {env}")
+        print(f"[OK] Environment switched to: {env}")
         print()
         print("Next steps:")
         if env == 'development':

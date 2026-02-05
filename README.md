@@ -9,28 +9,30 @@ MLS coordinates multiple hardware subsystems for loading and manipulating Beryll
 - **ARTIQ** - Pulse sequencing, DC electrodes, cooling lasers
 - **LabVIEW/SMILE** - High voltage RF, piezo, oven, e-gun
 - **Camera** - Ion imaging and counting
+- **Wavemeter** - HighFinesse WS7 frequency monitoring
 - **Two-Phase Optimizer** - TuRBO (Phase I) + MOBO (Phase II) Bayesian optimization
 
 ## Quick Start
 
-### 1. Environment Setup (Auto-Configuration)
+### 1. Environment Setup
 
 ```bash
-# Auto-detect environment and setup paths
-python scripts/setup/auto_config.py
+# Auto-detect environment and setup
+python scripts/setup_env.py
 
-# Or use the batch file (Windows)
-scripts\windows\setup_environment.bat
+# Or force specific environment
+python scripts/setup_env.py --dev   # Development (laptop)
+python scripts/setup_env.py --prod  # Production (lab PC)
+
+# Switch environment
+python scripts/switch_env.py dev    # or prod
 ```
 
 ### 2. Start All Services
 
 ```bash
-# Start all services (Manager, Camera, Flask, Applet, Optimizer)
+# Start all services (Manager, Flask API, Optimizer, Applet)
 python -m src.launcher
-
-# Or on Windows, use the batch file
-scripts\windows\start_all.bat
 
 # Access dashboards
 http://localhost:5000    # Main control interface
@@ -38,28 +40,17 @@ http://localhost:5050    # Optimizer interface
 http://localhost:5051    # Applet interface
 ```
 
-### Start Without Camera (for testing without hardware)
+### Service Management
 
 ```bash
-# Option 1: Use batch file
-scripts\windows\start_without_camera.bat
+# Check service status
+python -m src.launcher --status
 
-# Option 2: Exclude camera from command
-python -m src.launcher --service manager,flask,applet,optimizer
-```
+# Stop all services
+python -m src.launcher --stop
 
-### Environment Selection
-
-The system auto-detects environment, but you can force it:
-
-```bash
-# Force development mode (laptop)
-set MLS_ENV=development
-python -m src.launcher
-
-# Force production mode (manager PC)
-set MLS_ENV=production
-python -m src.launcher
+# Start specific services only
+python -m src.launcher --services manager,api,optimizer,applet
 ```
 
 ## Architecture
@@ -69,18 +60,17 @@ python -m src.launcher
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        USER INTERFACES                           │
-│  ┌──────────────┐  ┌──────────────────────┐                    │
-│  │  Main Flask  │  │   Direct ZMQ/CLI     │                    │
-│  │  (Port 5000) │  │                      │                    │
-│  └──────┬───────┘  └──────────┬───────────┘                    │
-└─────────┼─────────────────────┼────────────────────────────────┘
-          │                     │
-          └─────────────────────┘
-                    │
-                    ▼ ZMQ REQ/REP (Port 5557)
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  Main Flask  │  │  Optimizer   │  │   Applet     │          │
+│  │  (Port 5000) │  │  (Port 5050) │  │  (Port 5051) │          │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
+└─────────┼─────────────────┼─────────────────┼──────────────────┘
+          │                 │                 │
+          └─────────────────┴─────────────────┘
+                            │
+                            ▼ ZMQ REQ/REP (Port 5557)
 ┌─────────────────────────────────────────────────────────────────┐
 │                    CONTROL MANAGER (Smart Master)                │
-│                           Port 5557 (ZMQ)                        │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │              REQUEST HANDLERS                            │   │
@@ -94,7 +84,7 @@ python -m src.launcher
 │                            │                                     │
 │  ┌─────────────────────────┼─────────────────────────────┐     │
 │  │              HARDWARE INTERFACES                        │     │
-│  │  Camera | LabVIEW | ARTIQ | Kill Switches              │     │
+│  │  Camera | LabVIEW | ARTIQ | Wavemeter | Kill Switches  │     │
 │  └─────────────────────────┼─────────────────────────────┘     │
 └────────────────────────────┼────────────────────────────────────┘
                              │
@@ -103,264 +93,112 @@ python -m src.launcher
          ▼                   ▼                   ▼
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
 │   ARTIQ      │    │   LabVIEW    │    │   Camera     │
-│   Worker     │    │   /SMILE     │    │   Server     │
-│  (ZMQ 5555)  │    │  (TCP 5559)  │    │  (TCP 5558)  │
-└──────────────┘    └──────────────┘    └──────────────┘
+│   (ZMQ 5555) │    │   /SMILE     │    │   (TCP 5558) │
+└──────────────┘    │  (TCP 5559)  │    └──────────────┘
+                    └──────────────┘
+                           │
+                    ┌──────────────┐
+                    │  Wavemeter   │
+                    │  (TCP 1790)  │
+                    └──────────────┘
 ```
 
 ### Key Design Principles
 
 1. **ControlManager is Central** - All commands flow through ControlManager
-2. **Two-Phase Optimization** - TuRBO for component tuning, MOBO for global optimization
-3. **ASK-TELL Interface** - Clean separation between optimizer and hardware
-4. **Warm Start** - Phase I data seeds Phase II for faster convergence
+2. **Fragment Architecture** - Modular components for hardware/services
+3. **Two-Phase Optimization** - TuRBO for component tuning, MOBO for global optimization
+4. **ASK-TELL Interface** - Clean separation between optimizer and hardware
 5. **Safety First** - Kill switches and mode-based protection
-
-## Two-Phase Bayesian Optimization
-
-### Phase I: Component-Level (TuRBO)
-
-Rapidly optimize individual experimental stages using Trust Region Bayesian Optimization:
-
-| Module | Goal | Algorithm | Metric |
-|--------|------|-----------|--------|
-| Be+ Loading | Maximize fluorescence | TuRBO-1 | Total PMT/Camera counts |
-| Be+ Ejection | Minimize residual ions | TuRBO-1 | Residual fluorescence |
-| HD+ Loading | Maximize yield | TuRBO-1 | Dark ion dip depth |
-
-### Phase II: System-Level (MOBO)
-
-Multi-objective optimization balancing yield vs speed with constraints:
-
-- **Objective 1 (Yield)**: Maximize HD+ count
-- **Objective 2 (Speed)**: Minimize total cycle time
-- **Constraint 1 (Purity)**: Be+ residual ≤ threshold
-- **Constraint 2 (Stability)**: Trap heating ≤ limit
-
-### ASK-TELL Interface
-
-```python
-from server.optimizer import TwoPhaseController, Phase
-
-# Initialize
-controller = TwoPhaseController()
-controller.start_phase(Phase.BE_LOADING_TURBO)
-
-# Optimization loop
-for i in range(max_iterations):
-    # ASK: Get parameters
-    params, metadata = controller.ask()
-    
-    # ... run experiment with params ...
-    
-    # TELL: Register results
-    controller.tell({
-        "total_fluorescence": measured_fluorescence,
-        "cycle_time_ms": measured_time
-    })
-```
-
-See [docs/BO.md](docs/BO.md) for complete architecture documentation.
 
 ## Project Structure
 
 ```
-MLS/
-├── src/                        # All Python source code
-│   ├── launcher.py             # Unified service launcher (starts all services)
+mls/
+├── src/                        # Source code
+│   ├── launcher.py             # Unified service launcher
 │   ├── core/                   # Shared utilities
 │   │   ├── config/            # Configuration management
 │   │   ├── logging/           # Logging utilities
 │   │   ├── exceptions/        # Custom exceptions
-│   │   └── utils/             # ZMQ helpers, enums, experiment tracking
+│   │   └── utils/             # ZMQ helpers, enums, tracking
 │   │
-│   ├── server/                 # Server components
-│   │   ├── manager/           # ControlManager (ZMQ coordinator)
-│   │   ├── api/               # Flask servers (port 5000)
-│   │   └── comms/             # Communication layer
-│   │
-│   ├── hardware/               # Hardware interfaces
-│   │   ├── camera/            # Camera system (port 5558)
-│   │   │   ├── camera_server.py
-│   │   │   ├── camera_logic.py
-│   │   │   └── image_handler.py
-│   │   ├── artiq/             # ARTIQ integration
-│   │   └── labview/           # LabVIEW/SMILE interface
-│   │
-│   ├── optimizer/              # Bayesian optimization (port 5050)
-│   │   ├── two_phase_controller.py
-│   │   ├── turbo.py
-│   │   └── mobo.py
-│   │
-│   ├── frontend/               # User interfaces
+│   ├── services/               # Server programs
+│   │   ├── manager/           # ControlManager with fragments
+│   │   ├── api/               # Flask REST API (port 5000)
+│   │   ├── camera/            # Hamamatsu camera server
+│   │   ├── comms/             # LabVIEW interface, data server
+│   │   ├── optimizer/         # TuRBO/MOBO optimizer (port 5050)
 │   │   └── applet/            # Experiment applets (port 5051)
 │   │
-│   └── analysis/               # Physics analysis tools
+│   └── analysis/               # Physics calculations
 │       ├── secular_comparison.py
 │       └── eigenmodes/
 │
-├── config/                     # Configuration files
-│   ├── config.yaml            # Main configuration (dev/prod profiles)
-│   └── artiq/                 # ARTIQ-specific config
+├── config/                     # Configuration
+│   ├── config.yaml            # Main config (dev/prod profiles)
+│   └── README.md
 │
-├── scripts/                    # Operational scripts
-│   ├── windows/               # Windows batch files
-│   │   ├── start_all.bat      # Start all services
-│   │   ├── start_without_camera.bat
-│   │   ├── stop_all.bat
-│   │   └── status.bat
-│   ├── setup/                 # Setup scripts
-│   └── switch_env.py          # Environment switcher
+├── scripts/                    # Utility scripts
+│   ├── setup_env.py           # Environment setup
+│   ├── switch_env.py          # Switch dev/prod
+│   └── README.md
 │
-├── tests/                      # Test suite
-├── logs/                       # Log files (rotated)
+├── docs/                       # Documentation
+│   ├── ARCHITECTURE.md
+│   ├── API_REFERENCE.md
+│   ├── USER_GUIDE.md
+│   ├── HARDWARE.md
+│   └── DEVELOPMENT.md
+│
+├── logs/                       # Log files
 ├── data/                       # Data storage
 ├── requirements.txt            # Python dependencies
-└── docs/                       # Documentation
+└── README.md                   # This file
 ```
 
-## Features
+## Service Ports
 
-### Two-Phase Bayesian Optimization
-
-Automated optimization for mixed-species ion loading:
-
-1. **Phase I - Component Optimization**: TuRBO rapidly tunes individual stages
-2. **Phase II - Global Optimization**: MOBO balances yield vs speed with constraints
-3. **Warm Start**: Phase I results seed Phase II for faster convergence
-4. **Pareto Front**: Multiple optimal configurations for different trade-offs
-
-### Safety Systems
-
-| Feature | Description |
-|---------|-------------|
-| Kill Switches | Auto-shutdown: Piezo (10s), E-gun (30s) |
-| Mode Protection | Must be in AUTO mode for optimization |
-| Pressure Monitor | Auto-kill if pressure > 5×10⁻⁹ mbar |
-| Emergency Stop | Hardware and software STOP commands |
-
-### Data Flow
-
-1. **Experiment Control**: ControlManager → ARTIQ/LabVIEW → Hardware
-2. **Telemetry**: LabVIEW → Files → ControlManager → Flask Charts
-3. **Optimization**: ASK → Experiment → TELL → Update Model
-
-## API Reference
-
-### ControlManager Commands
-
-```python
-# Start Phase I optimization
-{
-    "action": "OPTIMIZE_START",
-    "target_be_count": 1,
-    "target_hd_present": True
-}
-
-# Get next parameters (ASK)
-{"action": "OPTIMIZE_SUGGESTION"}
-
-# Register results (TELL)
-{
-    "action": "OPTIMIZE_RESULT",
-    "measurements": {
-        "total_fluorescence": 100.0,
-        "cycle_time_ms": 5000
-    }
-}
-
-# Set parameters
-{
-    "action": "SET",
-    "params": {"piezo": 2.5, "be_oven": 1}
-}
-
-# Get status
-{"action": "OPTIMIZE_STATUS"}
-```
-
-See [docs/API_REFERENCE.md](docs/API_REFERENCE.md) for complete API.
-
-### PowerShell Control Interface
-
-```powershell
-# Import the control module
-. .\tools\control.ps1
-
-# Get system status
-Get-SystemStatus
-
-# Start optimization
-Start-Optimization -targetBe 1 -targetHd $true
-
-# Get parameters
-$params = Get-Parameters
-
-# Set parameters
-Set-Parameter -name "piezo" -value 2.5
-
-# Stop optimization
-Stop-Optimization
-```
-
-## Testing
-
-```bash
-# Run all tests
-python -m pytest tests/ -v
-
-# Run optimizer tests only
-python -m pytest tests/test_optimizer.py tests/test_two_phase_optimizer.py -v
-
-# Run image handler tests
-python tests/test_image_handler_with_mhi_cam.py --max-images 50
-
-# Run with coverage
-python -m pytest tests/ --cov=. --cov-report=html
-```
-
-See [Testing Documentation](docs/tests/TESTING.md) for details.
+| Service | Port | Protocol | Purpose |
+|---------|------|----------|---------|
+| Flask API | 5000 | HTTP | Main web interface |
+| Optimizer | 5050 | HTTP | Bayesian optimization UI |
+| Applet | 5051 | HTTP | Experiment applets |
+| Manager CMD | 5555 | ZMQ | ARTIQ commands |
+| Manager DATA | 5556 | ZMQ | Telemetry data |
+| Manager CLIENT | 5557 | ZMQ | Client requests |
+| Camera | 5558 | TCP | Camera server |
+| LabVIEW | 5559 | TCP | SMILE interface |
+| Wavemeter | 1790 | TCP | HighFinesse WS7 |
 
 ## Configuration
 
-Main configuration file: `config/settings.yaml`
+Main configuration file: `config/config.yaml`
 
-### Network Settings
 ```yaml
-network:
-  master_ip: "134.99.120.40"
-  cmd_port: 5555        # ControlManager commands
-  data_port: 5556       # Worker feedback
-  client_port: 5557     # Flask/Client requests
-  camera_port: 5558     # Camera server
+environment: development  # or production
+
+profiles:
+  development:
+    network:
+      master_ip: "192.168.56.101"
+      cmd_port: 5555
+    services:
+      flask: {port: 5000}
+      optimizer: {port: 5050}
 ```
 
-### Hardware Settings
-```yaml
-labview:
-  host: "172.17.1.217"
-  port: 5559
-  
-hardware:
-  worker_defaults:
-    u_rf_volts: 200.0
-    piezo: 0.0
-```
+See [config/README.md](config/README.md) for details.
 
-### Image Handler Settings
-```yaml
-image_handler:
-  roi: {x_start: 0, x_finish: 500, y_start: 10, y_finish: 300}
-  detection:
-    threshold_percentile: 99.5
-    min_snr: 6.0
-  performance:
-    num_threads: 8
-    use_gpu: true
-```
+## Documentation
 
-### Local Development
-For local testing, use `config/examples/local_development.yaml` as a template.
+| Document | Description |
+|----------|-------------|
+| [User Guide](docs/USER_GUIDE.md) | Installation and operation |
+| [Architecture](docs/ARCHITECTURE.md) | System design and data flow |
+| [API Reference](docs/API_REFERENCE.md) | REST API and ZMQ protocol |
+| [Hardware](docs/HARDWARE.md) | Hardware integration |
+| [Development](docs/DEVELOPMENT.md) | Developer guide |
 
 ## Safety ⚠️
 
@@ -371,48 +209,6 @@ For local testing, use `config/examples/local_development.yaml` as a template.
 3. **Never** disable safety features in production
 4. **Always** monitor pressure when using e-gun or piezo
 
-## Documentation
-
-### Architecture & Design
-- [Bayesian Optimization Architecture](docs/BO.md)
-- [System Architecture](docs/ARCHITECTURE.md)
-- [Communication Protocol](docs/COMMUNICATION_PROTOCOL.md)
-- [Data Integration](docs/DATA_INTEGRATION.md)
-
-### User Guides
-- [Camera Activation Guide](docs/guides/CAMERA_ACTIVATION.md)
-- [Safety & Kill Switches](docs/guides/SAFETY_KILL_SWITCH.md)
-- [Conda Setup](docs/guides/CONDA_SETUP.md)
-
-### API & Reference
-- [API Reference](docs/API_REFERENCE.md)
-- [LabVIEW Integration](docs/LABVIEW_INTEGRATION.md)
-- [Optimization Guide](docs/OPTIMIZATION_GUIDE.md)
-
-### Camera & Image Processing
-- [Image Handler](docs/camera/IMAGE_HANDLER_README.md)
-- [Uncertainty Calculation](docs/camera/UNCERTAINTY_CALCULATION.md)
-
-### Implementation Summaries
-- [Camera Implementation](docs/summaries/CAMERA_IMPLEMENTATION.md)
-- [Image Handler Optimization](docs/summaries/IMAGE_HANDLER_OPTIMIZATION.md)
-
-## Migration from Legacy SAASBO
-
-The legacy SAASBO optimizer has been replaced with the Two-Phase optimizer:
-
-| Legacy (SAASBO) | New (Two-Phase) |
-|-----------------|-----------------|
-| `OptimisationManager` | `TwoPhaseController` |
-| `OptimisationPhase` | `Phase` |
-| `get_suggestion()` | `ask()` |
-| `register_result()` | `tell()` |
-| Single-phase | Phase I (TuRBO) → Phase II (MOBO) |
-
 ## License
 
 Proprietary - See LICENSE file
-
-## Support
-
-For issues or questions, contact the development team.

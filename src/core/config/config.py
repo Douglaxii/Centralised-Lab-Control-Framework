@@ -1,26 +1,31 @@
 """
-Centralized configuration management.
-Loads settings from YAML file and provides easy access.
-
-This version supports a UNIFIED config file with multiple profiles.
+Centralized configuration management for MLS.
+Loads settings from unified YAML config file.
 
 Usage:
-    from core import get_config
+    from src.core.config import get_config
     
     config = get_config()
-    ip = config.master_ip
-    port = config.get('network.client_port')
     
-Environment Switching:
-    Set MLS_ENV environment variable or change 'environment' in config.yaml:
-    - MLS_ENV=development  (for laptop)
-    - MLS_ENV=production   (for manager PC)
+    # Access via properties
+    print(config.master_ip)
+    print(config.flask_port)
+    
+    # Access nested settings
+    print(config.get('hardware.defaults.ec1'))
+    print(config.get_path('logs'))
+
+Environment Selection:
+    Set MLS_ENV environment variable:
+    - MLS_ENV=development  (laptop)
+    - MLS_ENV=production   (lab PC)
 """
 
 import os
 import yaml
 from pathlib import Path
 from typing import Any, Dict, Optional
+from dataclasses import dataclass
 
 
 def _deep_merge(base: Dict, override: Dict) -> Dict:
@@ -35,10 +40,10 @@ def _deep_merge(base: Dict, override: Dict) -> Dict:
 
 
 class Config:
-    """Configuration manager for the lab framework.
+    """Configuration manager for MLS.
     
-    Supports unified config file with multiple profiles.
-    The active profile is selected by the 'environment' field.
+    Loads unified config.yaml with multiple profiles.
+    Active profile selected by 'environment' field or MLS_ENV var.
     """
     
     _instance = None
@@ -46,7 +51,7 @@ class Config:
     _active_profile = None
     
     def __new__(cls, config_path: Optional[str] = None):
-        """Singleton pattern to ensure one config instance."""
+        """Singleton pattern."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._load_config(config_path)
@@ -54,94 +59,20 @@ class Config:
     
     def _load_config(self, config_path: Optional[str] = None):
         """Load configuration from YAML file."""
-        # project_root is MLS (where config/ lives)
-        project_root = Path(__file__).parent.parent.parent.parent  # src/core/config -> src/core -> src -> MLS
+        project_root = Path(__file__).parent.parent.parent.parent
         
-        # Determine config file path
         if config_path is None:
-            # Priority:
-            # 1. Unified config.yaml (new style)
-            # 2. Legacy settings.yaml (old style)
-            # 3. Legacy settings_local.yaml (old style)
-            # 4. Modular base.yaml (intermediate style)
-            
-            unified_config = project_root / "config" / "config.yaml"
-            legacy_config = project_root / "config" / "settings.yaml"
-            local_config = project_root / "config" / "settings_local.yaml"
-            base_config = project_root / "config" / "base.yaml"
-            
-            if unified_config.exists():
-                config_path = unified_config
-            elif legacy_config.exists():
-                config_path = legacy_config
-            elif local_config.exists():
-                config_path = local_config
-            else:
-                config_path = base_config
+            config_path = project_root / "config" / "config.yaml"
         
         self._config_path = Path(config_path)
         
         if not self._config_path.exists():
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+            raise FileNotFoundError(f"Config file not found: {config_path}")
         
-        # Load config file
         with open(self._config_path, 'r', encoding='utf-8') as f:
             raw_config = yaml.safe_load(f)
         
-        # Check if this is a unified config with profiles
-        if 'profiles' in raw_config and isinstance(raw_config['profiles'], dict):
-            # Unified config format
-            self._load_unified_config(raw_config, project_root)
-        elif self._config_path.name == "base.yaml":
-            # Modular config: base.yaml + environment override
-            self._config = raw_config
-            env = os.environ.get('MLS_ENV', 'development')
-            env_config_path = project_root / "config" / "environments" / f"{env}.yaml"
-            
-            if env_config_path.exists():
-                with open(env_config_path, 'r', encoding='utf-8') as f:
-                    env_config = yaml.safe_load(f)
-                if env_config:
-                    self._config = _deep_merge(self._config, env_config)
-            self._active_profile = env
-        else:
-            # Legacy single-file config
-            self._config = raw_config
-            self._active_profile = raw_config.get('environment', 'unknown')
-        
-        # Ensure log directory exists
-        log_dir = project_root / "logs"
-        log_dir.mkdir(exist_ok=True)
-        
-        # Auto-setup paths and directories if enabled
-        self._auto_setup_paths()
-    
-    def _auto_setup_paths(self):
-        """Auto-setup paths and create directories if enabled."""
-        try:
-            # Import here to avoid circular dependency
-            from .auto_setup import ensure_directories, substitute_env_vars
-            
-            # Substitute environment variables in paths
-            if 'paths' in self._config:
-                self._config['paths'] = substitute_env_vars(self._config['paths'])
-            
-            # Create directories
-            created = ensure_directories(self)
-            if created:
-                logger.info(f"Auto-created directories: {len(created)}")
-                
-        except Exception as e:
-            logger.debug(f"Auto-setup skipped: {e}")
-    
-    def _load_unified_config(self, raw_config: Dict, project_root: Path):
-        """Load configuration from unified format with profiles.
-        
-        Args:
-            raw_config: The raw parsed YAML config
-            project_root: Path to project root for resolving relative paths
-        """
-        # Get active environment (from env var or config file)
+        # Get environment from file or env var
         env_from_file = raw_config.get('environment', 'development')
         env_from_env = os.environ.get('MLS_ENV')
         self._active_profile = env_from_env or env_from_file
@@ -153,27 +84,36 @@ class Config:
             raise ValueError(
                 f"Unknown environment '{self._active_profile}'. "
                 f"Available: {available}. "
-                f"Check 'environment' in config.yaml or set MLS_ENV environment variable."
+                f"Set MLS_ENV or edit config.yaml"
             )
         
-        # Load the active profile
-        profile_config = profiles[self._active_profile]
-        
-        # Profile should be a dict with the actual configuration
-        if not isinstance(profile_config, dict):
-            raise ValueError(
-                f"Profile '{self._active_profile}' must be a dictionary containing configuration settings"
-            )
-        
-        # The profile IS the config (it contains network, paths, hardware, etc.)
-        self._config = profile_config
+        # Load active profile
+        self._config = profiles[self._active_profile]
         
         # Store metadata
         self._config['_meta'] = {
             'config_file': str(self._config_path),
             'environment': self._active_profile,
-            'description': profile_config.get('description', 'No description')
+            'description': self._config.get('description', '')
         }
+        
+        # Create directories
+        self._setup_directories(project_root)
+    
+    def _setup_directories(self, project_root: Path):
+        """Create necessary directories."""
+        try:
+            # Get paths config
+            paths = self._config.get('paths', {})
+            
+            for key, path in paths.items():
+                if path:
+                    path_obj = Path(path)
+                    if not path_obj.is_absolute():
+                        path_obj = project_root / path_obj
+                    path_obj.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass  # Directories will be created on demand
     
     def get(self, key_path: str, default: Any = None) -> Any:
         """
@@ -197,79 +137,176 @@ class Config:
         
         return value
     
-    def get_network(self, key: str) -> Any:
-        """Get network configuration."""
-        return self.get(f'network.{key}')
-    
     def get_path(self, key: str) -> str:
         """
-        Get path configuration.
-        Automatically resolves relative paths to absolute.
+        Get path configuration, resolving relative paths.
+        
+        Args:
+            key: Path key (e.g., 'logs', 'base', 'camera_raw')
+            
+        Returns:
+            Absolute path as string
         """
-        # Try paths.* first, then fall back to other common path locations
         path = self.get(f'paths.{key}')
-        if path is None:
-            path = self.get(f'telemetry.{key}')
-        if path is None:
-            path = self.get(f'camera.{key}')
         
         if path is None:
             raise KeyError(f"Path '{key}' not found in configuration")
         
-        # Convert to Path object and resolve
         path_obj = Path(path)
         
-        # If relative, make it relative to project root
         if not path_obj.is_absolute():
             project_root = Path(__file__).parent.parent.parent.parent
             path_obj = project_root / path_obj
         
         return str(path_obj)
     
-    def get_hardware_default(self, key: str) -> Any:
+    # =======================================================================
+    # Common Properties
+    # =======================================================================
+    
+    @property
+    def environment(self) -> str:
+        """Current environment name."""
+        return self._active_profile
+    
+    # Network
+    @property
+    def master_ip(self) -> str:
+        return self.get('network.master_ip', '127.0.0.1')
+    
+    @property
+    def bind_host(self) -> str:
+        return self.get('network.bind_host', '127.0.0.1')
+    
+    @property
+    def cmd_port(self) -> int:
+        return self.get('network.cmd_port', 5555)
+    
+    @property
+    def data_port(self) -> int:
+        return self.get('network.data_port', 5556)
+    
+    @property
+    def client_port(self) -> int:
+        return self.get('network.client_port', 5557)
+    
+    @property
+    def camera_port(self) -> int:
+        return self.get('network.camera_port', 5558)
+    
+    # Services
+    @property
+    def flask_host(self) -> str:
+        return self.get('services.flask.host', '127.0.0.1')
+    
+    @property
+    def flask_port(self) -> int:
+        return self.get('services.flask.port', 5000)
+    
+    @property
+    def flask_debug(self) -> bool:
+        return self.get('services.flask.debug', False)
+    
+    @property
+    def optimizer_port(self) -> int:
+        return self.get('services.optimizer.port', 5050)
+    
+    @property
+    def applet_port(self) -> int:
+        return self.get('services.applet.port', 5051)
+    
+    # Hardware
+    def hardware_default(self, key: str, default: Any = None) -> Any:
         """Get hardware default value."""
-        return self.get(f'hardware.worker_defaults.{key}')
+        return self.get(f'hardware.defaults.{key}', default)
+    
+    @property
+    def all_hardware_defaults(self) -> Dict[str, Any]:
+        """Get all hardware default values."""
+        return self.get('hardware.defaults', {})
+    
+    # Camera
+    @property
+    def camera_enabled(self) -> bool:
+        return self.get('services.camera.enabled', True)
+    
+    @property
+    def camera_auto_start(self) -> bool:
+        return self.get('services.camera.auto_start', False)
+    
+    @property
+    def camera_trigger_mode(self) -> str:
+        return self.get('hardware.camera.trigger_mode', 'software')
+    
+    # LabVIEW
+    @property
+    def labview_enabled(self) -> bool:
+        return self.get('labview.enabled', False)
+    
+    @property
+    def labview_host(self) -> str:
+        return self.get('labview.host', '127.0.0.1')
+    
+    @property
+    def labview_port(self) -> int:
+        return self.get('labview.port', 5559)
+    
+    # Logging
+    @property
+    def log_level(self) -> str:
+        return self.get('logging.level', 'INFO')
+    
+    def log_file(self, name: str) -> str:
+        """Get log file path for a component."""
+        path = self.get(f'logging.files.{name}')
+        if path:
+            return self._resolve_path(path)
+        return str(Path(__file__).parent.parent.parent.parent / 'logs' / f'{name}.log')
+    
+    # Optimizer
+    @property
+    def turbo_settings(self) -> Dict[str, Any]:
+        return self.get('optimizer.turbo', {})
+    
+    @property
+    def mobo_settings(self) -> Dict[str, Any]:
+        return self.get('optimizer.mobo', {})
+    
+    # Network settings (backward compatibility)
+    def get_network(self, key: str, default: Any = None) -> Any:
+        """Get network configuration (backward compatibility)."""
+        return self.get(f'network.{key}', default)
+    
+    # Camera settings (backward compatibility)
+    def get_camera_setting(self, key: str, default: Any = None) -> Any:
+        """Get camera setting (backward compatibility)."""
+        return self.get(f'hardware.camera.{key}', default)
+    
+    # Hardware settings (backward compatibility)
+    def get_hardware_default(self, key: str) -> Any:
+        """Get hardware default value (backward compatibility)."""
+        return self.hardware_default(key)
     
     def get_all_hardware_defaults(self) -> Dict[str, Any]:
-        """Get all hardware default values."""
-        return self.get('hardware.worker_defaults', {})
+        """Get all hardware default values (backward compatibility)."""
+        return self.all_hardware_defaults
     
-    def get_camera_setting(self, key: str) -> Any:
-        """Get camera setting."""
-        return self.get(f'hardware.camera.{key}')
+    # Helper methods
+    def _resolve_path(self, path: str) -> str:
+        """Resolve a path to absolute."""
+        path_obj = Path(path)
+        if not path_obj.is_absolute():
+            project_root = Path(__file__).parent.parent.parent.parent
+            path_obj = project_root / path_obj
+        return str(path_obj)
     
     def reload(self):
         """Reload configuration from file."""
         self._load_config(self._config_path)
     
     @property
-    def environment(self) -> str:
-        """Get current environment name."""
-        return self._active_profile or 'unknown'
-    
-    @property
-    def master_ip(self) -> str:
-        """Get master IP address."""
-        return self.get_network('master_ip')
-    
-    @property
-    def cmd_port(self) -> int:
-        """Get command port."""
-        return self.get_network('cmd_port')
-    
-    @property
-    def data_port(self) -> int:
-        """Get data port."""
-        return self.get_network('data_port')
-    
-    @property
-    def client_port(self) -> int:
-        """Get client port."""
-        return self.get_network('client_port')
-    
-    @property
     def config_file(self) -> str:
-        """Get path to the loaded config file."""
+        """Path to loaded config file."""
         return str(self._config_path)
 
 

@@ -11,7 +11,9 @@ from .enums import (
     CommandType,
     MatchQuality,
     u_rf_mv_to_U_RF_V,
-    U_RF_V_to_u_rf_mv
+    U_RF_V_to_u_rf_mv,
+    RF_SCALE_V_PER_MV,
+    RF_SCALE_MV_PER_V
 )
 from .experiment import (
     ExperimentContext,
@@ -39,6 +41,8 @@ __all__ = [
     'MatchQuality',
     'u_rf_mv_to_U_RF_V',
     'U_RF_V_to_u_rf_mv',
+    'RF_SCALE_V_PER_MV',
+    'RF_SCALE_MV_PER_V',
     # Experiment
     'ExperimentContext',
     'ExperimentTracker',

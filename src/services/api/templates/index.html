@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMILE Ion Trap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-body: #FAFAFA;
+            --bg-card: #FFFFFF;
+            --border: #E5E5E5;
+            --text-main: #171717;
+            --text-sub: #737373;
+            --accent: #2563EB;
+            --accent-hover: #1D4ED8;
+            --danger: #DC2626;
+            --success: #16A34A;
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+            
+            /* Chart colors */
+            --pmt-color: #F97316;
+            --laser-color: #06B6D4;
+            --pressure-color: #8B5CF6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 0 16px;
+            height: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .status-group { display: flex; gap: 16px; color: var(--text-sub); }
+        .status-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background: #D4D4D4; }
+        .dot.active { background: var(--success); }
+        .dot.warning { background: #F59E0B; }
+        .dot.error { background: var(--danger); }
+
+        /* Dashboard Layout */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 12px;
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Camera */
+        .camera-box {
+            flex: 3;
+            background: #000;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+        }
+        .cam-feed { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .cam-overlay { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            color: var(--success); 
+            font-weight: 600; 
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cam-overlay.offline { color: var(--danger); }
+
+        /* Controls */
+        .controls-box {
+            flex: 2;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .group-title { 
+            font-size: 0.7rem; 
+            font-weight: 600; 
+            color: var(--text-sub); 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+        }
+        
+        .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .spacer { flex: 1; }
+
+        /* Inputs & Buttons */
+        input {
+            background: var(--bg-body); 
+            border: 1px solid var(--border);
+            border-radius: 4px; 
+            padding: 6px 8px;
+            font-family: var(--font-mono); 
+            font-size: 0.85rem; 
+            width: 80px; 
+            text-align: right;
+            transition: border-color 0.15s;
+        }
+        input:focus { border-color: var(--accent); }
+        input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .unit { font-size: 0.75rem; color: var(--text-sub); margin-left: -4px; margin-right: 8px; }
+
+        button {
+            background: var(--bg-card); 
+            border: 1px solid var(--border);
+            border-radius: 4px; 
+            padding: 6px 12px;
+            font-size: 0.8rem; 
+            font-weight: 500; 
+            cursor: pointer; 
+            color: var(--text-main);
+            transition: all 0.1s;
+        }
+        button:hover { background: var(--bg-body); border-color: #A3A3A3; }
+        button:active { transform: translateY(1px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-set { background: var(--text-main); color: white; border-color: var(--text-main); }
+        .btn-set:hover { background: #000; }
+        .btn-danger { background: var(--danger); color: white; border-color: var(--danger); }
+        .btn-danger:hover { background: #B91C1C; }
+        .btn-small { padding: 4px 8px; font-size: 0.75rem; }
+
+        /* DDS Display */
+        .dds-display {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            padding: 6px 12px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        /* Toggle Switches */
+        .toggle {
+            min-width: 70px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-weight: 600; 
+            color: var(--text-sub);
+        }
+        .toggle.active { 
+            background: var(--bg-body); 
+            border-color: var(--accent); 
+            color: var(--accent); 
+        }
+
+        /* Kill Switch Active State */
+        .toggle.kill-active {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: #FEF2F2;
+        }
+        .countdown { 
+            font-family: var(--font-mono); 
+            font-size: 0.75rem; 
+            margin-left: 6px; 
+            opacity: 0.8; 
+        }
+
+        /* Telemetry Charts */
+        .telemetry-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 0;
+        }
+        
+        .telemetry-box {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .telemetry-box canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        /* Connection status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: var(--bg-body);
+            font-size: 0.75rem;
+        }
+        
+        .connection-status.connected { color: var(--success); }
+        .connection-status.disconnected { color: var(--danger); }
+        .connection-status.connecting { color: #F59E0B; }
+
+        /* Quick Links */
+        .quick-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-sub);
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .quick-link:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        .quick-link i {
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="status-bar">
+        <div style="font-weight: 600;">SMILE <span style="color: var(--text-sub); font-weight: 400;">INTERFACE</span></div>
+        <div class="status-group">
+            <!-- Quick Links to Other Servers -->
+            <div class="status-item" style="margin-right: 12px; padding-right: 12px; border-right: 1px solid var(--border);">
+                <a href="http://localhost:5050/dashboard" target="_blank" class="quick-link" title="Open BO Visualizer in new tab">
+                    <i class="fa-solid fa-chart-line"></i> BO Visualizer
+                </a>
+            </div>
+            <div class="status-item" style="margin-right: 12px; padding-right: 12px; border-right: 1px solid var(--border);">
+                <a href="http://localhost:5051" target="_blank" class="quick-link" title="Open Applet Server in new tab">
+                    <i class="fa-solid fa-table-cells"></i> Applets
+                </a>
+            </div>
+            <div class="status-item">
+                <div class="connection-status" id="conn-status">
+                    <span class="dot" id="dot_conn"></span>
+                    <span id="conn-text">Connecting...</span>
+                </div>
+            </div>
+            <div class="status-item"><div class="dot active" id="dot_server"></div>Server</div>
+            <div class="status-item"><div class="dot" id="dot_lv"></div>LabVIEW</div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="col">
+            <div class="card camera-box">
+                <img src="/video_feed" class="cam-feed" id="cam-feed">
+                <div class="cam-overlay" id="cam-overlay">
+                    <span class="dot active"></span> LIVE
+                </div>
+            </div>
+
+            <div class="card controls-box">
+                
+                <div class="control-group">
+                    <div class="group-title">Trap Drive</div>
+                    <div class="row">
+                        <label style="font-size: 0.8rem;">RF</label>
+                        <input type="number" id="u_rf" value="200" min="0" max="500">
+                        <span class="unit">V</span>
+                        <button class="btn-set" onclick="setRF()">Set</button>
+
+                        <div style="width: 1px; height: 20px; background: var(--border); margin: 0 12px;"></div>
+
+                        <label style="font-size: 0.8rem;">DDS</label>
+                        <span class="dds-display" id="dds-display">135.000 MHz</span>
+                        <button class="btn-small" onclick="adjustDDS(-0.1)">-100kHz</button>
+                        <button class="btn-small" onclick="adjustDDS(0.1)">+100kHz</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">Loading System</div>
+                    <div class="row">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="font-size: 0.8rem;">HD Valve</label>
+                            <input type="number" id="hd_volt" value="2.40" step="0.01" min="0" max="4">
+                            <span class="unit">V</span>
+                            <button class="btn-set" onclick="setHD()">Set</button>
+                            <button class="toggle" id="btn_hd" onclick="toggleHD()">CLOSED</button>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top: 6px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <label style="font-size: 0.8rem; width: 62px;">Oven</label>
+                            <button class="toggle" id="btn_oven" onclick="toggleOven()">OFF</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">Electrodes</div>
+                    <div class="row">
+                        <input type="number" id="ec1" placeholder="EC1" step="0.1">
+                        <input type="number" id="ec2" placeholder="EC2" step="0.1">
+                        <input type="number" id="comp_h" placeholder="H" step="0.1">
+                        <input type="number" id="comp_v" placeholder="V" step="0.1">
+                        <button class="btn-set" onclick="setDC()">Apply</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="group-title">System</div>
+                    <div class="row">
+                        <button class="toggle" id="btn_b_field" onclick="toggleDevice('b_field', 'btn_b_field', 'B-Field ON', 'B-Field OFF')">B-Field OFF</button>
+                        <button class="toggle" id="btn_uv3" onclick="toggleDevice('uv3', 'btn_uv3', 'UV3 ON', 'UV3 OFF')">UV3 OFF</button>
+                        <button class="toggle" id="btn_e_gun" onclick="toggleEGun()">E-Gun OFF</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="col telemetry-container">
+            <!-- PMT Signal -->
+            <div class="telemetry-box">
+                <canvas id="chart-pmt"></canvas>
+            </div>
+            
+            <!-- Laser Frequency (UV3) -->
+            <div class="telemetry-box">
+                <canvas id="chart-laser"></canvas>
+            </div>
+            
+            <!-- Vacuum Pressure -->
+            <div class="telemetry-box">
+                <canvas id="chart-pressure"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/oscilloscope.js"></script>
+    <script>
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+        
+        let ddsFrequencyMHz = 135.0; // Default DDS frequency in MHz
+        
+        // ============================================
+        // KILL SWITCH MANAGEMENT
+        // ============================================
+        
+        let timers = {
+            hd: { id: null, limit: 10, endpoint: '/api/control/piezo/output', payloadOff: { enable: false } },
+            oven: { id: null, limit: 30, endpoint: '/api/control/toggle/be_oven', payloadOff: { state: false } },
+            e_gun: { id: null, limit: 10, endpoint: '/api/control/toggle/e_gun', payloadOff: { state: false } }
+        };
+
+        function toggleKillSwitch(key, btnId, activeText, inactiveText, apiOn) {
+            const btn = document.getElementById(btnId);
+            const isTurningOn = !btn.classList.contains('kill-active');
+
+            if (isTurningOn) {
+                apiOn();
+                
+                let timeLeft = timers[key].limit;
+                btn.classList.add('kill-active');
+                
+                if (timers[key].id) clearInterval(timers[key].id);
+                timers[key].id = setInterval(() => {
+                    timeLeft -= 0.1;
+                    const secs = Math.ceil(timeLeft);
+                    btn.innerHTML = `${activeText} <span class="countdown">${secs}s</span>`;
+                    
+                    if (timeLeft <= 0) {
+                        toggleKillSwitch(key, btnId, activeText, inactiveText, () => {});
+                        fetch(timers[key].endpoint, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(timers[key].payloadOff)
+                        });
+                    }
+                }, 100);
+            } else {
+                clearInterval(timers[key].id);
+                timers[key].id = null;
+                btn.classList.remove('kill-active');
+                btn.innerHTML = inactiveText;
+                
+                if (apiOn.name !== 'noop') {
+                    fetch(timers[key].endpoint, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(timers[key].payloadOff)
+                    });
+                }
+            }
+        }
+
+        // ============================================
+        // CONTROL HANDLERS
+        // ============================================
+
+        function toggleHD() {
+            toggleKillSwitch('hd', 'btn_hd', 'OPEN', 'CLOSED', () => {
+                fetch('/api/control/piezo/output', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ enable: true })
+                });
+            });
+        }
+
+        function toggleOven() {
+            toggleKillSwitch('oven', 'btn_oven', 'ON', 'OFF', () => {
+                fetch('/api/control/toggle/be_oven', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ state: true })
+                });
+            });
+        }
+
+        function toggleEGun() {
+            toggleKillSwitch('e_gun', 'btn_e_gun', 'E-Gun ON', 'E-Gun OFF', () => {
+                fetch('/api/control/toggle/e_gun', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ state: true })
+                });
+            });
+        }
+
+        function toggleDevice(device, btnId, activeText, inactiveText) {
+            const btn = document.getElementById(btnId);
+            const isActive = btn.classList.contains('active');
+            const newState = !isActive;
+            
+            // Use simplified API: 1 for ON, 0 for OFF
+            setDevice(device, newState ? 1 : 0).then(data => {
+                if (data.status === 'success') {
+                    if (newState) {
+                        btn.classList.add('active');
+                        btn.textContent = activeText;
+                    } else {
+                        btn.classList.remove('active');
+                        btn.textContent = inactiveText;
+                    }
+                }
+            });
+        }
+
+        function setHD() {
+            const val = document.getElementById('hd_volt').value;
+            setDevice('piezo', parseFloat(val));
+        }
+
+        // Simplified unified control using /api/set
+        function setDevice(device, value) {
+            return fetch('/api/set', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ device, value })
+            }).then(r => r.json()).then(data => {
+                if (data.status === 'success') {
+                    console.log(`${device} set to:`, value);
+                } else {
+                    console.error(`Failed to set ${device}:`, data.message);
+                }
+                return data;
+            }).catch(err => {
+                console.error(`Set ${device} failed:`, err);
+                throw err;
+            });
+        }
+
+        function setRF() {
+            const val = document.getElementById('u_rf').value;
+            setDevice('u_rf', parseFloat(val));
+        }
+
+        // DDS Control Functions
+        function updateDDSDisplay() {
+            const display = document.getElementById('dds-display');
+            display.textContent = ddsFrequencyMHz.toFixed(3) + ' MHz';
+        }
+
+        function adjustDDS(deltaMHz) {
+            ddsFrequencyMHz += deltaMHz;
+            // Clamp to valid range (0 - 500 MHz per protocol)
+            ddsFrequencyMHz = Math.max(0, Math.min(500, ddsFrequencyMHz));
+            updateDDSDisplay();
+            
+            // Send to server using simplified protocol
+            setDevice('dds', ddsFrequencyMHz);
+        }
+
+        function setDC() {
+            const ec1 = parseFloat(document.getElementById('ec1').value) || 0;
+            const ec2 = parseFloat(document.getElementById('ec2').value) || 0;
+            const compH = parseFloat(document.getElementById('comp_h').value) || 0;
+            const compV = parseFloat(document.getElementById('comp_v').value) || 0;
+            
+            setDevice('trap', [ec1, ec2, compH, compV]);
+        }
+
+        // ============================================
+        // OSCILLOSCOPE CHARTS
+        // ============================================
+
+        const charts = {};
+        let eventSource = null;
+        let reconnectDelay = 1000;
+
+        function initCharts() {
+            // PMT Chart - Photon counts (scatter plot)
+            charts.pmt = new OscilloscopeChart(document.getElementById('chart-pmt'), {
+                color: 'var(--pmt-color)',
+                lineWidth: 2,
+                timeWindow: 60, // 60 seconds rolling window
+                label: 'PMT Signal',
+                unit: ' cts',
+                valueDecimals: 0,
+                mode: 'scatter',
+                pointRadius: 3
+            });
+
+            // Laser Frequency Chart (scatter plot)
+            charts.laser = new OscilloscopeChart(document.getElementById('chart-laser'), {
+                color: 'var(--laser-color)',
+                lineWidth: 2,
+                timeWindow: 60,
+                label: 'Laser Frequency',
+                unit: ' GHz',
+                valueDecimals: 3,  // 1 MHz precision (0.001 GHz = 1 MHz)
+                mode: 'scatter',
+                pointRadius: 3
+            });
+
+            // Pressure Chart (scatter plot)
+            charts.pressure = new OscilloscopeChart(document.getElementById('chart-pressure'), {
+                color: 'var(--pressure-color)',
+                lineWidth: 2,
+                timeWindow: 300, // 5 minutes for pressure
+                label: 'Vacuum Pressure',
+                unit: ' mbar',
+                valueDecimals: 2,
+                mode: 'scatter',
+                pointRadius: 3
+            });
+
+            // Start all charts rendering at 30fps
+            for (const chart of Object.values(charts)) {
+                chart.start(30);
+            }
+        }
+
+        function updateConnectionStatus(status, text) {
+            const dot = document.getElementById('dot_conn');
+            const connText = document.getElementById('conn-text');
+            const connStatus = document.getElementById('conn-status');
+            
+            connText.textContent = text;
+            dot.className = 'dot';
+            connStatus.className = 'connection-status';
+            
+            if (status === 'connected') {
+                dot.classList.add('active');
+                connStatus.classList.add('connected');
+            } else if (status === 'connecting') {
+                dot.classList.add('warning');
+                connStatus.classList.add('connecting');
+            } else {
+                dot.classList.add('error');
+                connStatus.classList.add('disconnected');
+            }
+        }
+
+        function connectTelemetry() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            updateConnectionStatus('connecting', 'Connecting...');
+
+            eventSource = new EventSource('/api/telemetry/stream');
+
+            eventSource.onopen = () => {
+                console.log('Telemetry stream connected');
+                updateConnectionStatus('connected', 'Live');
+                reconnectDelay = 1000;
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleTelemetry(data);
+                } catch (e) {
+                    console.error('Failed to parse telemetry:', e);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('Telemetry stream error:', error);
+                updateConnectionStatus('disconnected', 'Reconnecting...');
+                eventSource.close();
+
+                setTimeout(() => {
+                    reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+                    connectTelemetry();
+                }, reconnectDelay);
+            };
+        }
+
+        function handleTelemetry(data) {
+            const timestamp = data.timestamp || Date.now() / 1000;
+
+            // Update PMT
+            if (data.pmt) {
+                const points = Array.isArray(data.pmt) ? data.pmt : [{t: timestamp, v: data.pmt}];
+                for (const p of points) {
+                    charts.pmt.addPoint(p.t, p.v);
+                }
+            }
+
+            // Update Laser Frequency
+            if (data.laser_freq) {
+                const points = Array.isArray(data.laser_freq) ? data.laser_freq : [{t: timestamp, v: data.laser_freq}];
+                for (const p of points) {
+                    charts.laser.addPoint(p.t, p.v);
+                }
+            }
+
+            // Update Pressure
+            if (data.pressure) {
+                const points = Array.isArray(data.pressure) ? data.pressure : [{t: timestamp, v: data.pressure}];
+                for (const p of points) {
+                    charts.pressure.addPoint(p.t, p.v);
+                }
+            }
+
+            // Update camera status
+            if (data.camera) {
+                const cam = data.camera;
+                const overlay = document.getElementById('cam-overlay');
+                const dot = overlay.querySelector('.dot');
+                
+                if (cam.is_live) {
+                    overlay.classList.remove('offline');
+                    dot.classList.add('active');
+                    overlay.innerHTML = '<span class="dot active"></span> LIVE';
+                    if (cam.latency_ms) {
+                        overlay.innerHTML += ` (${Math.round(cam.latency_ms)}ms)`;
+                    }
+                } else {
+                    overlay.classList.add('offline');
+                    dot.classList.remove('active');
+                    overlay.innerHTML = '<span class="dot error"></span> OFFLINE';
+                }
+            }
+
+            // Update LabVIEW status dot
+            if (data.data_sources) {
+                const lvDot = document.getElementById('dot_lv');
+                const hasLabVIEW = Object.values(data.data_sources).some(s => s.connected);
+                if (hasLabVIEW) {
+                    lvDot.classList.add('active');
+                } else {
+                    lvDot.classList.remove('active');
+                }
+            }
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize DDS display
+            updateDDSDisplay();
+            
+            // Initialize charts
+            initCharts();
+            
+            // Connect to telemetry stream
+            connectTelemetry();
+
+            // Load initial status
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    console.log('Initial status:', data);
+                    if (data.params) {
+                        document.getElementById('u_rf').value = data.params.u_rf || 200;
+                        document.getElementById('hd_volt').value = data.params.piezo || 2.4;
+                        
+                        // Update DDS if available from server (protocol uses dds_freq_Mhz)
+                        if (data.params.dds_freq_Mhz) {
+                            ddsFrequencyMHz = data.params.dds_freq_Mhz;
+                            updateDDSDisplay();
+                        }
+                        
+                        // Update toggle buttons based on server state
+                        if (data.params.b_field) {
+                            const btn = document.getElementById('btn_b_field');
+                            btn.classList.add('active');
+                            btn.textContent = 'B-Field ON';
+                        }
+                        if (data.params.uv3) {
+                            const btn = document.getElementById('btn_uv3');
+                            btn.classList.add('active');
+                            btn.textContent = 'UV3 ON';
+                        }
+                    }
+                })
+                .catch(e => console.error('Failed to load status:', e));
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+            for (const chart of Object.values(charts)) {
+                chart.stop();
+            }
+        });
+    </script>
+</body>
+</html>
