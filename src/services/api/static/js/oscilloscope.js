@@ -100,6 +100,10 @@ class OscilloscopeChart {
     
     /**
      * Update cached Y-axis range based on current data
+     * 
+     * Special handling for laser frequency chart:
+     * - Minimum range: 1 GHz
+     * - Maximum: 120% of data span in last 30s
      */
     updateYRange() {
         if (this.data.length === 0) return;
@@ -108,7 +112,35 @@ class OscilloscopeChart {
         let min = Math.min(...values);
         let max = Math.max(...values);
         
-        // Add padding
+        // Special handling for laser frequency (laser_freq) chart
+        if (this.options.label === 'Laser Frequency') {
+            // Get data from last 30 seconds only for range calculation
+            const now = Date.now() / 1000;
+            const thirtySecondsAgo = now - 30;
+            const recentData = this.data.filter(p => p.t >= thirtySecondsAgo);
+            
+            if (recentData.length >= 2) {
+                const recentValues = recentData.map(p => p.v);
+                const recentMin = Math.min(...recentValues);
+                const recentMax = Math.max(...recentValues);
+                const recentSpan = recentMax - recentMin;
+                
+                // Maximum is 120% of the data span in last 30s
+                const targetRange = Math.max(1.0, recentSpan * 1.2); // minimum 1 GHz, max 120% of span
+                const center = (recentMin + recentMax) / 2;
+                
+                this.yRange.min = center - targetRange / 2;
+                this.yRange.max = center + targetRange / 2;
+            } else {
+                // Not enough recent data, use default 1 GHz range centered on available data
+                const center = recentData.length > 0 ? recentData[0].v : (min + max) / 2;
+                this.yRange.min = center - 0.5;
+                this.yRange.max = center + 0.5;
+            }
+            return;
+        }
+        
+        // Standard auto-scaling for other charts
         const range = max - min;
         const padding = range === 0 ? Math.abs(max) * 0.1 || 0.1 : range * this.options.yAxisPadding;
         
