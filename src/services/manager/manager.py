@@ -273,10 +273,22 @@ class WavemeterInterface:
         # Regex for finding frequency values in text
         self.freq_pattern = re.compile(r'(\d{3,}\.\d+)')
         
+        # Telemetry callback for ControlManager
+        self._telemetry_callback = None
+        
         if self.enabled:
             self.logger.info(f"Wavemeter Interface initialized ({self.host}:{self.port})")
         else:
             self.logger.info("Wavemeter Interface disabled")
+    
+    def set_telemetry_callback(self, callback):
+        """
+        Set callback for telemetry storage.
+        
+        Args:
+            callback: Function with signature (freq_ghz: float, timestamp: float)
+        """
+        self._telemetry_callback = callback
     
     def start(self):
         """Start the wavemeter data collection thread."""
@@ -446,6 +458,13 @@ class WavemeterInterface:
                 update_data_source("wavemeter", timestamp)
             except Exception as e:
                 self.logger.debug(f"Failed to store telemetry: {e}")
+        
+        # Store in ControlManager's telemetry buffer (for IPC to Flask)
+        if self._telemetry_callback:
+            try:
+                self._telemetry_callback(freq_ghz, timestamp)
+            except Exception as e:
+                self.logger.debug(f"Failed to store telemetry via callback: {e}")
         
         # Log periodically (every 5 seconds)
         if int(timestamp) % 5 == 0:
@@ -1026,6 +1045,21 @@ class ControlManager:
         # Kill Switch Manager
         self.kill_switch = ManagerKillSwitch()
         
+        # Telemetry data storage (for publishing to Flask)
+        from collections import deque
+        self._telemetry_data = {
+            "laser_freq": deque(maxlen=1000),
+            "pressure": deque(maxlen=1000),
+            "pmt": deque(maxlen=1000),
+            "pos_x": deque(maxlen=1000),
+            "pos_y": deque(maxlen=1000),
+            "sig_x": deque(maxlen=1000),
+            "sig_y": deque(maxlen=1000),
+        }
+        self._telemetry_lock = threading.RLock()
+        self.telemetry_pub_port = self.config.get('network.telemetry_port', 5559)
+        self.telemetry_pub_socket = None
+        
         # LabVIEW Interface
         self.labview: Optional[LabVIEWInterface] = None
         self._init_labview()
@@ -1044,6 +1078,10 @@ class ControlManager:
         # Wavemeter Interface (HighFinesse WS7 frequency data)
         self.wavemeter: Optional[WavemeterInterface] = None
         self._init_wavemeter()
+        
+        # Link wavemeter to telemetry storage
+        if self.wavemeter:
+            self.wavemeter.set_telemetry_callback(self._store_wavemeter_telemetry)
         
         # Optimizer Controller (Bayesian optimization)
         self.optimizer_controller: Optional[OptimizerController] = None
@@ -1290,6 +1328,11 @@ class ControlManager:
         timeout_ms = int(self.config.get_network('receive_timeout') * 1000)
         self.pull_socket.setsockopt(zmq.RCVTIMEO, timeout_ms)
         self.logger.info(f"Data socket bound to port {self.data_port} (PULL)")
+        
+        # 4. Telemetry socket for Flask - PUB pattern (high-frequency data)
+        self.telemetry_pub_socket = self.ctx.socket(zmq.PUB)
+        self.telemetry_pub_socket.bind(f"tcp://*:{self.telemetry_pub_port}")
+        self.logger.info(f"Telemetry socket bound to port {self.telemetry_pub_port} (PUB)")
     
     def _start_background_threads(self):
         """Start background worker threads."""
@@ -1316,6 +1359,14 @@ class ControlManager:
             name="TurboCoordinator"
         )
         self.turbo_thread.start()
+        
+        # Telemetry publisher - publishes real-time data to Flask
+        self.telemetry_thread = threading.Thread(
+            target=self._telemetry_publisher_loop,
+            daemon=True,
+            name="TelemetryPublisher"
+        )
+        self.telemetry_thread.start()
     
     def run(self):
         """Main loop: Handle Client Requests (Flask/TuRBO)."""
@@ -2361,6 +2412,67 @@ class ControlManager:
                 self.logger.error(f"Turbo coordinator error: {e}")
                 time.sleep(1)
     
+    def _telemetry_publisher_loop(self):
+        """
+        Background thread to publish telemetry data to Flask via ZMQ PUB.
+        
+        Publishes at 2Hz with the latest telemetry data from all sources.
+        """
+        self.logger.info("Telemetry publisher started")
+        
+        while self.running:
+            try:
+                # Collect telemetry data from all sources
+                telemetry_packet = {
+                    "timestamp": time.time(),
+                    "type": "TELEMETRY_UPDATE",
+                    "data": {}
+                }
+                
+                # Get wavemeter data
+                if self.wavemeter:
+                    reading = self.wavemeter.get_current_reading()
+                    if reading.get("last_update"):
+                        # Store in local buffer
+                        with self._telemetry_lock:
+                            self._telemetry_data["laser_freq"].append((
+                                reading["last_update"],
+                                reading["frequency_ghz"]
+                            ))
+                
+                # Get LabVIEW file reader data
+                if hasattr(self, 'labview_data_reader') and self.labview_data_reader:
+                    reader_stats = self.labview_data_reader.get_stats()
+                    # The file reader already stores data via data_server
+                    # We'll include its stats in the packet
+                    telemetry_packet["data_sources"] = {
+                        "wavemeter": {
+                            "connected": self.wavemeter.connected if self.wavemeter else False,
+                            "reading_count": self.wavemeter.reading_count if self.wavemeter else 0,
+                        } if self.wavemeter else {"connected": False},
+                        "labview_reader": reader_stats
+                    }
+                
+                # Get current buffer contents
+                with self._telemetry_lock:
+                    # Convert deques to lists for serialization
+                    for key, buf in self._telemetry_data.items():
+                        # Get last 300 points (5 minutes at 1Hz)
+                        points = list(buf)[-300:]
+                        telemetry_packet["data"][key] = [
+                            {"t": ts, "v": val} for ts, val in points
+                        ]
+                
+                # Publish to Flask and other subscribers
+                if self.telemetry_pub_socket:
+                    self.telemetry_pub_socket.send_json(telemetry_packet)
+                
+                time.sleep(0.5)  # 2 Hz publish rate
+                
+            except Exception as e:
+                self.logger.error(f"Telemetry publisher error: {e}")
+                time.sleep(1)
+    
     # ==========================================================================
     # SAFETY
     # ==========================================================================
@@ -2440,6 +2552,15 @@ class ControlManager:
         except Exception as e:
             self.logger.error(f"Failed to initialize wavemeter interface: {e}")
             self.wavemeter = None
+    
+    def _store_wavemeter_telemetry(self, freq_ghz: float, timestamp: float):
+        """
+        Callback for wavemeter to store telemetry data.
+        
+        This stores data in the manager's telemetry buffer for publishing to Flask.
+        """
+        with self._telemetry_lock:
+            self._telemetry_data["laser_freq"].append((timestamp, freq_ghz))
     
     # ==========================================================================
     # OPTIMIZER INTEGRATION - Bayesian Optimization for Ion Loading
@@ -3096,6 +3217,8 @@ class ControlManager:
         self.client_socket.close()
         self.pub_socket.close()
         self.pull_socket.close()
+        if self.telemetry_pub_socket:
+            self.telemetry_pub_socket.close()
         self.ctx.term()
         
         self.logger.info("Control Manager stopped")

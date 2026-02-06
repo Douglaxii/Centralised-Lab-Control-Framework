@@ -248,6 +248,7 @@ config = get_config()
 # Network configuration
 MANAGER_IP = config.get_network('master_ip') or "127.0.0.1"
 MANAGER_PORT = config.client_port
+TELEMETRY_PORT = config.get('network.telemetry_port', 5559)
 
 # Camera configuration
 CAMERA_HOST = config.get_camera_setting('host') or "127.0.0.1"
@@ -393,7 +394,21 @@ KILL_SWITCH_LIMITS = {
 
 zmq_ctx = zmq.Context()
 manager_socket: Optional[zmq.Socket] = None
+telemetry_sub_socket: Optional[zmq.Socket] = None
 zmq_lock = threading.Lock()
+
+# Telemetry data cache - populated by ZMQ subscriber thread
+telemetry_cache = {
+    "laser_freq": [],
+    "pressure": [],
+    "pmt": [],
+    "pos_x": [],
+    "pos_y": [],
+    "sig_x": [],
+    "sig_y": [],
+}
+telemetry_cache_lock = threading.RLock()
+last_telemetry_update = 0
 
 
 def get_manager_socket() -> zmq.Socket:
@@ -406,6 +421,74 @@ def get_manager_socket() -> zmq.Socket:
         manager_socket.setsockopt(zmq.LINGER, 0)  # Don't wait on close
         logger.info(f"Connected to manager at {MANAGER_IP}:{MANAGER_PORT}")
     return manager_socket
+
+
+def get_telemetry_sub_socket() -> zmq.Socket:
+    """Get or create ZMQ SUB socket for telemetry data."""
+    global telemetry_sub_socket
+    if telemetry_sub_socket is None:
+        telemetry_sub_socket = zmq_ctx.socket(zmq.SUB)
+        telemetry_sub_socket.connect(f"tcp://{MANAGER_IP}:{TELEMETRY_PORT}")
+        telemetry_sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")  # Subscribe to all
+        telemetry_sub_socket.setsockopt(zmq.RCVTIMEO, 1000)  # 1 second timeout
+        telemetry_sub_socket.setsockopt(zmq.LINGER, 0)
+        logger.info(f"Connected to telemetry stream at {MANAGER_IP}:{TELEMETRY_PORT}")
+    return telemetry_sub_socket
+
+
+def telemetry_subscriber_loop():
+    """
+    Background thread to receive telemetry data from Manager.
+    
+    Receives ZMQ PUB messages and updates the local telemetry cache.
+    """
+    global last_telemetry_update
+    logger.info("Telemetry subscriber thread started")
+    
+    while True:
+        try:
+            sock = get_telemetry_sub_socket()
+            try:
+                packet = sock.recv_json()
+                
+                if packet.get("type") == "TELEMETRY_UPDATE":
+                    data = packet.get("data", {})
+                    timestamp = packet.get("timestamp", time.time())
+                    
+                    with telemetry_cache_lock:
+                        for key, points in data.items():
+                            if key in telemetry_cache:
+                                # Convert back to list of tuples for consistency
+                                telemetry_cache[key] = [
+                                    (p["t"], p["v"]) for p in points
+                                ]
+                        last_telemetry_update = timestamp
+                        
+            except zmq.Again:
+                # Timeout, continue loop
+                continue
+            except zmq.ZMQError as e:
+                logger.error(f"Telemetry ZMQ error: {e}")
+                global telemetry_sub_socket
+                try:
+                    telemetry_sub_socket.close()
+                except:
+                    pass
+                telemetry_sub_socket = None
+                time.sleep(1)
+                
+        except Exception as e:
+            logger.error(f"Telemetry subscriber error: {e}")
+            time.sleep(1)
+
+
+# Start telemetry subscriber thread
+telemetry_thread = threading.Thread(
+    target=telemetry_subscriber_loop,
+    daemon=True,
+    name="TelemetrySubscriber"
+)
+telemetry_thread.start()
 
 
 def send_to_manager(message: Dict[str, Any], timeout_ms: int = 5000) -> Dict[str, Any]:
@@ -905,27 +988,24 @@ def get_telemetry_for_time_window(window_seconds: float = 300.0) -> Dict[str, Li
     Get telemetry data for specified time window.
 
     Returns data points with timestamps for accurate time-based rendering.
-    Only returns real data from LabVIEW sources (no mock data).
+    Uses data from ZMQ telemetry subscriber (inter-process communication).
     """
     now = time.time()
     cutoff = now - window_seconds
     result = {}
 
-    # Get real data from DataIngestionServer (LabVIEW sources)
-    if TELEMETRY_AVAILABLE:
-        try:
-            real_telemetry, real_lock = get_telemetry_data()
-            with real_lock:
-                for key, deque_data in real_telemetry.items():
-                    points = [
-                        {"t": ts, "v": val}
-                        for ts, val in deque_data
-                        if ts >= cutoff
-                    ]
-                    if points:
-                        result[key] = points
-        except Exception as e:
-            logger.debug(f"Could not get real telemetry data: {e}")
+    # Get data from telemetry cache (populated by ZMQ subscriber thread)
+    with telemetry_cache_lock:
+        for key, points in telemetry_cache.items():
+            if points:
+                # Filter by time window and convert to output format
+                filtered = [
+                    {"t": ts, "v": val}
+                    for ts, val in points
+                    if ts >= cutoff
+                ]
+                if filtered:
+                    result[key] = filtered
 
     return result
 
@@ -961,12 +1041,22 @@ def telemetry_generator():
                     "safety_engaged": turbo_state["safety_engaged"]
                 }
 
-            # Add data source status (LabVIEW connections)
-            if TELEMETRY_AVAILABLE:
-                try:
-                    data["data_sources"] = get_data_sources()
-                except:
-                    data["data_sources"] = {}
+            # Add data source status from telemetry stream
+            with telemetry_cache_lock:
+                # Check if we have recent telemetry data
+                telemetry_age = time.time() - last_telemetry_update
+                data["data_sources"] = {
+                    "wavemeter": {
+                        "connected": telemetry_age < 5.0,  # Connected if update within 5s
+                        "last_seen": last_telemetry_update if last_telemetry_update > 0 else None,
+                        "source": "telemetry_stream"
+                    },
+                    "telemetry_stream": {
+                        "active": last_telemetry_update > 0,
+                        "last_update": last_telemetry_update,
+                        "age_seconds": telemetry_age if last_telemetry_update > 0 else None
+                    }
+                }
 
             yield f"data: {json.dumps(data)}\n\n"
             time.sleep(0.5)  # 2 Hz update rate

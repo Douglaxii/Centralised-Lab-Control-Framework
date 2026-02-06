@@ -42,6 +42,7 @@ profiles:
       data_port: 5556                 # ARTIQ -> Manager data
       client_port: 5557               # Flask -> Manager requests
       camera_port: 5558               # Camera server
+      telemetry_port: 5560            # Manager -> Flask telemetry (PUB/SUB)
       
       # Timeouts (seconds)
       connection_timeout: 5.0
@@ -339,6 +340,7 @@ profiles:
       data_port: 5556
       client_port: 5557
       camera_port: 5558
+      telemetry_port: 5560
       
       connection_timeout: 5.0
       receive_timeout: 1.0
