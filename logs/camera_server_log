@@ -1,0 +1,66 @@
+(base) PS E:\mls> & C:/Users/Hamamatsu/AppData/Local/Programs/Python/Python312/python.exe e:/mls/src/services/camera/camera_server.py
+Traceback (most recent call last):
+  File "e:\mls\src\services\camera\camera_server.py", line 41, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera, clear_inf_frames
+  File "e:\mls\src\services\camera\camera_logic.py", line 1, in <module>
+    from .camera_recording import (
+ImportError: attempted relative import with no known parent package
+(base) PS E:\mls> conda install screeninfo
+Retrieving notices: ...working... done
+Channels:
+ - defaults
+Platform: win-64
+Collecting package metadata (repodata.json): done
+Solving environment: failed
+
+PackagesNotFoundError: The following packages are not available from current channels:
+
+  - screeninfo
+
+Current channels:
+
+  - defaults
+
+To search for alternate channels that may provide the conda package you're
+looking for, navigate to
+
+    https://anaconda.org
+
+and use the search bar at the top of the page.
+
+
+(base) PS E:\mls> pip install screeninfo
+Requirement already satisfied: screeninfo in c:\users\hamamatsu\anaconda3\lib\site-packages (0.8.1)
+(base) PS E:\mls> & C:/Users/Hamamatsu/AppData/Local/Programs/Python/Python312/python.exe e:/mls/src/services/camera/camera_server.py
+Traceback (most recent call last):
+  File "e:\mls\src\services\camera\camera_server.py", line 41, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera, clear_inf_frames
+  File "e:\mls\src\services\camera\camera_logic.py", line 1, in <module>
+    from .camera_recording import (
+ImportError: attempted relative import with no known parent package
+(base) PS E:\mls> & C:/Users/Hamamatsu/AppData/Local/Programs/Python/Python312/python.exe e:/mls/src/services/camera/camera_server.py
+Traceback (most recent call last):
+  File "e:\mls\src\services\camera\camera_server.py", line 41, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera, clear_inf_frames
+  File "e:\mls\src\services\camera\camera_logic.py", line 1, in <module>
+    from .camera_recording import (
+ImportError: attempted relative import with no known parent package
+(base) PS E:\mls> & C:/Users/Hamamatsu/AppData/Local/Programs/Python/Python312/python.exe e:/mls/src/services/camera/camera_server.py
+Traceback (most recent call last):
+  File "e:\mls\src\services\camera\camera_server.py", line 41, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera, clear_inf_frames
+  File "e:\mls\src\services\camera\camera_logic.py", line 1, in <module>
+    from .camera_recording import (
+ImportError: attempted relative import with no known parent package
+(base) PS E:\mls> & C:/Users/Hamamatsu/AppData/Local/Programs/Python/Python312/python.exe e:/mls/src/services/camera/camera_server.py
+Traceback (most recent call last):
+  File "e:\mls\src\services\camera\camera_server.py", line 41, in <module>
+    from camera_logic import start_camera, start_camera_inf, stop_camera, clear_inf_frames
+  File "e:\mls\src\services\camera\camera_logic.py", line 1, in <module>
+    from camera_recording import (
+  File "e:\mls\src\services\camera\camera_recording.py", line 34, in <module>
+    from utils.dcamcon_live_capturing import show_framedata
+  File "e:\mls\src\services\camera\utils\dcamcon_live_capturing.py", line 19, in <module>
+    from screeninfo import get_monitors
+ModuleNotFoundError: No module named 'screeninfo'
+(base) PS E:\mls> 
