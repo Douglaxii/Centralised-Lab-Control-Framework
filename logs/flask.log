@@ -10,3 +10,13 @@
 2026-02-05 20:46:19,953 - [flask] - INFO - Flask Dashboard Server Starting...
 2026-02-05 20:46:19,954 - [flask] - INFO - Manager: 192.168.56.101:5557
 2026-02-05 20:46:19,954 - [flask] - INFO - Camera labelled frames path: D:\MHI\mls\data\camera\frames_labelled
+2026-02-06 13:42:21,218 - [flask] - INFO - ============================================================
+2026-02-06 13:42:21,219 - [flask] - INFO - [STARTUP] Flask Dashboard Server Starting...
+2026-02-06 13:42:21,219 - [flask] - INFO - ============================================================
+2026-02-06 13:42:21,220 - [flask] - INFO - [STARTUP] Manager ZMQ endpoint: 192.168.56.101:5557
+2026-02-06 13:42:21,220 - [flask] - INFO - [STARTUP] Flask HTTP server: http://0.0.0.0:5000
+2026-02-06 13:42:21,220 - [flask] - INFO - [STARTUP] Camera frames path: d:\Centralised-Lab-Control-Framework\data\jpg_frames_labelled
+2026-02-06 13:42:21,220 - [flask] - INFO - [STARTUP] Kill switch limits: Piezo=10.0s, E-Gun=30.0s
+2026-02-06 13:42:21,221 - [flask] - INFO - [STARTUP] All API endpoints registered
+2026-02-06 13:42:21,221 - [flask] - INFO - [STARTUP] Ready to accept connections
+2026-02-06 13:42:21,221 - [flask] - INFO - ------------------------------------------------------------

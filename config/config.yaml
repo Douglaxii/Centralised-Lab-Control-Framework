@@ -15,7 +15,7 @@
 # ACTIVE ENVIRONMENT
 # =============================================================================
 # Set to 'development' for laptop testing, 'production' for lab
-environment: production
+environment: development
 
 
 # =============================================================================
@@ -343,6 +343,7 @@ profiles:
       connection_timeout: 5.0
       receive_timeout: 1.0
       heartbeat_interval: 10.0
+      watchdog_timeout: 30.0
       
       max_retries: 5
       retry_base_delay: 1.0

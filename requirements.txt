@@ -13,8 +13,8 @@ scipy>=1.10.0
 
 # Camera (Hamamatsu DCAM-API)
 # Requires proprietary DCAM-API SDK
-# opencv-python>=4.8.0
-# screeninfo>=0.8
+opencv-python>=4.8.0
+screeninfo>=0.8
 
 # Web UI
 flask>=2.3.0
