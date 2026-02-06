@@ -15,7 +15,7 @@
 # ACTIVE ENVIRONMENT
 # =============================================================================
 # Set to 'development' for laptop testing, 'production' for lab
-environment: development
+environment: production
 
 
 # =============================================================================
@@ -386,14 +386,14 @@ profiles:
     paths:
       base: "Y:/Xi/Data"
       
-      camera_raw: "Y:/Xi/Data/camera/raw"
+      camera_raw: "E:/Data/camera/raw"
       camera_processed: "E:/Data/camera/processed"  # Local for speed
-      camera_dcimg: "Y:/Xi/Data/camera/dcimg"
+      camera_dcimg: "E:/Data/camera/dcimg"
       
-      experiments: "Y:/Xi/Data/experiments"
-      analysis: "Y:/Xi/Data/analysis"
+      experiments: "E:/Data/experiments"
+      analysis: "E:/Data/analysis"
       
-      logs: "Y:/Xi/Data/logs"
+      logs: "E:/Data/logs"
       
       artiq_results: "C:/artiq-master/results"
       dac_settings: "artiq/Settings/DAC/2944_dac_diff_fits.json"
@@ -441,9 +441,9 @@ profiles:
         
         processing:
           enabled: true
-          filter_radius: 6
+          filter_radius: 12
           threshold_sigma: 3.0
-          max_ions: 5
+          max_ions: 10
 
     # -------------------------------------------------------------------------
     # LabVIEW Integration (Enabled in production)
