@@ -803,7 +803,9 @@ class LabVIEWInterface:
         """
         with self.lock:
             if not self.connected:
+                self.logger.info(f"[TCP] Not connected, attempting to connect to LabVIEW...")
                 if not self.connect():
+                    self.logger.error(f"[TCP] Failed to connect to LabVIEW for command: {command.device}")
                     return None
             
             try:
@@ -816,23 +818,25 @@ class LabVIEWInterface:
                 
                 # Send command with newline terminator
                 message = json.dumps(simplified_cmd) + "\n"
+                self.logger.info(f"[TCP->LabVIEW] {command.device}={simplified_cmd['value']}")
                 self.socket.sendall(message.encode('utf-8'))
-                
-                self.logger.debug(f"Sent to LabVIEW: {simplified_cmd}")
                 
                 # Wait for response (blocking read)
                 response_data = self.socket.recv(4096).decode('utf-8').strip()
                 
                 if not response_data:
+                    self.logger.warning("[TCP] Empty response from LabVIEW")
                     return None
                 
                 # Try to parse response, but don't fail if LabVIEW doesn't send JSON
                 try:
                     response_dict = json.loads(response_data)
+                    self.logger.debug(f"[TCP<-LabVIEW] JSON response: {response_dict}")
                     return LabVIEWResponse.from_dict(response_dict)
                 except json.JSONDecodeError:
                     # LabVIEW might send simple OK/ERROR response
                     if response_data.upper() in ("OK", "SUCCESS"):
+                        self.logger.debug(f"[TCP<-LabVIEW] OK")
                         return LabVIEWResponse(
                             request_id=command.request_id,
                             status="ok",
@@ -840,6 +844,7 @@ class LabVIEWInterface:
                             value=command.value
                         )
                     else:
+                        self.logger.warning(f"[TCP<-LabVIEW] Error: {response_data}")
                         return LabVIEWResponse(
                             request_id=command.request_id,
                             status="error",
@@ -849,14 +854,14 @@ class LabVIEWInterface:
                         )
                 
             except socket.timeout:
-                self.logger.warning("LabVIEW response timeout")
+                self.logger.warning("[TCP] LabVIEW response timeout")
                 self.connected = False
                 return None
             except json.JSONDecodeError as e:
-                self.logger.error(f"Invalid JSON response: {e}")
+                self.logger.error(f"[TCP] Invalid JSON response: {e}")
                 return None
             except Exception as e:
-                self.logger.error(f"Communication error: {e}")
+                self.logger.error(f"[TCP] Communication error: {e}")
                 self.connected = False
                 return None
     
@@ -890,14 +895,14 @@ class LabVIEWInterface:
             
             if response and response.status == "ok":
                 if attempt > 0:
-                    self.logger.info(f"Command succeeded after {attempt + 1} attempts")
+                    self.logger.info(f"[TCP] Command {device}={value} succeeded after {attempt + 1} attempts")
                 return True
             
             if attempt < retries:
-                self.logger.warning(f"Command failed, retrying ({attempt + 1}/{retries})...")
+                self.logger.warning(f"[TCP] Command {device}={value} failed, retrying ({attempt + 1}/{retries})...")
                 time.sleep(self.retry_delay)
         
-        self.logger.error(f"Command failed after {retries + 1} attempts")
+        self.logger.error(f"[TCP] Command {device}={value} failed after {retries + 1} attempts")
         return False
     
     # ==================================================================
@@ -915,6 +920,7 @@ class LabVIEWInterface:
         Returns:
             True if successful
         """
+        self.logger.info(f"[LABVIEW CMD] set_rf_voltage: {voltage_mv}mV")
         return self.send_command(
             LabVIEWCommandType.SET_VOLTAGE,
             "u_rf",
@@ -935,6 +941,8 @@ class LabVIEWInterface:
         Returns:
             True if successful
         """
+        self.logger.info(f"[LABVIEW CMD] set_piezo_voltage: {voltage}V (bypass_ks={bypass_kill_switch})")
+        
         # Handle kill switch
         if not bypass_kill_switch:
             if voltage > 0:
@@ -950,6 +958,8 @@ class LabVIEWInterface:
     
     def set_be_oven(self, state: int) -> bool:
         """Control Be+ oven (1=on, 0=off)."""
+        state_str = "ON" if state else "OFF"
+        self.logger.info(f"[LABVIEW CMD] set_be_oven: {state_str}")
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "be_oven",
@@ -958,6 +968,8 @@ class LabVIEWInterface:
     
     def set_b_field(self, state: int) -> bool:
         """Control B-field (1=on, 0=off)."""
+        state_str = "ON" if state else "OFF"
+        self.logger.info(f"[LABVIEW CMD] set_b_field: {state_str}")
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "b_field",
@@ -966,6 +978,8 @@ class LabVIEWInterface:
     
     def set_bephi(self, state: int) -> bool:
         """Control Bephi (1=on, 0=off)."""
+        state_str = "ON" if state else "OFF"
+        self.logger.info(f"[LABVIEW CMD] set_bephi: {state_str}")
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "bephi",
@@ -974,6 +988,8 @@ class LabVIEWInterface:
     
     def set_uv3(self, state: int) -> bool:
         """Control UV3 laser (1=on, 0=off)."""
+        state_str = "ON" if state else "OFF"
+        self.logger.info(f"[LABVIEW CMD] set_uv3: {state_str}")
         return self.send_command(
             LabVIEWCommandType.SET_TOGGLE,
             "uv3",
@@ -992,6 +1008,9 @@ class LabVIEWInterface:
             bypass_kill_switch: If True, bypass kill switch (for callbacks)
         """
         state_int = int(1 if state else 0)
+        state_str = "ON" if state_int else "OFF"
+        self.logger.info(f"[LABVIEW CMD] set_e_gun: {state_str} (bypass_ks={bypass_kill_switch})")
+        
         # Handle kill switch
         if not bypass_kill_switch:
             if state_int:
@@ -1015,6 +1034,8 @@ class LabVIEWInterface:
         Returns:
             True if successful
         """
+        state_str = "ON" if state else "OFF"
+        self.logger.info(f"[LABVIEW CMD] set_hd_valve: {state_str}")
         return self.send_command(
             LabVIEWCommandType.SET_SHUTTER,
             "hd_valve",
@@ -1031,6 +1052,7 @@ class LabVIEWInterface:
         Returns:
             True if successful
         """
+        self.logger.info(f"[LABVIEW CMD] set_dds_frequency: {frequency_mhz}MHz")
         return self.send_command(
             LabVIEWCommandType.SET_FREQUENCY,
             "dds",
@@ -1047,7 +1069,7 @@ class LabVIEWInterface:
             True if successful
         """
         # Trigger kill switches first
-        self.logger.error("Emergency stop: triggering kill switches")
+        self.logger.error("[LABVIEW CMD] EMERGENCY STOP - Triggering kill switches")
         self.kill_switch.trigger("piezo", "EMERGENCY_STOP")
         self.kill_switch.trigger("e_gun", "EMERGENCY_STOP")
         
@@ -1065,6 +1087,7 @@ class LabVIEWInterface:
         Returns:
             Status dictionary or None if failed
         """
+        self.logger.debug("[LABVIEW CMD] get_status")
         command = LabVIEWCommand(
             command=LabVIEWCommandType.GET_STATUS.value,
             device="all",
@@ -1075,6 +1098,7 @@ class LabVIEWInterface:
         
         response = self._send_command_raw(command)
         if response and response.status == "ok":
+            self.logger.debug(f"[LABVIEW] Status received: {response.value}")
             return {
                 "device": response.device,
                 "value": response.value,
@@ -1093,6 +1117,7 @@ class LabVIEWInterface:
         Returns:
             Dictionary of device -> success status
         """
+        self.logger.warning("[LABVIEW] Applying safety defaults...")
         results = {}
         
         # Voltages to 0
@@ -1107,7 +1132,11 @@ class LabVIEWInterface:
         results["e_gun"] = self.set_e_gun(0)
         results["hd_valve"] = self.set_hd_valve(0)
         
-        self.logger.info(f"Safety defaults applied: {results}")
+        failed = [k for k, v in results.items() if not v]
+        if failed:
+            self.logger.warning(f"[LABVIEW] Safety defaults applied with failures: {failed}")
+        else:
+            self.logger.info("[LABVIEW] Safety defaults applied successfully")
         return results
     
     def apply_state(self, params: Dict[str, Any]) -> Dict[str, bool]:
@@ -1120,6 +1149,7 @@ class LabVIEWInterface:
         Returns:
             Dictionary of parameter -> success status
         """
+        self.logger.info(f"[LABVIEW] Applying state: {params}")
         results = {}
         
         # Map internal parameter names to LabVIEW devices
@@ -1142,11 +1172,16 @@ class LabVIEWInterface:
                 try:
                     results[param] = setter(value)
                 except Exception as e:
-                    self.logger.error(f"Failed to set {param}: {e}")
+                    self.logger.error(f"[LABVIEW] Failed to set {param}: {e}")
                     results[param] = False
             elif param == "dds_freq_mhz":
                 results[param] = self.set_dds_frequency(value)
         
+        failed = [k for k, v in results.items() if not v]
+        if failed:
+            self.logger.warning(f"[LABVIEW] State applied with failures: {failed}")
+        else:
+            self.logger.info(f"[LABVIEW] State applied successfully: {list(results.keys())}")
         return results
     
     def is_connected(self) -> bool:

@@ -411,6 +411,8 @@ def get_manager_socket() -> zmq.Socket:
 def send_to_manager(message: Dict[str, Any], timeout_ms: int = 5000) -> Dict[str, Any]:
     """
     Send request to manager and return response with retry logic.
+    
+    Logs all outgoing requests and incoming responses for debugging.
 
     Args:
         message: Request dictionary
@@ -420,15 +422,28 @@ def send_to_manager(message: Dict[str, Any], timeout_ms: int = 5000) -> Dict[str
         Response dictionary
     """
     global manager_socket
+    action = message.get("action", "UNKNOWN")
+    source = message.get("source", "FLASK")
+    
+    # Log the outgoing request
+    logger.info(f"[ZMQ OUT] action={action}, source={source}, params={message.get('params', message.get('device', 'N/A'))}")
+    
     with zmq_lock:
         for attempt in range(2):  # Retry once
             try:
                 sock = get_manager_socket()
                 sock.setsockopt(zmq.RCVTIMEO, timeout_ms)
                 sock.send_json(message)
-                return sock.recv_json()
+                response = sock.recv_json()
+                # Log the incoming response
+                resp_status = response.get("status", "unknown")
+                if resp_status == "success":
+                    logger.info(f"[ZMQ IN]  action={action} -> status=success")
+                else:
+                    logger.warning(f"[ZMQ IN]  action={action} -> status={resp_status}, message={response.get('message', 'N/A')}")
+                return response
             except zmq.Again:
-                logger.warning(f"Manager request timeout (attempt {attempt + 1})")
+                logger.warning(f"[ZMQ] Manager request timeout (attempt {attempt + 1}/2) for action={action}")
                 if manager_socket:
                     try:
                         manager_socket.close()
@@ -438,17 +453,19 @@ def send_to_manager(message: Dict[str, Any], timeout_ms: int = 5000) -> Dict[str
                 if attempt == 0:
                     time.sleep(0.1)  # Brief delay before retry
                 else:
+                    logger.error(f"[ZMQ] Manager timeout for action={action} after 2 attempts")
                     return {"status": "error", "message": "Manager timeout", "code": "TIMEOUT"}
             except zmq.ZMQError as e:
-                logger.error(f"ZMQ error: {e}")
+                logger.error(f"[ZMQ] ZMQ error for action={action}: {e}")
                 manager_socket = None
                 if attempt == 0:
                     time.sleep(0.1)
                 else:
                     return {"status": "error", "message": f"ZMQ error: {e}", "code": "ZMQ_ERROR"}
             except Exception as e:
-                logger.error(f"Manager request failed: {e}")
+                logger.error(f"[ZMQ] Manager request failed for action={action}: {e}")
                 return {"status": "error", "message": str(e), "code": "EXCEPTION"}
+        logger.error(f"[ZMQ] Max retries exceeded for action={action}")
         return {"status": "error", "message": "Max retries exceeded", "code": "MAX_RETRIES"}
 
 
@@ -1303,6 +1320,7 @@ def turbo_logs_stream():
 @app.route('/api/status')
 def get_status():
     """Get current system status including data sources and kill switch status."""
+    logger.debug(f"[API] GET /api/status from {request.remote_addr}")
     # Query manager for fresh state
     resp = send_to_manager({"action": "STATUS", "source": "FLASK"})
 
@@ -1434,9 +1452,11 @@ def get_wavemeter_frequency():
 @app.route('/api/control/electrodes', methods=['POST'])
 def set_electrodes():
     """Set electrode voltages (EC1, EC2, Comp_H, Comp_V)."""
+    logger.info(f"[API] POST /api/control/electrodes from {request.remote_addr}")
     try:
         data = request.get_json()
         if not data:
+            logger.warning("[API] No JSON data provided")
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
 
         params = {
@@ -1445,10 +1465,12 @@ def set_electrodes():
             "comp_h": float(data.get("comp_h", 0)),
             "comp_v": float(data.get("comp_v", 0)),
         }
+        logger.info(f"[API] Setting electrodes: {params}")
 
         # Validate ranges
         for name, value in params.items():
             if not -100 <= value <= 100:
+                logger.warning(f"[API] Validation failed: {name}={value} out of range")
                 return jsonify({
                     "status": "error",
                     "message": f"{name} value {value} out of range [-100, 100]"
@@ -1463,8 +1485,10 @@ def set_electrodes():
         if resp.get("status") == "success":
             with state_lock:
                 current_state["params"].update(params)
+            logger.info(f"[API] Electrodes set successfully: {params}")
             return jsonify({"status": "success", "params": params})
         else:
+            logger.error(f"[API] Failed to set electrodes: {resp.get('message')}")
             return jsonify({
                 "status": "error",
                 "message": resp.get("message", "Failed"),
@@ -1472,25 +1496,30 @@ def set_electrodes():
             }), 400
 
     except ValueError as e:
+        logger.warning(f"[API] Invalid value in electrode request: {e}")
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
-        logger.error(f"Electrode control error: {e}")
+        logger.error(f"[API] Electrode control error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/api/control/rf', methods=['POST'])
 def set_rf_voltage():
     """Set RF voltage (U_RF in volts, 0-200V)."""
+    logger.info(f"[API] POST /api/control/rf from {request.remote_addr}")
     try:
         data = request.get_json()
         if not data:
+            logger.warning("[API] No JSON data provided")
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
 
         # Accept either 'u_rf_volts' (preferred) or 'u_rf' (legacy)
         u_rf_volts = float(data.get("u_rf_volts") or data.get("u_rf", 200))
+        logger.info(f"[API] Setting RF voltage: {u_rf_volts}V")
 
         # Validate range (real voltage U_RF 0-200V)
         if not 0 <= u_rf_volts <= 200:
+            logger.warning(f"[API] RF voltage {u_rf_volts}V out of range")
             return jsonify({
                 "status": "error",
                 "message": f"RF voltage {u_rf_volts} V out of range [0, 200]"
@@ -1505,17 +1534,20 @@ def set_rf_voltage():
         if resp.get("status") == "success":
             with state_lock:
                 current_state["params"]["u_rf_volts"] = u_rf_volts
+            logger.info(f"[API] RF voltage set to {u_rf_volts}V")
             return jsonify({"status": "success", "u_rf_volts": u_rf_volts})
         else:
+            logger.error(f"[API] Failed to set RF voltage: {resp.get('message')}")
             return jsonify({
                 "status": "error",
                 "message": resp.get("message", "Failed")
             }), 400
 
     except ValueError as e:
+        logger.warning(f"[API] Invalid RF voltage value: {e}")
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
-        logger.error(f"RF control error: {e}")
+        logger.error(f"[API] RF control error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -1543,15 +1575,19 @@ def set_piezo_setpoint():
     Request: {"voltage": 2.5}
     Response: {"status": "success", "setpoint": 2.5}
     """
+    logger.info(f"[API] POST /api/control/piezo/setpoint from {request.remote_addr}")
     try:
         data = request.get_json()
         if not data:
+            logger.warning("[API] No JSON data provided")
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
 
         voltage = float(data.get("voltage", 0))
+        logger.info(f"[API] Setting piezo setpoint: {voltage}V")
 
         # Validate range (0-4V as per original spec)
         if not 0 <= voltage <= 4:
+            logger.warning(f"[API] Piezo setpoint {voltage}V out of range")
             return jsonify({
                 "status": "error",
                 "message": f"Piezo setpoint {voltage}V out of range [0, 4]"
@@ -1567,7 +1603,7 @@ def set_piezo_setpoint():
         if output_on:
             _apply_piezo_voltage(voltage)
 
-        logger.info(f"Piezo setpoint updated to {voltage}V")
+        logger.info(f"[API] Piezo setpoint updated to {voltage}V (output_active={output_on})")
         return jsonify({
             "status": "success",
             "setpoint": voltage,
@@ -1575,9 +1611,10 @@ def set_piezo_setpoint():
         })
 
     except ValueError as e:
+        logger.warning(f"[API] Invalid piezo setpoint value: {e}")
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
-        logger.error(f"Piezo setpoint error: {e}")
+        logger.error(f"[API] Piezo setpoint error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -1594,17 +1631,20 @@ def set_piezo_output():
     Request: {"enable": true}
     Response: {"status": "success", "output": true, "kill_switch": {...}}
     """
+    logger.info(f"[API] POST /api/control/piezo/output from {request.remote_addr}")
     try:
         data = request.get_json()
         if not data:
+            logger.warning("[API] No JSON data provided")
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
 
         enable = bool(data.get("enable", False))
-
+        
         with state_lock:
             setpoint = current_state["params"].get("piezo", 0.0)
 
         if enable:
+            logger.warning(f"[API] ENABLING PIEZO OUTPUT at {setpoint}V")
             # Enable output - apply setpoint voltage
             if _apply_piezo_voltage(setpoint):
                 # Register with kill switch
@@ -1620,7 +1660,7 @@ def set_piezo_output():
                 with state_lock:
                     current_state["params"]["piezo_output"] = True
 
-                logger.warning(f"PIEZO OUTPUT ENABLED: {setpoint}V (kill switch: 10s max)")
+                logger.warning(f"[API] PIEZO OUTPUT ENABLED: {setpoint}V (kill switch: 10s max)")
 
                 return jsonify({
                     "status": "success",
@@ -1633,11 +1673,13 @@ def set_piezo_output():
                     }
                 })
             else:
+                logger.error("[API] Failed to enable piezo output")
                 return jsonify({
                     "status": "error",
                     "message": "Failed to enable piezo output"
                 }), 500
         else:
+            logger.info("[API] DISABLING PIEZO OUTPUT")
             # Disable output - set to 0V
             _apply_piezo_voltage(0.0)
             kill_switch.register_off("piezo")
@@ -1645,7 +1687,7 @@ def set_piezo_output():
             with state_lock:
                 current_state["params"]["piezo_output"] = False
 
-            logger.info("Piezo output disabled")
+            logger.info("[API] Piezo output disabled")
             return jsonify({
                 "status": "success",
                 "output": False,
@@ -1653,7 +1695,7 @@ def set_piezo_output():
             })
 
     except Exception as e:
-        logger.error(f"Piezo output control error: {e}")
+        logger.error(f"[API] Piezo output control error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -1678,9 +1720,11 @@ def set_toggle(toggle_name):
 
     For e_gun: Kill switch protected (max 30 seconds ON time)
     """
+    logger.info(f"[API] POST /api/control/toggle/{toggle_name} from {request.remote_addr}")
     try:
         data = request.get_json()
         state = bool(data.get("state", False))
+        logger.info(f"[API] Setting toggle {toggle_name}={state}")
 
         # Map frontend names to parameter names
         param_map = {
@@ -1693,6 +1737,7 @@ def set_toggle(toggle_name):
 
         param_name = param_map.get(toggle_name)
         if not param_name:
+            logger.warning(f"[API] Unknown toggle: {toggle_name}")
             return jsonify({
                 "status": "error",
                 "message": f"Unknown toggle: {toggle_name}",
@@ -1702,6 +1747,7 @@ def set_toggle(toggle_name):
         # Special handling for e-gun (kill switch protected)
         if toggle_name == "e_gun":
             if state:
+                logger.warning("[API] ENABLING E-GUN")
                 # Turn ON with kill switch
                 if _apply_e_gun_state(True):
                     # Register with kill switch
@@ -1725,7 +1771,7 @@ def set_toggle(toggle_name):
                     with state_lock:
                         current_state["params"]["e_gun"] = True
 
-                    logger.warning("E-GUN ENABLED (kill switch: 30s max)")
+                    logger.warning("[API] E-GUN ENABLED (kill switch: 30s max)")
 
                     return jsonify({
                         "status": "success",
@@ -1738,11 +1784,13 @@ def set_toggle(toggle_name):
                         }
                     })
                 else:
+                    logger.error("[API] Failed to enable e-gun")
                     return jsonify({
                         "status": "error",
                         "message": "Failed to enable e-gun"
                     }), 500
             else:
+                logger.info("[API] DISABLING E-GUN")
                 # Turn OFF
                 _apply_e_gun_state(False)
                 kill_switch.register_off("e_gun")
@@ -1750,7 +1798,7 @@ def set_toggle(toggle_name):
                 with state_lock:
                     current_state["params"]["e_gun"] = False
 
-                logger.info("E-gun disabled")
+                logger.info("[API] E-gun disabled")
                 return jsonify({
                     "status": "success",
                     "toggle": toggle_name,
@@ -1767,25 +1815,28 @@ def set_toggle(toggle_name):
         if resp.get("status") == "success":
             with state_lock:
                 current_state["params"][param_name] = state
+            logger.info(f"[API] Toggle {toggle_name}={state} set successfully")
             return jsonify({
                 "status": "success",
                 "toggle": toggle_name,
                 "state": state
             })
         else:
+            logger.error(f"[API] Failed to set toggle {toggle_name}: {resp.get('message')}")
             return jsonify({
                 "status": "error",
                 "message": resp.get("message", "Failed")
             }), 400
 
     except Exception as e:
-        logger.error(f"Toggle control error: {e}")
+        logger.error(f"[API] Toggle control error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/api/killswitch/status', methods=['GET'])
 def get_killswitch_status():
     """Get kill switch status for all protected devices."""
+    logger.debug(f"[API] GET /api/killswitch/status from {request.remote_addr}")
     return jsonify({
         "status": "success",
         "devices": kill_switch.get_status(),
@@ -1800,26 +1851,31 @@ def trigger_killswitch():
 
     Request: {"device": "piezo"} or {"device": "e_gun"}
     """
+    logger.warning(f"[API] POST /api/killswitch/trigger from {request.remote_addr}")
     try:
         data = request.get_json()
         device = data.get("device")
 
         if device not in KILL_SWITCH_LIMITS:
+            logger.warning(f"[API] Unknown kill switch device: {device}")
             return jsonify({
                 "status": "error",
                 "message": f"Unknown device: {device}",
                 "valid_devices": list(KILL_SWITCH_LIMITS.keys())
             }), 400
 
+        logger.warning(f"[API] MANUAL KILL SWITCH TRIGGER for {device}")
         killed = kill_switch.trigger_kill(device, "MANUAL TRIGGER")
 
         if killed:
+            logger.warning(f"[API] Kill switch triggered for {device}")
             return jsonify({
                 "status": "success",
                 "message": f"Kill switch triggered for {device}",
                 "device": device
             })
         else:
+            logger.warning(f"[API] Kill switch trigger: {device} was not active")
             return jsonify({
                 "status": "warning",
                 "message": f"Device {device} was not active",
@@ -1827,7 +1883,7 @@ def trigger_killswitch():
             })
 
     except Exception as e:
-        logger.error(f"Kill switch trigger error: {e}")
+        logger.error(f"[API] Kill switch trigger error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -1916,16 +1972,21 @@ def set_device():
     Experiment commands:
     - {"device": "sweep", "value": [start, end, steps, ...]}
     """
+    logger.info(f"[API] POST /api/set from {request.remote_addr}")
     try:
         data = request.get_json()
         if not data:
+            logger.warning("[API] No JSON data provided")
             return jsonify({"status": "error", "message": "No JSON data provided"}), 400
 
         device = data.get("device")
         value = data.get("value")
 
         if not device:
+            logger.warning("[API] Missing 'device' field")
             return jsonify({"status": "error", "message": "Missing 'device' field"}), 400
+
+        logger.info(f"[API] Unified set device={device}, value={value}")
 
         # Build params based on device type
         params = {}
@@ -1971,6 +2032,7 @@ def set_device():
                 params["comp_h"] = float(value[2])
                 params["comp_v"] = float(value[3])
             else:
+                logger.warning(f"[API] Invalid trap value format: {value}")
                 return jsonify({
                     "status": "error",
                     "message": "trap value must be [EC1, EC2, Comp_H, Comp_V]"
@@ -1994,6 +2056,7 @@ def set_device():
             else:
                 sweep_params = {"target_frequency_khz": float(value)}
 
+            logger.info(f"[API] Starting sweep with params: {sweep_params}")
             resp = send_to_manager({
                 "action": "SWEEP",
                 "source": "USER",
@@ -2007,6 +2070,7 @@ def set_device():
             })
 
         else:
+            logger.warning(f"[API] Unknown device: {device}")
             return jsonify({
                 "status": "error",
                 "message": f"Unknown device: {device}",
@@ -2025,6 +2089,7 @@ def set_device():
             with state_lock:
                 current_state["params"].update(params)
 
+            logger.info(f"[API] Device {device} set successfully: {params}")
             return jsonify({
                 "status": "success",
                 "device": device,
@@ -2032,6 +2097,7 @@ def set_device():
                 "params": params
             })
         else:
+            logger.error(f"[API] Failed to set device {device}: {resp.get('message')}")
             return jsonify({
                 "status": "error",
                 "message": resp.get("message", "Failed"),
@@ -2039,9 +2105,10 @@ def set_device():
             }), 400
 
     except ValueError as e:
+        logger.warning(f"[API] Invalid value in set device: {e}")
         return jsonify({"status": "error", "message": f"Invalid value: {e}"}), 400
     except Exception as e:
-        logger.error(f"Set device error: {e}")
+        logger.error(f"[API] Set device error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -2062,13 +2129,16 @@ def toggle_safety():
     When disengaging (algorithm mode):
     - Allows Turbo algorithm to run
     """
+    logger.info(f"[API] POST /api/safety/toggle from {request.remote_addr}")
     try:
         data = request.get_json()
         engage_safety = bool(data.get("engage", True))
 
         if engage_safety:
+            logger.warning("[API] ENGAGING SAFETY MODE")
             # ENGAGE SAFE MODE
             result = safe_shutdown()
+            logger.warning("[API] Safety mode engaged successfully")
 
             return jsonify({
                 "status": "success",
@@ -2078,6 +2148,7 @@ def toggle_safety():
             })
 
         else:
+            logger.info("[API] DISENGAGING SAFETY MODE - Switching to AUTO")
             # DISENGAGE SAFE MODE - Allow algorithm to run
             with turbo_state_lock:
                 turbo_state["safety_engaged"] = False
@@ -2100,6 +2171,7 @@ def toggle_safety():
                 message="ALGORITHM RUNNING: Turbo optimization enabled"
             )
 
+            logger.info("[API] Algorithm mode (AUTO) enabled")
             return jsonify({
                 "status": "success",
                 "mode": "AUTO",
@@ -2108,13 +2180,14 @@ def toggle_safety():
             })
 
     except Exception as e:
-        logger.error(f"Safety toggle error: {e}")
+        logger.error(f"[API] Safety toggle error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/api/safety/status', methods=['GET'])
 def get_safety_status():
     """Get current safety status."""
+    logger.debug(f"[API] GET /api/safety/status from {request.remote_addr}")
     with turbo_state_lock:
         return jsonify({
             "safety_engaged": turbo_state["safety_engaged"],
@@ -2645,19 +2718,28 @@ def cleanup():
 if __name__ == '__main__':
     try:
         logger.info("=" * 60)
-        logger.info("Flask Dashboard Server Starting...")
-        logger.info(f"Manager: {MANAGER_IP}:{MANAGER_PORT}")
-        logger.info(f"Camera labelled frames path: {LIVE_FRAMES_PATH}")
+        logger.info("[STARTUP] Flask Dashboard Server Starting...")
+        logger.info("=" * 60)
+        logger.info(f"[STARTUP] Manager ZMQ endpoint: {MANAGER_IP}:{MANAGER_PORT}")
+        logger.info(f"[STARTUP] Flask HTTP server: http://0.0.0.0:5000")
+        logger.info(f"[STARTUP] Camera frames path: {LIVE_FRAMES_PATH}")
+        logger.info(f"[STARTUP] Kill switch limits: Piezo={KILL_SWITCH_LIMITS['piezo']}s, E-Gun={KILL_SWITCH_LIMITS['e_gun']}s")
+        logger.info("[STARTUP] All API endpoints registered")
+        logger.info("[STARTUP] Ready to accept connections")
+        logger.info("-" * 60)
+        
+        print(f"=" * 60)
         print(f"Dashboard running at http://0.0.0.0:5000")
         print(f"Connected to manager at {MANAGER_IP}:{MANAGER_PORT}")
         print(f"Streaming annotated frames from: {LIVE_FRAMES_PATH}")
         print(f"Scientific Dashboard - Turbo Algorithm Control")
+        print(f"=" * 60)
 
         app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
     except KeyboardInterrupt:
-        logger.info("Shutdown requested by user")
+        logger.info("[SHUTDOWN] Shutdown requested by user")
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
+        logger.error(f"[FATAL] Fatal error: {e}", exc_info=True)
         raise
     finally:
         cleanup()

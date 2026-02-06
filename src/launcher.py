@@ -67,6 +67,11 @@ def log(service: str, message: str):
     color = COLORS.get(service, '')
     reset = COLORS['reset']
     timestamp = datetime.now().strftime('%H:%M:%S')
+    # Ensure message is a string
+    if not isinstance(message, str):
+        message = str(message)
+    # Clean up newlines for consistent formatting
+    message = message.replace('\r', '').replace('\n', ' ')
     print(f"{color}[{timestamp}] [{service.upper():8}] {message}{reset}")
 
 
@@ -277,24 +282,36 @@ class ServiceManager:
     
     def poll_outputs(self):
         """Poll service outputs and print to console."""
+        import select
+        
         for name, proc in list(self.processes.items()):
             if proc.poll() is not None:
-                # Process died
+                # Process died - capture any remaining output
+                try:
+                    remaining, _ = proc.communicate(timeout=1)
+                    if remaining:
+                        for line in remaining.splitlines():
+                            if line.strip():
+                                log(name, line.strip())
+                except:
+                    pass
                 log(name, f"[EXIT] Process exited with code {proc.returncode}")
                 del self.processes[name]
                 continue
             
             # Try to read output (non-blocking)
             try:
-                import select
-                if proc.stdout in select.select([proc.stdout], [], [], 0)[0]:
+                if proc.stdout and proc.stdout in select.select([proc.stdout], [], [], 0)[0]:
                     line = proc.stdout.readline()
                     if line:
-                        # Print with service color
-                        color = COLORS.get(name, '')
-                        reset = COLORS['reset']
-                        print(f"{color}[{name}] {line.rstrip()}{reset}")
-            except:
+                        line = line.strip()
+                        if line:
+                            # Pass the cleaned line to log function
+                            log(name, line)
+            except (ValueError, select.error):
+                # Socket closed or other error
+                pass
+            except Exception:
                 pass
     
     def get_status(self) -> Dict[str, str]:

@@ -4,6 +4,7 @@ ZMQ communication utilities with retry logic and timeout handling.
 
 import time
 import zmq
+import json
 from typing import Optional, Any, Dict, Union
 import logging
 
@@ -14,11 +15,29 @@ from ..exceptions import ConnectionError, TimeoutError
 logger = logging.getLogger(__name__)
 
 
+def _format_message_for_log(data: Union[bytes, str, dict], max_len: int = 200) -> str:
+    """Format message data for logging, truncating if too long."""
+    try:
+        if isinstance(data, bytes):
+            text = data.decode('utf-8', errors='replace')
+        elif isinstance(data, dict):
+            text = json.dumps(data, default=str)
+        else:
+            text = str(data)
+        
+        if len(text) > max_len:
+            return text[:max_len] + f"... ({len(text)} bytes)"
+        return text
+    except Exception:
+        return f"<{type(data).__name__}: {len(data) if hasattr(data, '__len__') else 'unknown'} bytes>"
+
+
 def connect_with_retry(
     socket: zmq.Socket,
     addr: str,
     max_retries: Optional[int] = None,
-    base_delay: Optional[float] = None
+    base_delay: Optional[float] = None,
+    socket_name: str = "unknown"
 ) -> bool:
     """
     Connect to a ZMQ endpoint with exponential backoff retry.
@@ -28,6 +47,7 @@ def connect_with_retry(
         addr: Address to connect to (e.g., "tcp://192.168.1.100:5555")
         max_retries: Maximum number of retry attempts (default from config)
         base_delay: Initial delay between retries in seconds (default from config)
+        socket_name: Name of the socket for logging
         
     Returns:
         True if connection successful
@@ -42,19 +62,22 @@ def connect_with_retry(
     if base_delay is None:
         base_delay = config.get_network('retry_base_delay')
     
+    logger.info(f"[{socket_name}] Connecting to {addr}...")
+    
     for attempt in range(max_retries):
         try:
             socket.connect(addr)
-            logger.debug(f"Successfully connected to {addr}")
+            logger.info(f"[{socket_name}] Successfully connected to {addr}")
             return True
         except zmq.ZMQError as e:
             delay = base_delay * (2 ** attempt)  # Exponential backoff
             logger.warning(
-                f"Connection attempt {attempt + 1}/{max_retries} to {addr} failed: {e}. "
+                f"[{socket_name}] Connection attempt {attempt + 1}/{max_retries} to {addr} failed: {e}. "
                 f"Retrying in {delay:.1f}s..."
             )
             time.sleep(delay)
     
+    logger.error(f"[{socket_name}] FAILED to connect to {addr} after {max_retries} attempts")
     raise ConnectionError(
         f"Failed to connect to {addr} after {max_retries} attempts",
         endpoint=addr,
@@ -100,7 +123,8 @@ def send_with_timeout(
     socket: zmq.Socket,
     data: Union[bytes, str, dict],
     timeout_ms: int = 5000,
-    flags: int = 0
+    flags: int = 0,
+    socket_name: str = "unknown"
 ) -> bool:
     """
     Send data with timeout.
@@ -110,6 +134,7 @@ def send_with_timeout(
         data: Data to send (bytes, string, or dict for JSON)
         timeout_ms: Timeout in milliseconds
         flags: ZMQ flags
+        socket_name: Name of the socket for logging
         
     Returns:
         True if sent successfully
@@ -118,11 +143,14 @@ def send_with_timeout(
         TimeoutError: If send times out
     """
     # Convert data to bytes
+    original_data = data
     if isinstance(data, dict):
-        import json
         data = json.dumps(data).encode('utf-8')
     elif isinstance(data, str):
         data = data.encode('utf-8')
+    
+    # Log the send attempt
+    logger.debug(f"[{socket_name}] SENDING -> {_format_message_for_log(original_data)}")
     
     # Set send timeout
     original_timeout = socket.getsockopt(zmq.SNDTIMEO)
@@ -130,8 +158,10 @@ def send_with_timeout(
     
     try:
         socket.send(data, flags=flags)
+        logger.debug(f"[{socket_name}] SEND OK ({len(data)} bytes)")
         return True
     except zmq.Again:
+        logger.error(f"[{socket_name}] SEND TIMEOUT after {timeout_ms}ms")
         raise TimeoutError(
             "Send operation timed out",
             timeout_seconds=timeout_ms / 1000.0,
@@ -144,7 +174,8 @@ def send_with_timeout(
 def recv_with_timeout(
     socket: zmq.Socket,
     timeout_ms: Optional[int] = None,
-    json_decode: bool = False
+    json_decode: bool = False,
+    socket_name: str = "unknown"
 ) -> Optional[Any]:
     """
     Receive data with timeout.
@@ -153,6 +184,7 @@ def recv_with_timeout(
         socket: ZMQ socket
         timeout_ms: Timeout in milliseconds (None = use config default)
         json_decode: Whether to decode as JSON
+        socket_name: Name of the socket for logging
         
     Returns:
         Received data, or None if timeout
@@ -172,14 +204,18 @@ def recv_with_timeout(
         data = socket.recv()
         
         if json_decode:
-            import json
-            return json.loads(data.decode('utf-8'))
-        return data
+            result = json.loads(data.decode('utf-8'))
+            logger.debug(f"[{socket_name}] RECEIVED <- {_format_message_for_log(result)}")
+            return result
+        else:
+            logger.debug(f"[{socket_name}] RECEIVED <- ({len(data)} bytes)")
+            return data
         
     except zmq.Again:
         # Timeout - return None for non-blocking, raise for blocking
         if timeout_ms > 0:
             return None
+        logger.error(f"[{socket_name}] RECEIVE TIMEOUT after {timeout_ms}ms")
         raise TimeoutError(
             "Receive operation timed out",
             timeout_seconds=timeout_ms / 1000.0,
@@ -218,25 +254,24 @@ class ZMQConnection:
         
         if self.bind:
             self.socket.bind(self.addr)
-            logger.debug(f"[{self.name}] Bound to {self.addr}")
+            logger.info(f"[{self.name}] Bound to {self.addr}")
         else:
-            connect_with_retry(self.socket, self.addr)
-            logger.debug(f"[{self.name}] Connected to {self.addr}")
+            connect_with_retry(self.socket, self.addr, socket_name=self.name)
         
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.socket:
             self.socket.close()
-            logger.debug(f"[{self.name}] Socket closed")
+            logger.info(f"[{self.name}] Socket closed")
     
     def send(self, data: Union[bytes, str, dict], timeout_ms: int = 5000) -> bool:
         """Send data through the connection."""
-        return send_with_timeout(self.socket, data, timeout_ms)
+        return send_with_timeout(self.socket, data, timeout_ms, socket_name=self.name)
     
     def recv(self, timeout_ms: Optional[int] = None, json_decode: bool = False) -> Any:
         """Receive data from the connection."""
-        return recv_with_timeout(self.socket, timeout_ms, json_decode)
+        return recv_with_timeout(self.socket, timeout_ms, json_decode, socket_name=self.name)
     
     def send_json(self, data: dict, timeout_ms: int = 5000) -> bool:
         """Send JSON data."""
@@ -291,6 +326,7 @@ class HeartbeatSender:
     
     def _run(self):
         """Main heartbeat loop."""
+        logger.info(f"[{self.device_name}] Heartbeat sender started (interval={self.interval}s)")
         while self.running:
             try:
                 heartbeat = {
@@ -299,8 +335,9 @@ class HeartbeatSender:
                     "timestamp": time.time()
                 }
                 self.socket.send_json(heartbeat, flags=zmq.NOBLOCK)
+                logger.debug(f"[{self.device_name}] Heartbeat sent")
             except zmq.Again:
-                pass  # Don't block if send buffer full
+                logger.warning(f"[{self.device_name}] Heartbeat send buffer full")
             except Exception as e:
                 logger.error(f"[{self.device_name}] Heartbeat error: {e}")
             
@@ -309,3 +346,4 @@ class HeartbeatSender:
                 if not self.running:
                     break
                 time.sleep(0.1)
+        logger.info(f"[{self.device_name}] Heartbeat sender stopped")

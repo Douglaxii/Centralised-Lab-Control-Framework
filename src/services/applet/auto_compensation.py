@@ -78,7 +78,7 @@ class AutoCompensationExperiment(BaseExperiment):
         self.comp_v_step = 1.0  # V
         self.comp_h_tolerance = 0.5  # pixels
         self.comp_h_max_iter = 20
-        self.pmt_integration_time = 0.1  # seconds (100ms - matches PMT_beam_finder default)
+        self.pmt_integration_time = 0.3  # seconds (100ms - matches PMT_beam_finder default)
         self.settling_time = 0.5  # seconds after voltage change
         
         # Results storage

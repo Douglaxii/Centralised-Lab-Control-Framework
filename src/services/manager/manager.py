@@ -1319,7 +1319,10 @@ class ControlManager:
     
     def run(self):
         """Main loop: Handle Client Requests (Flask/TuRBO)."""
-        self.logger.info("Entering main request loop...")
+        self.logger.info("=" * 60)
+        self.logger.info("Manager main request loop started")
+        self.logger.info(f"Listening on port {self.client_port}")
+        self.logger.info("=" * 60)
         
         while self.running:
             try:
@@ -1330,7 +1333,7 @@ class ControlManager:
                 # No request pending, continue loop
                 continue
             except Exception as e:
-                self.logger.error(f"Error in main loop: {e}", exc_info=True)
+                self.logger.error(f"[ERROR] Error in main loop: {e}", exc_info=True)
                 try:
                     self.client_socket.send_json({
                         "status": "error",
@@ -1353,16 +1356,23 @@ class ControlManager:
         action = req.get("action")
         source = req.get("source", "UNKNOWN")
         exp_id = req.get("exp_id")
+        params = req.get("params", {})
         
-        self.logger.info(f"Request from {source}: {action}")
+        # Log the incoming request
+        if params:
+            self.logger.info(f"[REQUEST] From={source} | Action={action} | Params={params}")
+        else:
+            self.logger.info(f"[REQUEST] From={source} | Action={action}")
         
         with self.lock:
             # Handle STOP action immediately (highest priority)
             if action == "STOP":
+                self.logger.warning(f"[STOP] Emergency stop requested by {source}")
                 return self._handle_stop(req)
             
             # Safety Logic: Block TuRBO if in MANUAL or SAFE
             if source == "TURBO" and self.mode != SystemMode.AUTO:
+                self.logger.warning(f"[REJECTED] TuRBO request blocked: System is in {self.mode.value} mode")
                 return {
                     "status": "rejected",
                     "reason": f"System is in {self.mode.value} mode"
@@ -1373,7 +1383,7 @@ class ControlManager:
                 self.mode = SystemMode.MANUAL
                 with self.turbo_lock:
                     self.turbo_state.status = AlgorithmState.IDLE
-                self.logger.info("User override -> Switched to MANUAL")
+                self.logger.info(f"[MODE] User override: Switched from AUTO to MANUAL")
             
             # Route to appropriate handler
             if action == "SET":
@@ -1431,6 +1441,7 @@ class ControlManager:
                 return self._handle_secular_sweep(req)
             
             else:
+                self.logger.error(f"[ERROR] Unknown action '{action}' from {source}")
                 return {"status": "error", "message": f"Unknown action: {action}", "code": "UNKNOWN_ACTION"}
     
     def _validate_params(self, params: Dict[str, Any]) -> Optional[str]:
@@ -1468,18 +1479,23 @@ class ControlManager:
         source = req.get("source", "UNKNOWN")
         reason = req.get("reason", "")
         
+        self.logger.debug(f"[SET] Processing from {source}: {new_params}")
+        
         # Validate parameters
         error = self._validate_params(new_params)
         if error:
+            self.logger.warning(f"[SET] Validation failed: {error}")
             return {"status": "error", "message": error, "code": "VALIDATION_ERROR"}
         
         # Handle kill switch arming for e_gun
         if "e_gun" in new_params:
             if new_params["e_gun"]:
                 # Arming e-gun - start kill switch
+                self.logger.warning(f"[KILL SWITCH] Arming e_gun from source={source}")
                 self.kill_switch.arm("e_gun", {"source": source, "voltage": self.params.get("e_gun_voltage", 0)})
             else:
                 # Disarming e-gun
+                self.logger.info(f"[KILL SWITCH] Disarming e_gun from source={source}")
                 self.kill_switch.disarm("e_gun")
         
         # Update internal state
@@ -1513,7 +1529,14 @@ class ControlManager:
         
         # Log if from safety system
         if "SAFETY" in source:
-            self.logger.warning(f"Safety SET applied: {new_params} (reason: {reason})")
+            self.logger.warning(f"[SAFETY] Safety SET applied: {new_params} (reason: {reason})")
+        
+        # Log parameter changes
+        changed = list(new_params.keys())
+        if len(changed) <= 3:
+            self.logger.info(f"[SET] Success - Changed: {changed}")
+        else:
+            self.logger.info(f"[SET] Success - Changed {len(changed)} parameters")
         
         return {
             "status": "success",
@@ -1544,7 +1567,9 @@ class ControlManager:
         source = req.get("source", "UNKNOWN")
         reason = req.get("reason", "Emergency stop")
         
-        self.logger.warning(f"STOP command from {source}: {reason}")
+        self.logger.warning("=" * 60)
+        self.logger.warning(f"[STOP] EMERGENCY STOP from {source}: {reason}")
+        self.logger.warning("=" * 60)
         
         with self.turbo_lock:
             self.turbo_state.status = AlgorithmState.STOPPED
@@ -2041,9 +2066,10 @@ class ControlManager:
             },
             "exp_id": self.current_exp.exp_id if self.current_exp else None
         }
+        self.logger.info(f"[PUB->ARTIQ] SET_DC: ec1={self.params['ec1']:.2f}, ec2={self.params['ec2']:.2f}, "
+                        f"comp_h={self.params['comp_h']:.2f}, comp_v={self.params['comp_v']:.2f}")
         self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
         self.pub_socket.send_json(msg)
-        self.logger.debug(f"Published DC update: {msg['values']}")
         
         # Send to LabVIEW (electrodes)
         if self.labview:
@@ -2063,9 +2089,10 @@ class ControlManager:
             },
             "exp_id": self.current_exp.exp_id if self.current_exp else None
         }
+        self.logger.info(f"[PUB->ARTIQ] SET_COOLING: amp0={self.params['amp0']:.3f}, amp1={self.params['amp1']:.3f}, "
+                        f"sw0={self.params['sw0']}, sw1={self.params['sw1']}")
         self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
         self.pub_socket.send_json(msg)
-        self.logger.debug(f"Published cooling update: {msg['values']}")
     
     def _publish_rf_update(self):
         """Send RF voltage update to workers and LabVIEW."""
@@ -2078,36 +2105,39 @@ class ControlManager:
             },
             "exp_id": self.current_exp.exp_id if self.current_exp else None
         }
+        self.logger.info(f"[PUB->ARTIQ] SET_RF: U_RF={u_rf_volts:.1f}V")
         self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
         self.pub_socket.send_json(msg)
-        self.logger.debug(f"Published RF update: U_RF={u_rf_volts} V")
         
         # Send to LabVIEW (convert U_RF volts to u_rf millivolts)
         if self.labview:
             from core import U_RF_V_to_u_rf_mv
             u_rf_mv = U_RF_V_to_u_rf_mv(u_rf_volts)
+            self.logger.info(f"[LABVIEW] Setting RF voltage: {u_rf_mv:.1f}mV (U_RF={u_rf_volts:.1f}V)")
             success = self.labview.set_rf_voltage(u_rf_mv)
             if not success:
-                self.logger.warning("Failed to set RF voltage in LabVIEW")
+                self.logger.warning("[LABVIEW] Failed to set RF voltage")
     
     def _publish_piezo_update(self):
         """Send piezo voltage update to workers and LabVIEW."""
+        piezo_v = self.params["piezo"]
         msg = {
             "type": "SET_PIEZO",
             "values": {
-                "piezo": self.params["piezo"]
+                "piezo": piezo_v
             },
             "exp_id": self.current_exp.exp_id if self.current_exp else None
         }
+        self.logger.info(f"[PUB->ARTIQ] SET_PIEZO: {piezo_v:.3f}V")
         self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
         self.pub_socket.send_json(msg)
-        self.logger.debug(f"Published piezo update: {self.params['piezo']}")
         
         # Send to LabVIEW
         if self.labview:
-            success = self.labview.set_piezo_voltage(self.params["piezo"])
+            self.logger.info(f"[LABVIEW] Setting piezo voltage: {piezo_v:.3f}V")
+            success = self.labview.set_piezo_voltage(piezo_v)
             if not success:
-                self.logger.warning("Failed to set piezo voltage in LabVIEW")
+                self.logger.warning("[LABVIEW] Failed to set piezo voltage")
     
     def _publish_toggle_update(self, toggles: Dict[str, Any]):
         """Send toggle state updates to workers and LabVIEW."""
@@ -2130,15 +2160,17 @@ class ControlManager:
                 "value": int_value,
                 "exp_id": self.current_exp.exp_id if self.current_exp else None
             }
+            state_str = "ON" if int_value else "OFF"
+            self.logger.info(f"[PUB->ARTIQ] SET_{name.upper()}: {state_str}")
             self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
             self.pub_socket.send_json(msg)
-            self.logger.debug(f"Published toggle update: {name}={int_value}")
             
             # Send to LabVIEW
             if name in labview_setters and self.labview:
+                self.logger.info(f"[LABVIEW] Setting {name}={state_str}")
                 success = labview_setters[name](int_value)
                 if not success:
-                    self.logger.warning(f"Failed to set {name} in LabVIEW")
+                    self.logger.warning(f"[LABVIEW] Failed to set {name}")
     
     def _publish_dds_update(self):
         """Send DDS frequency update to LabVIEW (LabVIEW controlled only, 0-200 MHz)."""
@@ -2150,15 +2182,16 @@ class ControlManager:
             },
             "exp_id": self.current_exp.exp_id if self.current_exp else None
         }
+        self.logger.info(f"[PUB->ARTIQ] SET_DDS: freq={dds_freq:.2f}MHz")
         self.pub_socket.send_string("ALL", flags=zmq.SNDMORE)
         self.pub_socket.send_json(msg)
-        self.logger.debug(f"Published DDS update: freq={dds_freq} MHz")
         
         # Send to LabVIEW
         if self.labview:
+            self.logger.info(f"[LABVIEW] Setting DDS frequency: {dds_freq:.2f}MHz")
             success = self.labview.set_dds_frequency(dds_freq)
             if not success:
-                self.logger.warning("Failed to set DDS frequency in LabVIEW")
+                self.logger.warning("[LABVIEW] Failed to set DDS frequency")
     
     def _publish_dds_frequency(self, freq_mhz: float):
         """Send DDS frequency update to LabVIEW."""
@@ -2176,9 +2209,11 @@ class ControlManager:
             "values": params,
             "exp_id": exp_id
         }
+        target_freq = params.get('target_frequency_khz', 'unknown')
+        steps = params.get('steps', 'unknown')
+        self.logger.info(f"[PUB->ARTIQ] RUN_SWEEP: exp={exp_id}, target={target_freq}kHz, steps={steps}")
         self.pub_socket.send_string("ARTIQ", flags=zmq.SNDMORE)
         self.pub_socket.send_json(msg)
-        self.logger.info(f"Published sweep command for exp {exp_id}")
     
     # ==========================================================================
     # BACKGROUND THREADS
@@ -2186,7 +2221,7 @@ class ControlManager:
     
     def _listen_for_worker_data(self):
         """Background thread to catch data from Worker."""
-        self.logger.info("Worker data listener started")
+        self.logger.info("[LISTENER] Worker data listener started")
         
         while self.running:
             try:
@@ -2206,25 +2241,47 @@ class ControlManager:
                 
                 # Handle different categories
                 if category == "HEARTBEAT":
-                    self.logger.debug(f"Heartbeat from {source}")
+                    self.logger.debug(f"[LISTENER] Heartbeat from {source}")
                     
                 elif category == "DATA":
-                    self.logger.debug(f"Data from {source}: {payload}")
+                    self.logger.debug(f"[LISTENER] Data from {source}: {payload}")
                     
                 elif category == "SWEEP_COMPLETE":
+                    self.logger.info(f"[LISTENER] SWEEP_COMPLETE from {source} for exp={exp_id}")
                     self._handle_sweep_complete(packet)
                     
                 elif category == "STATUS":
-                    self.logger.info(f"Status from {source}: {payload}")
+                    self.logger.info(f"[LISTENER] Status from {source}: {payload}")
                     
                 elif category == "ERROR":
-                    self.logger.error(f"Error from {source}: {payload}")
+                    self.logger.error(f"[LISTENER] Error from {source}: {payload}")
+                    
+                elif category == "PMT_MEASURE_RESULT":
+                    counts = payload.get('counts', 'unknown')
+                    self.logger.info(f"[LISTENER] PMT_MEASURE_RESULT from {source}: {counts} counts")
+                    
+                elif category == "CAM_SWEEP_COMPLETE":
+                    self.logger.info(f"[LISTENER] CAM_SWEEP_COMPLETE from {source} for exp={exp_id}")
+                    
+                elif category == "CAM_SWEEP_ERROR":
+                    error_msg = payload.get('error', 'unknown error')
+                    self.logger.error(f"[LISTENER] CAM_SWEEP_ERROR from {source}: {error_msg}")
+                    
+                elif category == "SECULAR_SWEEP_COMPLETE":
+                    self.logger.info(f"[LISTENER] SECULAR_SWEEP_COMPLETE from {source} for exp={exp_id}")
+                    
+                elif category == "SECULAR_SWEEP_ERROR":
+                    error_msg = payload.get('error', 'unknown error')
+                    self.logger.error(f"[LISTENER] SECULAR_SWEEP_ERROR from {source}: {error_msg}")
+                    
+                else:
+                    self.logger.debug(f"[LISTENER] {category} from {source}")
                     
             except zmq.Again:
                 # Timeout, continue loop
                 continue
             except Exception as e:
-                self.logger.error(f"Data listener error: {e}")
+                self.logger.error(f"[LISTENER] Data listener error: {e}")
     
     def _handle_sweep_complete(self, packet: Dict[str, Any]):
         """Handle SWEEP_COMPLETE message from worker."""
@@ -2254,6 +2311,8 @@ class ControlManager:
         """Monitor component health."""
         timeout = self.config.get_network('watchdog_timeout')
         
+        self.logger.info(f"[HEALTH] Health monitor started (watchdog timeout: {timeout}s)")
+        
         while self.running:
             time.sleep(1)
             
@@ -2262,12 +2321,12 @@ class ControlManager:
                 time_since_heartbeat = time.time() - self.last_worker_heartbeat
                 if time_since_heartbeat > timeout:
                     if self.worker_alive:
-                        self.logger.error(f"WORKER TIMEOUT: No heartbeat for {time_since_heartbeat:.1f}s")
+                        self.logger.error(f"[HEALTH] WORKER TIMEOUT: No heartbeat for {time_since_heartbeat:.1f}s")
                         self.worker_alive = False
                         
                         # Trigger safety if in AUTO mode
                         if self.mode == SystemMode.AUTO:
-                            self.logger.warning("Entering SAFE mode due to worker timeout")
+                            self.logger.warning("[HEALTH] Entering SAFE mode due to worker timeout")
                             self.mode = SystemMode.SAFE
                             self._apply_safety_defaults()
     
@@ -3044,11 +3103,26 @@ class ControlManager:
 # ==============================================================================
 
 if __name__ == "__main__":
+    mgr = None
     try:
+        print("=" * 60)
+        print("[STARTUP] MLS Control Manager Starting...")
+        print("=" * 60)
         mgr = ControlManager()
+        print("-" * 60)
+        print("[STARTUP] Control Manager initialized successfully")
+        print("[STARTUP] Entering main request loop...")
+        print("=" * 60)
         mgr.run()
     except KeyboardInterrupt:
-        mgr.shutdown()
+        print("\n[SHUTDOWN] KeyboardInterrupt received")
+        if mgr:
+            mgr.shutdown()
     except Exception as e:
-        logging.error(f"Fatal error: {e}", exc_info=True)
+        logging.error(f"[FATAL] Fatal error: {e}", exc_info=True)
+        print(f"[FATAL] Fatal error: {e}")
         raise
+    finally:
+        print("=" * 60)
+        print("[SHUTDOWN] Control Manager stopped")
+        print("=" * 60)
