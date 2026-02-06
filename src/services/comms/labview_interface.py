@@ -559,16 +559,20 @@ class LabVIEWInterface:
     Handles connection management, command queuing, and response handling.
     Thread-safe for use with the Control Manager.
     
+    Supports both two-way (with response) and one-way (fire-and-forget) communication.
+    
     SAFETY: Provides FINAL safety layer for time-limited outputs.
     """
     
-    def __init__(self, host: Optional[str] = None, port: Optional[int] = None):
+    def __init__(self, host: Optional[str] = None, port: Optional[int] = None, 
+                 wait_for_response: Optional[bool] = None):
         """
         Initialize LabVIEW interface.
         
         Args:
             host: LabVIEW host IP (default from config)
             port: LabVIEW TCP port (default from config)
+            wait_for_response: If True, wait for response from LabVIEW (default from config)
         """
         self.logger = logging.getLogger("labview_interface")
         
@@ -579,6 +583,8 @@ class LabVIEWInterface:
         self.timeout = config.get('labview.timeout') or 5.0
         self.retry_delay = config.get('labview.retry_delay') or 1.0
         self.max_retries = config.get('labview.max_retries') or 3
+        # One-way mode: LabVIEW doesn't send responses back
+        self.wait_for_response = wait_for_response if wait_for_response is not None else config.get('labview.wait_for_response', False)
         
         # Connection state
         self.socket: Optional[socket.socket] = None
@@ -780,10 +786,13 @@ class LabVIEWInterface:
     
     def _send_command_raw(self, command: LabVIEWCommand) -> Optional[LabVIEWResponse]:
         """
-        Send a command to LabVIEW and wait for response.
+        Send a command to LabVIEW.
         
         Uses simplified protocol: only 'device' and 'value' fields are sent.
         Format: {"device": "<device_name>", "value": <value>}
+        
+        Supports both two-way (with response) and one-way (fire-and-forget) mode.
+        In one-way mode, returns success immediately after sending.
         
         Supported devices:
         - u_rf: RF voltage (float)
@@ -799,7 +808,7 @@ class LabVIEWInterface:
             command: Command to send
             
         Returns:
-            Response from LabVIEW or None if failed
+            Response from LabVIEW or None if failed (one-way returns synthetic success)
         """
         with self.lock:
             if not self.connected:
@@ -821,7 +830,17 @@ class LabVIEWInterface:
                 self.logger.info(f"[TCP->LabVIEW] {command.device}={simplified_cmd['value']}")
                 self.socket.sendall(message.encode('utf-8'))
                 
-                # Wait for response (blocking read)
+                # One-way mode (fire-and-forget): LabVIEW doesn't send responses
+                if not self.wait_for_response:
+                    self.logger.debug(f"[TCP] One-way mode: command sent, no response expected")
+                    return LabVIEWResponse(
+                        request_id=command.request_id,
+                        status="ok",
+                        device=command.device,
+                        value=command.value
+                    )
+                
+                # Two-way mode: Wait for response (blocking read)
                 response_data = self.socket.recv(4096).decode('utf-8').strip()
                 
                 if not response_data:
@@ -1217,12 +1236,16 @@ if __name__ == "__main__":
         format='%(asctime)s - [%(name)s] - %(levelname)s - %(message)s'
     )
     
-    # Create interface
+    # Create interface (uses wait_for_response from config, default: one-way mode)
     lv = LabVIEWInterface()
     lv.start()
     
+    mode = "Two-way (with response)" if lv.wait_for_response else "One-way (fire-and-forget)"
+    
     try:
         print("LabVIEW Interface Test")
+        print(f"Communication mode: {mode}")
+        print("")
         print("Commands: rf <voltage>, piezo <voltage>, oven <0/1>, bfield <0/1>")
         print("          uv3 <0/1>, egun <0/1>, status, quit")
         

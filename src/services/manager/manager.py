@@ -2309,7 +2309,7 @@ class ControlManager:
     
     def _health_monitor(self):
         """Monitor component health."""
-        timeout = self.config.get_network('watchdog_timeout')
+        timeout = self.config.get_network('watchdog_timeout', 30.0)
         
         self.logger.info(f"[HEALTH] Health monitor started (watchdog timeout: {timeout}s)")
         

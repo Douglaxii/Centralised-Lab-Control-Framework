@@ -6,7 +6,7 @@ Features:
 - Multi-scale peak detection with Intel MKL/NumPy optimization
 - GPU-accelerated image processing (OpenCV CUDA/OpenCL)
 - Adaptive thresholding
-- 1D Gaussian (X) + SHM function (Y) fitting
+- 2D Gaussian fitting for ion spot characterization
 - Background subtraction
 - Ion validation (SNR, circularity)
 - Compact visualization with small labels
@@ -78,7 +78,7 @@ class IonFitResult:
     pos_x: float
     pos_y: float
     sig_x: float
-    R_y: float
+    sig_y: float
     amplitude: float
     background: float
     fit_quality: float
@@ -86,14 +86,14 @@ class IonFitResult:
     pos_x_err: float = 0.0
     pos_y_err: float = 0.0
     sig_x_err: float = 0.0
-    R_y_err: float = 0.0
+    sig_y_err: float = 0.0
     
     def to_dict(self) -> Dict[str, float]:
         return {
             "pos_x": float(self.pos_x),
             "pos_y": float(self.pos_y),
             "sig_x": float(self.sig_x),
-            "R_y": float(self.R_y),
+            "sig_y": float(self.sig_y),
             "snr": float(self.snr)
         }
     
@@ -102,11 +102,11 @@ class IonFitResult:
             "pos_x": float(self.pos_x),
             "pos_y": float(self.pos_y),
             "sig_x": float(self.sig_x),
-            "R_y": float(self.R_y),
+            "sig_y": float(self.sig_y),
             "pos_x_err": float(self.pos_x_err),
             "pos_y_err": float(self.pos_y_err),
             "sig_x_err": float(self.sig_x_err),
-            "R_y_err": float(self.R_y_err),
+            "sig_y_err": float(self.sig_y_err),
             "snr": float(self.snr)
         }
 
@@ -235,28 +235,28 @@ class ImageHandler:
             os.environ['OPENBLAS_NUM_THREADS'] = str(self.config.NUM_THREADS)
             os.environ['OMP_NUM_THREADS'] = str(self.config.NUM_THREADS)
         
-        # Paths - try to load from config, fall back to defaults
+        # Paths - consistent resolution: only jpg_frames and jpg_frames_labelled
         try:
             from core import get_config
             _cfg = get_config()
-            _default_raw = _cfg.get('camera.raw_frames_path') or _cfg.get('paths.jpg_frames')
-            _default_labelled = _cfg.get('camera.labelled_frames_path') or _cfg.get('paths.jpg_frames_labelled')
-            _default_ion = _cfg.get('camera.ion_data_path') or _cfg.get('paths.ion_data')
-            _default_unc = _cfg.get('camera.ion_uncertainty_path') or _cfg.get('paths.ion_uncertainty')
+            # Consistent path resolution from config - only two folders
+            _default_raw = _cfg.get('paths.jpg_frames')
+            _default_labelled = _cfg.get('paths.jpg_frames_labelled')
         except:
             _default_raw = None
             _default_labelled = None
-            _default_ion = None
-            _default_unc = None
         
+        # Only two folders needed: jpg_frames and jpg_frames_labelled
         if raw_frames_path is None:
-            raw_frames_path = _default_raw or os.path.expanduser("~/Data/jpg_frames")
+            raw_frames_path = _default_raw or "./data/jpg_frames"
         if labelled_frames_path is None:
-            labelled_frames_path = _default_labelled or os.path.expanduser("~/Data/jpg_frames_labelled")
+            labelled_frames_path = _default_labelled or "./data/jpg_frames_labelled"
+        
+        # Ion data stored within jpg_frames_labelled/ion_data
         if ion_data_path is None:
-            ion_data_path = _default_ion or os.path.expanduser("~/Data/ion_data")
+            ion_data_path = str(Path(labelled_frames_path) / "ion_data")
         if ion_uncertainty_path is None:
-            ion_uncertainty_path = _default_unc or os.path.expanduser("~/Data/ion_uncertainty")
+            ion_uncertainty_path = str(Path(labelled_frames_path) / "ion_uncertainty")
             
         self.raw_frames_path = Path(raw_frames_path)
         self.labelled_frames_path = Path(labelled_frames_path)
@@ -476,57 +476,32 @@ class ImageHandler:
         
         return merged
     
-    def _gaussian_1d(self, x: np.ndarray, bg: float, amp: float, 
-                     mu: float, sigma: float) -> np.ndarray:
-        """1D Gaussian function for X-direction fitting."""
-        return bg + amp * np.exp(-(x - mu)**2 / (2 * sigma**2))
-    
-    def _shm_function_1d(self, y: np.ndarray, bg: float, amp: float,
-                         A: float, y0: float) -> np.ndarray:
+    def _gaussian_2d(self, coords: tuple, bg: float, amp: float,
+                     mu_x: float, mu_y: float, sigma_x: float, sigma_y: float) -> np.ndarray:
         """
-        SHM (Simple Harmonic Motion) intensity function for Y-direction.
+        2D Gaussian function for fitting ion spots.
         
-        For an ion undergoing SHM, the intensity distribution follows:
-        I(y) = B + C / sqrt(A^2 - (y - y0)^2)
+        G(x,y) = B + A * exp(-((x-mu_x)^2/(2*sigma_x^2) + (y-mu_y)^2/(2*sigma_y^2)))
         
         Where:
         - B: background level
-        - C: scaling factor (related to intensity and exposure)
-        - A: amplitude of SHM (turning point distance from center)
-        - y0: center position (equilibrium point)
-        
-        To avoid singularities at turning points, we use a regularized form.
+        - A: amplitude
+        - mu_x, mu_y: center position
+        - sigma_x, sigma_y: Gaussian widths in x and y directions
         """
-        # Regularization parameter to avoid division by zero at turning points
-        eps = 1e-6
-        dy = y - y0
-        # Clip to avoid going beyond turning points
-        safe_dy = np.clip(dy, -A + eps, A - eps)
-        return bg + amp / np.sqrt(np.maximum(eps, A**2 - safe_dy**2))
-    
-    def _shm_gaussian_approx_1d(self, y: np.ndarray, bg: float, amp: float,
-                                 A: float, y0: float, sigma: float) -> np.ndarray:
-        """
-        SHM function convolved with Gaussian (approximation for real data).
-        This smooths the singularities at the turning points.
-        Uses superposition of two Gaussians at turning points for stability.
-        """
-        # Two peaks at turning points y0 ± A
-        peak1 = amp * np.exp(-(y - (y0 - A))**2 / (2 * sigma**2))
-        peak2 = amp * np.exp(-(y - (y0 + A))**2 / (2 * sigma**2))
-        return bg + peak1 + peak2
+        x, y = coords
+        return bg + amp * np.exp(-((x - mu_x)**2 / (2 * sigma_x**2) + 
+                                   (y - mu_y)**2 / (2 * sigma_y**2)))
     
     def _fit_gaussian_simple(self, region: np.ndarray, center_x: float, 
                             center_y: float) -> Optional[IonFitResult]:
         """
-        Fit 1D Gaussian in X direction and SHM function in Y direction.
+        Fit 2D Gaussian to ion spot.
         
         Algorithm:
         1. Calculate center of mass to get initial pos_x, pos_y
-        2. Extract 1D profile along X axis at pos_y (row through center)
-        3. Fit X: 1D Gaussian to get sig_x
-        4. Extract 1D profile along Y axis at pos_x (column through center)
-        5. Fit Y: SHM function to get amplitude A
+        2. Calculate initial sigma estimates from moments
+        3. Fit 2D Gaussian using scipy curve_fit
         """
         if region.size < 9:
             return None
@@ -538,6 +513,7 @@ class ImageHandler:
         # Create coordinate arrays
         x = np.arange(w, dtype=np.float64)
         y = np.arange(h, dtype=np.float64)
+        x_coords, y_coords = np.meshgrid(x, y)
         
         # Calculate initial guesses from moments (center of mass)
         total = np.sum(region)
@@ -545,13 +521,8 @@ class ImageHandler:
             return None
         
         # Initial center estimates (center of mass)
-        x_coords, y_coords = np.meshgrid(np.arange(w), np.arange(h))
         x_center_init = np.sum(x_coords * region) / total
         y_center_init = np.sum(y_coords * region) / total
-        
-        # Clamp to valid region indices
-        x_idx = int(np.clip(round(x_center_init), 0, w - 1))
-        y_idx = int(np.clip(round(y_center_init), 0, h - 1))
         
         # Initial sigma estimates
         x_var = np.sum((x_coords - x_center_init)**2 * region) / total
@@ -567,92 +538,78 @@ class ImageHandler:
         noise = np.std(region[region < np.percentile(region, 50)])
         snr = amplitude_init / (noise + 1e-6)
         
-        # Step 1 & 2: X-direction fit (1D Gaussian)
-        # Extract 1D profile along X at y_idx (row through center)
-        profile_x = region[y_idx, :].astype(np.float64)
-        
+        # Fit 2D Gaussian
         try:
-            if SCIPY_AVAILABLE and len(profile_x) >= 4:
-                p0_x = [background_init, amplitude_init, x_center_init, sig_x_init]
-                bounds_x = ([0, 0, 0, 0.1], 
-                           [np.inf, np.inf, w - 1, w])
-                popt_x, pcov_x = curve_fit(self._gaussian_1d, x, profile_x, 
-                                          p0=p0_x, bounds=bounds_x, 
-                                          maxfev=5000)
-                bg_x, amp_x, x_center_fit, sig_x_fit = popt_x
-                x_center_err = np.sqrt(pcov_x[2, 2]) if pcov_x is not None else 0
-                sig_x_err = np.sqrt(pcov_x[3, 3]) if pcov_x is not None else 0
+            if SCIPY_AVAILABLE and region.size >= 16:
+                p0 = [background_init, amplitude_init, 
+                      x_center_init, y_center_init,
+                      sig_x_init, sig_y_init]
+                bounds = ([0, 0, 0, 0, 0.1, 0.1], 
+                         [np.inf, np.inf, w - 1, h - 1, w, h])
+                
+                popt, pcov = curve_fit(
+                    lambda coords, bg, amp, mx, my, sx, sy: self._gaussian_2d(
+                        coords, bg, amp, mx, my, sx, sy
+                    ).ravel(),
+                    (x_coords, y_coords),
+                    region.ravel(),
+                    p0=p0, bounds=bounds, 
+                    maxfev=5000
+                )
+                
+                bg_fit, amp_fit, x_center_fit, y_center_fit, sig_x_fit, sig_y_fit = popt
+                
+                # Calculate uncertainties
+                if pcov is not None:
+                    perr = np.sqrt(np.diag(pcov))
+                    x_center_err = perr[2]
+                    y_center_err = perr[3]
+                    sig_x_err = perr[4]
+                    sig_y_err = perr[5]
+                else:
+                    x_center_err = sig_x_fit / (snr + 1e-6)
+                    y_center_err = sig_y_fit / (snr + 1e-6)
+                    sig_x_err = sig_x_fit / np.sqrt(2)
+                    sig_y_err = sig_y_fit / np.sqrt(2)
+                
+                # Calculate fit quality (R²)
+                fit_data = self._gaussian_2d(
+                    (x_coords, y_coords), bg_fit, amp_fit, 
+                    x_center_fit, y_center_fit, sig_x_fit, sig_y_fit
+                )
+                ss_res = np.sum((region - fit_data)**2)
+                ss_tot = np.sum((region - np.mean(region))**2)
+                r_squared = 1 - (ss_res / (ss_tot + 1e-6))
+                
             else:
-                # Fallback to moment-based estimate
+                # Fallback to moment-based estimates
                 x_center_fit = x_center_init
-                sig_x_fit = sig_x_init
-                x_center_err = sig_x_fit / (snr + 1e-6)
-                sig_x_err = sig_x_fit / np.sqrt(2)
-        except Exception:
-            x_center_fit = x_center_init
-            sig_x_fit = sig_x_init
-            x_center_err = sig_x_fit / (snr + 1e-6)
-            sig_x_err = sig_x_fit / np.sqrt(2)
-        
-        # Step 3 & 4: Y-direction fit (SHM function)
-        # Extract 1D profile along Y at x_idx (column through center)
-        profile_y = region[:, x_idx].astype(np.float64)
-        
-        try:
-            if SCIPY_AVAILABLE and len(profile_y) >= 5:
-                # Initial guess for SHM: amplitude ~ sig_y_init (half turning point distance)
-                # The R_y parameter in the result represents the turning point separation (2*A)
-                A_init = max(sig_y_init, 1.0)  # Half turning point distance
-                p0_y = [background_init, amplitude_init * 0.5, 
-                        A_init, y_center_init, sig_x_init]
-                
-                # Bounds: bg >= 0, amp >= 0, A > 0.5, y0 within region, sigma > 0.1
-                bounds_y = ([0, 0, 0.5, 0, 0.1],
-                           [np.inf, np.inf, h/2, h - 1, h])
-                
-                popt_y, pcov_y = curve_fit(self._shm_gaussian_approx_1d, y, profile_y,
-                                          p0=p0_y, bounds=bounds_y,
-                                          maxfev=5000)
-                bg_y, amp_y, A_shm, y_center_fit, sigma_shm = popt_y
-                y_center_err = np.sqrt(pcov_y[3, 3]) if pcov_y is not None else 0
-                R_y_err = np.sqrt(pcov_y[2, 2]) if pcov_y is not None else 0
-                
-                # R_y is the turning point separation (2 * A)
-                R_y_fit = 2 * abs(A_shm)
-            else:
-                # Fallback: use moment-based estimates
                 y_center_fit = y_center_init
-                R_y_fit = 2 * sig_y_init  # Approximate turning point separation
-                y_center_err = sig_y_init / (snr + 1e-6)
-                R_y_err = sig_y_init / np.sqrt(2)
+                sig_x_fit = sig_x_init
+                sig_y_fit = sig_y_init
+                x_center_err = sig_x_fit / (snr + 1e-6)
+                y_center_err = sig_y_fit / (snr + 1e-6)
+                sig_x_err = sig_x_fit / np.sqrt(2)
+                sig_y_err = sig_y_fit / np.sqrt(2)
+                r_squared = 0.8
+                
         except Exception:
             # Fallback to moment-based estimates
+            x_center_fit = x_center_init
             y_center_fit = y_center_init
-            R_y_fit = 2 * sig_y_init  # Approximate turning point separation
-            y_center_err = sig_y_init / (snr + 1e-6)
-            R_y_err = sig_y_init / np.sqrt(2)
-        
-        # Calculate fit quality (R²)
-        try:
-            # Reconstruct 2D fit for quality assessment
-            fit_x = self._gaussian_1d(x, 0, 1, x_center_fit, sig_x_fit)
-            fit_y = self._shm_gaussian_approx_1d(y, 0, 1, R_y_fit/2, y_center_fit, sig_x_fit)
-            expected = background_init + amplitude_init * np.outer(fit_y, fit_x)
-            
-            ss_res = np.sum((region - expected)**2)
-            ss_tot = np.sum((region - np.mean(region))**2)
-            r_squared = 1 - (ss_res / (ss_tot + 1e-6))
-        except Exception:
-            r_squared = 0.8  # Default reasonable value
-        
-        # Calculate uncertainties
-        N_eff = total / (amplitude_init + 1e-6)
+            sig_x_fit = sig_x_init
+            sig_y_fit = sig_y_init
+            x_center_err = sig_x_fit / (snr + 1e-6)
+            y_center_err = sig_y_fit / (snr + 1e-6)
+            sig_x_err = sig_x_fit / np.sqrt(2)
+            sig_y_err = sig_y_fit / np.sqrt(2)
+            r_squared = 0.8
         
         return IonFitResult(
             pos_x=center_x - w/2 + x_center_fit,
             pos_y=center_y - h/2 + y_center_fit,
             sig_x=sig_x_fit,
-            R_y=R_y_fit,
+            sig_y=sig_y_fit,
             amplitude=amplitude_init,
             background=background_init,
             fit_quality=max(0, min(1, r_squared)),
@@ -660,7 +617,7 @@ class ImageHandler:
             pos_x_err=x_center_err,
             pos_y_err=y_center_err,
             sig_x_err=sig_x_err,
-            R_y_err=R_y_err
+            sig_y_err=sig_y_err
         )
     
     def _validate_ion(self, ion: IonFitResult) -> bool:

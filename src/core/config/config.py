@@ -300,6 +300,23 @@ class Config:
             path_obj = project_root / path_obj
         return str(path_obj)
     
+    def get_path(self, key: str, default: Any = None) -> str:
+        """
+        Get a path from configuration and resolve to absolute.
+        
+        Args:
+            key: Path key (e.g., 'jpg_frames', 'jpg_frames_labelled')
+            default: Default value if key not found
+            
+        Returns:
+            Absolute path string
+        """
+        # Try paths.jpg_frames or paths.jpg_frames_labelled first
+        path = self.get(f'paths.{key}', default)
+        if path is None:
+            return None
+        return self._resolve_path(path)
+    
     def reload(self):
         """Reload configuration from file."""
         self._load_config(self._config_path)

@@ -201,31 +201,28 @@ def handle_client(conn, addr):
 
 
 def ensure_directories():
-    """Ensure all required data directories exist."""
+    """Ensure all required data directories exist - only two main folders."""
     import os
     
-    # Try to get paths from config first
+    # Consistent path resolution - only jpg_frames and jpg_frames_labelled
     try:
         from core import get_config
         cfg = get_config()
-        data_paths = [
-            cfg.get('camera.raw_frames_path') or cfg.get('paths.jpg_frames') or './data/jpg_frames',
-            cfg.get('camera.labelled_frames_path') or cfg.get('paths.jpg_frames_labelled') or './data/jpg_frames_labelled',
-            cfg.get('camera.ion_data_path') or cfg.get('paths.ion_data') or './data/ion_data',
-            cfg.get('camera.ion_uncertainty_path') or cfg.get('paths.ion_uncertainty') or './data/ion_uncertainty',
-            cfg.get('paths.camera_settings') or './data/camera/settings',
-            'logs/server'
-        ]
+        raw_path = cfg.get('paths.jpg_frames') or './data/jpg_frames'
+        labelled_path = cfg.get('paths.jpg_frames_labelled') or './data/jpg_frames_labelled'
     except:
-        # Fallback to default paths
-        data_paths = [
-            './data/jpg_frames',
-            './data/jpg_frames_labelled',
-            './data/ion_data',
-            './data/ion_uncertainty',
-            './data/camera/settings',
-            'logs/server'
-        ]
+        raw_path = './data/jpg_frames'
+        labelled_path = './data/jpg_frames_labelled'
+    
+    # Only two main folders needed - ion data stored within labelled folder
+    data_paths = [
+        raw_path,                                        # Raw frames
+        labelled_path,                                   # Labelled frames
+        os.path.join(labelled_path, 'ion_data'),         # Ion data subfolder
+        os.path.join(labelled_path, 'ion_uncertainty'),  # Uncertainty subfolder
+        './data/camera/settings',                        # Camera settings
+        'logs/server'                                    # Logs
+    ]
     
     for path in data_paths:
         try:

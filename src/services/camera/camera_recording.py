@@ -53,19 +53,22 @@ cleanup_stop_event = threading.Event()
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 
-# Configuration
+# Configuration - consistent paths for jpg_frames and jpg_frames_labelled only
 if CORE_AVAILABLE:
     _config = get_config()
     TARGET_TEMPERATURE = _config.get_camera_setting('target_temperature')
     COOLER_CHECK_TIMEOUT = _config.get_camera_setting('cooler_timeout')
-    SETTINGS_PATH = _config.get('camera.camera_settings') or _config.get('paths.camera_settings') or "./data/camera/settings"
-    FRAME_PATH = _config.get('camera.raw_frames_path') or _config.get('paths.jpg_frames') or "./data/jpg_frames"
-    DEBUG_PATH = _config.get_path('debug_path') if hasattr(_config, 'get_path') else "./data/debug"
+    # Consistent path resolution - only two folders needed
+    FRAME_PATH = _config.get('paths.jpg_frames') or "./data/jpg_frames"
+    LABELLED_PATH = _config.get('paths.jpg_frames_labelled') or "./data/jpg_frames_labelled"
+    SETTINGS_PATH = "./data/camera/settings"
+    DEBUG_PATH = "./data/debug"
 else:
     TARGET_TEMPERATURE = -20.0
     COOLER_CHECK_TIMEOUT = 300
-    SETTINGS_PATH = "./data/camera/settings"
     FRAME_PATH = "./data/jpg_frames"
+    LABELLED_PATH = "./data/jpg_frames_labelled"
+    SETTINGS_PATH = "./data/camera/settings"
     DEBUG_PATH = "./data/debug"
 
 # Global signal handling
@@ -209,21 +212,19 @@ def cleanup_all_inf_folders(max_frames=100):
     Args:
         max_frames: Maximum files to keep (default 100, set to 0 to delete all)
     """
+    # Only two folders: jpg_frames and jpg_frames_labelled
     folders_to_clean = []
     
-    # Get paths from config
+    # Get paths from config (consistent path resolution)
     if CORE_AVAILABLE:
         try:
-            raw_path = _config.get('camera.raw_frames_path') or _config.get('paths.jpg_frames')
-            labelled_path = _config.get('camera.labelled_frames_path') or _config.get('paths.jpg_frames_labelled')
-            live_path = str(_config.get_path('live_frames')) if hasattr(_config, 'get_path') else None
+            raw_path = _config.get('paths.jpg_frames')
+            labelled_path = _config.get('paths.jpg_frames_labelled')
             
             if raw_path:
                 folders_to_clean.append(raw_path)
             if labelled_path:
                 folders_to_clean.append(labelled_path)
-            if live_path:
-                folders_to_clean.append(live_path)
         except:
             pass
     
@@ -231,8 +232,7 @@ def cleanup_all_inf_folders(max_frames=100):
     if not folders_to_clean:
         folders_to_clean = [
             './data/jpg_frames',
-            './data/jpg_frames_labelled',
-            'Y:/Stein/Server/Live_Frames'
+            './data/jpg_frames_labelled'
         ]
     
     total_deleted = 0
@@ -951,31 +951,26 @@ def handle_infinite_capture_request(exp_id=None):
     
     max_frames = int(Settings["max_frames"])
     
-    # Get all folders that need cleanup
+    # Get folders that need cleanup - only two folders: jpg_frames and jpg_frames_labelled
     folders_to_monitor = []
     
     if CORE_AVAILABLE:
         try:
-            # Primary live frames folder
-            live_path = str(_config.get_path('live_frames'))
-            folders_to_monitor.append(live_path)
+            # Only two folders: jpg_frames (raw) and jpg_frames_labelled (processed)
+            jpg_path = _config.get('paths.jpg_frames')
+            labelled_path = _config.get('paths.jpg_frames_labelled')
             
-            # Also monitor jpg_frames (raw) and jpg_frames_labelled (processed)
-            jpg_path = _config.get('camera.raw_frames_path') or _config.get('paths.jpg_frames')
-            labelled_path = _config.get('camera.labelled_frames_path') or _config.get('paths.jpg_frames_labelled')
-            
-            if jpg_path and jpg_path not in folders_to_monitor:
+            if jpg_path:
                 folders_to_monitor.append(jpg_path)
-            if labelled_path and labelled_path not in folders_to_monitor:
+            if labelled_path:
                 folders_to_monitor.append(labelled_path)
                 
         except Exception as e:
-            logger.warning(f"Could not get all paths from config: {e}")
-            folders_to_monitor = ["Y:/Stein/Server/Live_Frames/"]
-    else:
-        # Fallback paths
+            logger.warning(f"Could not get paths from config: {e}")
+    
+    # Fallback defaults if config not available
+    if not folders_to_monitor:
         folders_to_monitor = [
-            "Y:/Stein/Server/Live_Frames/",
             "./data/jpg_frames",
             "./data/jpg_frames_labelled"
         ]

@@ -97,14 +97,9 @@ profiles:
       base: "./data"
       output_base: "./data"          # Backward compatibility
       
-      # Camera data
-      camera_raw: "./data/camera/raw"
-      camera_processed: "./data/camera/processed"
-      camera_dcimg: "./data/camera/dcimg"
-      jpg_frames: "./data/camera/frames"
-      jpg_frames_labelled: "./data/camera/frames_labelled"
-      live_frames: "./data/camera/live"
-      debug_path: "./data/debug"
+      # Camera data (only two folders needed)
+      jpg_frames: "./data/jpg_frames"
+      jpg_frames_labelled: "./data/jpg_frames_labelled"
       
       # Experiment data
       experiments: "./data/experiments"
@@ -188,6 +183,11 @@ profiles:
       host: "127.0.0.1"
       port: 5559
       timeout: 5.0
+      
+      # Communication mode:
+      # - true: Two-way, wait for response from LabVIEW
+      # - false: One-way (fire-and-forget), LabVIEW only receives commands
+      wait_for_response: false
       
       # Pressure safety
       pressure_threshold_mbar: 5.0e-9
@@ -386,9 +386,9 @@ profiles:
     paths:
       base: "Y:/Xi/Data"
       
-      camera_raw: "E:/Data/camera/raw"
-      camera_processed: "E:/Data/camera/processed"  # Local for speed
-      camera_dcimg: "E:/Data/camera/dcimg"
+      # Camera data (only two folders needed)
+      jpg_frames: "E:/Data/jpg_frames"
+      jpg_frames_labelled: "E:/Data/jpg_frames_labelled"
       
       experiments: "E:/Data/experiments"
       analysis: "E:/Data/analysis"
@@ -453,6 +453,11 @@ profiles:
       host: "172.17.1.217"          # SMILE PC
       port: 5559
       timeout: 5.0
+      
+      # Communication mode:
+      # - true: Two-way, wait for response from LabVIEW
+      # - false: One-way (fire-and-forget), LabVIEW only receives commands
+      wait_for_response: false
       
       pressure_threshold_mbar: 5.0e-9
       pressure_check_interval: 0.05

@@ -253,10 +253,10 @@ MANAGER_PORT = config.client_port
 CAMERA_HOST = config.get_camera_setting('host') or "127.0.0.1"
 CAMERA_PORT = config.get_camera_setting('port') or 5555
 
-# Camera frame paths - new unified structure
-# Raw frames: E:/Data/jpg_frames/YYMMDD/
-# Labelled frames: E:/Data/jpg_frames_labelled/YYMMDD/
-LIVE_FRAMES_PATH = config.get_path('jpg_frames_labelled') if hasattr(config, 'get_path') else "E:/Data/jpg_frames_labelled"
+# Camera frame paths - consistent structure, only two folders
+# Raw frames: jpg_frames/YYMMDD/
+# Labelled frames: jpg_frames_labelled/YYMMDD/
+LIVE_FRAMES_PATH = config.get_path('jpg_frames_labelled') or "./data/jpg_frames_labelled"
 
 app = Flask(__name__)
 

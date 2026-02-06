@@ -1,4 +1,4 @@
-from .camera_recording import (
+from camera_recording import (
     handle_recording_request, stop_recording, handle_infinite_capture_request,
     cleanup_all_inf_folders, cleanup_stop_event
 )
