@@ -1,0 +1,87 @@
+(base) PS E:\mls> C:/Users/Hamamatsu/anaconda3/Scripts/activate
+(base) PS E:\mls> conda activate .conda
+
+EnvironmentNameNotFound: Could not find conda environment: .conda
+You can list all discoverable environments with `conda info --envs`.
+
+
+Invoke-Expression : Cannot bind argument to parameter 'Command' because it is an empty string.
+At C:\Users\Hamamatsu\anaconda3\shell\condabin\Conda.psm1:76 char:36
++         Invoke-Expression -Command $activateCommand;
++                                    ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Invoke-Expression], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorEmptyStringNotAllowed,Microsoft.PowerShell.Commands.InvokeExpressionCommand
+ 
+(base) PS E:\mls> & E:/mls/.conda/python.exe e:/mls/src/services/api/flask_server.py
+Traceback (most recent call last):
+  File "e:\mls\src\services\api\flask_server.py", line 35, in <module>
+    import cv2
+ModuleNotFoundError: No module named 'cv2'
+(base) PS E:\mls> & E:/mls/.conda/python.exe e:/mls/src/services/applet/launcher.py
+Traceback (most recent call last):
+  File "e:\mls\src\services\applet\launcher.py", line 24, in <module>
+    from applet.app import main
+ModuleNotFoundError: No module named 'applet'
+(base) PS E:\mls> & E:/mls/.conda/python.exe e:/mls/src/services/comms/data_server.py
+(base) PS E:\mls> & E:/mls/.conda/python.exe e:/mls/src/services/comms/labview_interface.py
+2026-02-06 09:20:38,523 - [labview_kill_switch] - INFO - LabVIEW Kill Switch initialized
+2026-02-06 09:20:38,523 - [labview_interface] - INFO - LabVIEW Interface initialized (172.17.1.217:5559)
+2026-02-06 09:20:38,523 - [pressure_monitor] - INFO - PressureMonitor initialized (threshold: 5.00e-09 mbar, check interval: 0.05s)
+2026-02-06 09:20:38,524 - [pressure_monitor] - INFO - Pressure monitoring started (watching: E:\Data\telemetry\smile\pressure)
+2026-02-06 09:20:38,525 - [labview_interface] - INFO - Pressure monitoring started (threshold: 5.00e-09 mbar)
+2026-02-06 09:20:38,525 - [labview_interface] - INFO - LabVIEW Interface started
+LabVIEW Interface Test
+Commands: rf <voltage>, piezo <voltage>, oven <0/1>, bfield <0/1>
+          uv3 <0/1>, egun <0/1>, status, quit
+> 2026-02-06 09:20:43,535 - [labview_interface] - WARNING - Failed to connect to LabVIEW: timed out
+rf2026-02-06 09:20:53,543 - [labview_interface] - WARNING - Failed to connect to LabVIEW: timed out                                                                                                       
+Shutting down...
+2026-02-06 09:20:57,646 - [pressure_monitor] - INFO - Pressure monitoring stopped
+2026-02-06 09:20:57,646 - [labview_interface] - INFO - Pressure monitoring stopped
+2026-02-06 09:20:57,646 - [labview_interface] - INFO - Disconnected from LabVIEW
+2026-02-06 09:20:57,646 - [labview_interface] - INFO - LabVIEW Interface stopped
+(base) PS E:\mls> & E:/mls/.conda/python.exe e:/mls/src/services/manager/manager.py
+============================================================
+[STARTUP] MLS Control Manager Starting...
+============================================================
+2026-02-06 09:21:05,270 - [manager] - INFO - ============================================================
+2026-02-06 09:21:05,271 - [manager] - INFO - Control Manager Starting...
+2026-02-06 09:21:05,278 - [manager] - INFO - Client socket bound to port 5557
+2026-02-06 09:21:05,291 - [manager] - INFO - Command socket bound to port 5555
+2026-02-06 09:21:05,297 - [manager] - INFO - Data socket bound to port 5556 (PULL)
+2026-02-06 09:21:05,306 - [manager] - INFO - LabVIEW interface not available (module not found)
+2026-02-06 09:21:05,310 - [manager] - INFO - Kill switch callbacks registered
+2026-02-06 09:21:05,315 - [manager] - INFO - Camera interface initialized
+Camera server not available at 127.0.0.1:5558
+2026-02-06 09:21:07,356 - [manager] - WARNING - Camera server not available (will retry on demand)
+2026-02-06 09:21:07,356 - [manager] - INFO - Wavemeter interface started (134.99.120.141:1790)
+2026-02-06 09:21:07,369 - [manager] - INFO - Optimizer controller not available
+2026-02-06 09:21:07,374 - [manager] - INFO - [LISTENER] Worker data listener started
+2026-02-06 09:21:07,375 - [manager] - INFO - [HEALTH] Health monitor started (watchdog timeout: Nones)
+2026-02-06 09:21:07,375 - [manager] - INFO - Turbo coordinator started
+2026-02-06 09:21:07,375 - [manager] - INFO - Manager Online. Ready for ARTIQ & Turbo Algorithm.
+------------------------------------------------------------
+[STARTUP] Control Manager initialized successfully
+[STARTUP] Entering main request loop...
+============================================================
+2026-02-06 09:21:07,395 - [manager] - INFO - ============================================================
+2026-02-06 09:21:07,395 - [manager] - INFO - Manager main request loop started
+2026-02-06 09:21:07,402 - [manager] - INFO - Listening on port 5557
+2026-02-06 09:21:07,402 - [manager] - INFO - ============================================================
+Exception in thread HealthMonitor:
+Traceback (most recent call last):
+  File "E:\mls\.conda\Lib\threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "E:\mls\.conda\Lib\threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "e:\mls\src\services\manager\manager.py", line 2322, in _health_monitor
+    if time_since_heartbeat > timeout:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: '>' not supported between instances of 'float' and 'NoneType'
+forrtl: error (200): program aborting due to control-C event
+Image              PC                Routine            Line        Source
+libifcoremd.dll    00007FFDF890DF54  Unknown               Unknown  Unknown
+KERNELBASE.dll     00007FFE6BBCD64D  Unknown               Unknown  Unknown
+KERNEL32.DLL       00007FFE6D9DE8D7  Unknown               Unknown  Unknown
+ntdll.dll          00007FFE6E36C53C  Unknown               Unknown  Unknown
+(base) PS E:\mls> 
